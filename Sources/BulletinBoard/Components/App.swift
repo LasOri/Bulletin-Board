@@ -277,8 +277,27 @@ public struct App {
             switch action {
             case "open-feed-manager":
                 appStore.dispatch(UIAction.openFeedManager)
-            case "close-feed-manager":
+            case "close-feed-manager", "close-feed-manager-overlay":
                 appStore.dispatch(UIAction.closeFeedManager)
+            case "refresh-all":
+                Task {
+                    await refreshAllFeeds()
+                }
+            case "dismiss-toast":
+                appStore.dispatch(UIAction.clearToast)
+            case "clear-search":
+                appStore.dispatch(ArticleAction.setSearchQuery(query: ""))
+            case "show-add-form":
+                // Switch to add feed mode
+                print("Show add feed form")
+            case "show-list":
+                // Switch back to list mode
+                print("Show feed list")
+            case "toggle", "refresh", "edit", "delete":
+                // Feed-specific actions
+                if let feedId = target.dataset?.object?["feedId"].string {
+                    handleFeedAction(action: action, feedId: feedId)
+                }
             default:
                 break
             }
@@ -311,7 +330,7 @@ public struct App {
             }
 
             // Validate CSRF token
-            guard let csrfInput = document.getElementById!("csrf-token").object,
+            guard let csrfInput = form.querySelector!("[name='csrf_token']").object,
                   let csrfToken = csrfInput.value.string,
                   SecurityManager.shared.csrfManager.validateToken(csrfToken) else {
                 print("❌ CSRF token validation failed")
@@ -331,40 +350,59 @@ public struct App {
         document.addEventListener!("submit", submitHandler)
     }
 
-    /// Async helper to add feed from URL
-    private static func addFeedFromURL(url: String) async {
-        do {
-            let feedService = FeedService()
-            let feedId = UUID().uuidString
+    /// Handle feed-specific actions
+    private static func handleFeedAction(action: String, feedId: String) {
+        let feedsState = appStore.getState().feeds
 
-            // Show loading state
-            appStore.dispatch(UIAction.setAnimating(true))
-
-            // Fetch feed
-            let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
-
-            // Add feed to state
-            appStore.dispatch(FeedAction.addFeed(
-                url: url,
-                title: "New Feed",
-                description: ""
-            ))
-
-            // Add articles
-            appStore.dispatch(ArticleAction.addArticles(articles))
-
-            // Success
-            appStore.dispatch(UIAction.closeFeedManager)
-            appStore.dispatch(UIAction.showToast(message: "Feed added successfully"))
-            appStore.dispatch(UIAction.setAnimating(false))
-
-            print("✅ Feed added: \(url) with \(articles.count) articles")
-
-        } catch {
-            appStore.dispatch(UIAction.showError(message: "Failed to add feed: \(error.localizedDescription)"))
-            appStore.dispatch(UIAction.setAnimating(false))
-            print("❌ Failed to add feed: \(error)")
+        guard let feed = feedsState.feeds.first(where: { $0.id == feedId }) else {
+            return
         }
+
+        switch action {
+        case "toggle":
+            var updated = feed
+            updated.isEnabled = !updated.isEnabled
+            appStore.dispatch(FeedAction.updateFeed(updated))
+
+        case "refresh":
+            Task {
+                await refreshFeed(feed: feed)
+            }
+
+        case "edit":
+            print("Edit feed: \(feedId)")
+            // Future: Switch to edit mode
+
+        case "delete":
+            appStore.dispatch(FeedAction.removeFeed(id: feedId))
+            appStore.dispatch(UIAction.showToast(message: "Feed removed"))
+
+        default:
+            break
+        }
+    }
+
+    /// Refresh all feeds
+    private static func refreshAllFeeds() async {
+        let feedsState = appStore.getState().feeds
+
+        appStore.dispatch(UIAction.setAnimating(true))
+        appStore.dispatch(UIAction.showToast(message: "Refreshing all feeds..."))
+
+        var totalArticles = 0
+
+        for feed in feedsState.feeds where feed.isEnabled {
+            do {
+                let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
+                appStore.dispatch(ArticleAction.addArticles(articles))
+                totalArticles += articles.count
+            } catch {
+                print("❌ Failed to refresh \(feed.title): \(error)")
+            }
+        }
+
+        appStore.dispatch(UIAction.setAnimating(false))
+        appStore.dispatch(UIAction.showToast(message: "Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds"))
     }
 
     // MARK: - Search Event Handlers
@@ -381,9 +419,9 @@ public struct App {
                 return .undefined
             }
 
-            // Check if this is the search input
-            guard let inputId = target.id.string,
-                  inputId == "search-input",
+            // Check if this is the search input (using data-search-input attribute)
+            guard let isSearchInput = target.dataset?.object?["searchInput"].string,
+                  isSearchInput == "true",
                   let query = target.value.string else {
                 return .undefined
             }
@@ -450,19 +488,31 @@ public struct App {
         // Create reactive view that updates when state changes
         // Effects will automatically re-run when dependencies change
 
+        var children: [AnyNode] = []
+
+        // Main app container
         let header = renderHeader()
+        let searchBar = renderSearchBar()
+        let toolbar = renderToolbar()
         let content = renderContent()
         let footer = renderFooter()
+
+        children.append(AnyNode(header))
+        children.append(contentsOf: searchBar)
+        children.append(contentsOf: toolbar)
+        children.append(AnyNode(content))
+        children.append(AnyNode(footer))
+
+        // Overlays (conditionally rendered)
+        children.append(contentsOf: renderFeedManager())
+        children.append(contentsOf: renderToast())
+        children.append(contentsOf: renderErrorMessage())
 
         return [
             AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "bulletin-board-app")],
-                children: [
-                    AnyNode(header),
-                    AnyNode(content),
-                    AnyNode(footer)
-                ]
+                children: children
             ))
         ]
     }
@@ -564,6 +614,211 @@ public struct App {
                 ))
             ]
         )
+    }
+
+    // MARK: - New UI Components
+
+    /// Render search bar
+    private static func renderSearchBar() -> [AnyNode] {
+        let articlesState = articlesSignal.get()
+        let searchQuery = articlesState.searchQuery
+
+        let props = SearchBar.Props(
+            query: searchQuery,
+            placeholder: "Search articles...",
+            isSearching: false,
+            resultCount: articlesState.filteredArticles.count,
+            onQueryChange: { query in
+                appStore.dispatch(ArticleAction.setSearchQuery(query))
+            },
+            onClear: {
+                appStore.dispatch(ArticleAction.setSearchQuery(""))
+            }
+        )
+
+        return SearchBar.render(props: props)
+    }
+
+    /// Render toolbar with action buttons
+    private static func renderToolbar() -> [AnyNode] {
+        let toolbar = Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "app-toolbar")],
+            children: [
+                // Add Feed button
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button toolbar-button--primary"),
+                        Attribute(name: "data-action", value: "open-feed-manager"),
+                        Attribute(name: "aria-label", value: "Add new feed")
+                    ],
+                    children: [AnyNode(Text("➕ Add Feed"))]
+                )),
+                // Refresh All button
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button"),
+                        Attribute(name: "data-action", value: "refresh-all"),
+                        Attribute(name: "aria-label", value: "Refresh all feeds")
+                    ],
+                    children: [AnyNode(Text("🔄 Refresh All"))]
+                ))
+            ]
+        )
+
+        return [AnyNode(toolbar)]
+    }
+
+    /// Render feed manager modal (conditionally)
+    private static func renderFeedManager() -> [AnyNode] {
+        let uiState = uiSignal.get()
+
+        // Only render if feed manager is open
+        guard uiState.isFeedManagerOpen else {
+            return []
+        }
+
+        let feedsState = feedsSignal.get()
+
+        let props = FeedManager.Props(
+            feeds: feedsState.feeds,
+            viewMode: .list,
+            isLoading: false,
+            error: nil,
+            onAddFeed: { url in
+                Task {
+                    await addFeedHelper(url: url)
+                }
+            },
+            onEditFeed: { feed in
+                appStore.dispatch(FeedAction.updateFeed(id: feed.id, feed))
+            },
+            onDeleteFeed: { feedId in
+                appStore.dispatch(FeedAction.removeFeed(id: feedId))
+            },
+            onToggleFeed: { feedId in
+                appStore.dispatch(FeedAction.toggleFeedEnabled(id: feedId))
+            },
+            onRefreshFeed: { feedId in
+                // Refresh specific feed
+                Task {
+                    if let feed = feedsState.feeds.first(where: { $0.id == feedId }) {
+                        await refreshFeed(feed: feed)
+                    }
+                }
+            },
+            onChangeMode: { _ in
+                // Mode changes handled by event handlers
+            },
+            onClose: {
+                appStore.dispatch(UIAction.closeFeedManager)
+            }
+        )
+
+        // Wrap in modal overlay
+        let modal = Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [
+                Attribute(name: "class", value: "modal-overlay"),
+                Attribute(name: "data-action", value: "close-feed-manager-overlay")
+            ],
+            children: FeedManager.renderGPU(props: props)
+        )
+
+        return [AnyNode(modal)]
+    }
+
+    /// Render toast notification (conditionally)
+    private static func renderToast() -> [AnyNode] {
+        let uiState = uiSignal.get()
+
+        guard let message = uiState.toastMessage else {
+            return []
+        }
+
+        let toast = Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [
+                Attribute(name: "class", value: "toast toast--success"),
+                Attribute(name: "role", value: "status"),
+                Attribute(name: "aria-live", value: "polite")
+            ],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "span",
+                    attributes: [Attribute(name: "class", value: "toast__message")],
+                    children: [AnyNode(Text(message))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toast__close"),
+                        Attribute(name: "aria-label", value: "Dismiss"),
+                        Attribute(name: "data-action", value: "dismiss-toast")
+                    ],
+                    children: [AnyNode(Text("✕"))]
+                ))
+            ]
+        )
+
+        return [AnyNode(toast)]
+    }
+
+    /// Render error message (conditionally)
+    private static func renderErrorMessage() -> [AnyNode] {
+        let uiState = uiSignal.get()
+
+        guard let errorMsg = uiState.errorMessage else {
+            return []
+        }
+
+        return ErrorMessage.error(
+            message: errorMsg,
+            onDismiss: {
+                appStore.dispatch(UIAction.clearError)
+            }
+        )
+    }
+
+    /// Helper: Refresh a specific feed
+    private static func refreshFeed(feed: Feed) async {
+        do {
+            // Note: UIState.isAnimating is automatically managed by animation actions
+            let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
+            appStore.dispatch(ArticleAction.addArticles(articles))
+            appStore.dispatch(UIAction.showToast("Feed refreshed: \(feed.title)"))
+        } catch {
+            appStore.dispatch(UIAction.showError("Failed to refresh: \(error.localizedDescription)"))
+        }
+    }
+
+    /// Helper: Add feed from URL
+    private static func addFeedHelper(url: String) async {
+        do {
+            let feedId = UUID().uuidString
+            let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
+
+            // Add feed to state
+            let feed = Feed(id: feedId, title: "New Feed", description: "", url: url)
+            appStore.dispatch(FeedAction.addFeed(feed))
+
+            // Add articles
+            appStore.dispatch(ArticleAction.addArticles(articles))
+
+            // Success
+            appStore.dispatch(UIAction.closeFeedManager)
+            appStore.dispatch(UIAction.showToast("Feed added successfully"))
+
+            print("✅ Feed added: \(url) with \(articles.count) articles")
+        } catch {
+            appStore.dispatch(UIAction.showError("Failed to add feed: \(error.localizedDescription)"))
+            print("❌ Failed to add feed: \(error)")
+        }
     }
 
     // MARK: - Reactive Effects
