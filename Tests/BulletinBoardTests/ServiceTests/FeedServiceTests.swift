@@ -1,12 +1,13 @@
 import XCTest
 @testable import BulletinBoard
+import LINKER
 
 final class FeedServiceTests: XCTestCase {
 
     // MARK: - Test Helpers
 
-    private func makeTestFeedService(with session: URLSession = .shared) -> FeedService {
-        FeedService(urlSession: session)
+    private func makeTestFeedService(with httpClient: SecureHTTPClient? = nil) -> FeedService {
+        FeedService(httpClient: httpClient)
     }
 
     private func createMockRSSXML() -> String {
@@ -77,10 +78,9 @@ final class FeedServiceTests: XCTestCase {
     }
 
     func testServiceWithCustomSession() {
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 10
-        let session = URLSession(configuration: configuration)
-        let service = makeTestFeedService(with: session)
+        // Test that service can be initialized with custom http client
+        let httpClient = SecureApp.createHTTPClient(allowedHosts: nil, enforceHTTPS: true)
+        let service = makeTestFeedService(with: httpClient)
         XCTAssertNotNil(service)
     }
 

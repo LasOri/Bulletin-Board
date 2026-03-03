@@ -329,13 +329,26 @@ public struct FeedManager {
     }
 
     private static func renderAddFeedForm() -> Element<AnyHTMLContext> {
-        Element<AnyHTMLContext>(
+        // Get CSRF token for form protection
+        let csrfToken = SecurityManager.shared.csrfManager.getToken()
+
+        return Element<AnyHTMLContext>(
             tag: "form",
             attributes: [
                 Attribute(name: "class", value: "feed-form"),
                 Attribute(name: "data-form", value: "add-feed")
             ],
             children: [
+                // CSRF Protection: Hidden token field
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "input",
+                    attributes: [
+                        Attribute(name: "type", value: "hidden"),
+                        Attribute(name: "name", value: "csrf_token"),
+                        Attribute(name: "value", value: csrfToken)
+                    ],
+                    children: []
+                )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "label",
                     attributes: [Attribute(name: "for", value: "feed-url")],
@@ -365,7 +378,10 @@ public struct FeedManager {
     }
 
     private static func renderEditFeedForm(feed: Feed) -> Element<AnyHTMLContext> {
-        Element<AnyHTMLContext>(
+        // Get CSRF token for form protection
+        let csrfToken = SecurityManager.shared.csrfManager.getToken()
+
+        return Element<AnyHTMLContext>(
             tag: "form",
             attributes: [
                 Attribute(name: "class", value: "feed-form"),
@@ -373,6 +389,16 @@ public struct FeedManager {
                 Attribute(name: "data-feed-id", value: feed.id)
             ],
             children: [
+                // CSRF Protection: Hidden token field
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "input",
+                    attributes: [
+                        Attribute(name: "type", value: "hidden"),
+                        Attribute(name: "name", value: "csrf_token"),
+                        Attribute(name: "value", value: csrfToken)
+                    ],
+                    children: []
+                )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "label",
                     attributes: [Attribute(name: "for", value: "feed-title")],

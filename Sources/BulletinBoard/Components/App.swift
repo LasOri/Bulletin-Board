@@ -18,6 +18,43 @@ public struct App {
     public static func main() async {
         print("🗞️ Bulletin Board - Starting...")
 
+        // ============================================
+        // SECURITY: Enable ALL LINKER security features
+        // ============================================
+        do {
+            try await LINKERSecurity.enableAllSecurity(
+                htmlPolicy: .moderate,              // Allow some HTML formatting in feeds
+                csrfTokenLifetime: 3600,            // 1 hour CSRF token lifetime
+                rateLimitCapacity: 100,             // 100 requests burst capacity
+                rateLimitRefillRate: 10,            // 10 requests/second sustained rate
+                enforceHTTPS: true,                 // Only HTTPS for external RSS feeds
+                allowedHosts: nil,                  // Allow all hosts (RSS feeds are external)
+                enableWebAuthn: true,               // Hardware-backed encryption (TouchID/YubiKey)
+                webAuthnRpId: "bulletin-board.app"  // Relying party ID
+            )
+
+            // Print security status
+            let status = LINKERSecurity.getSecurityStatus()
+            status.printStatus()
+
+            // Apply Content Security Policy
+            #if canImport(JavaScriptKit) && arch(wasm32)
+            CSPConfiguration.apply()
+            #endif
+
+            print("🛡️  All LINKER security features ENABLED:")
+            print("   ✅ HTML Sanitization (XSS protection)")
+            print("   ✅ CSRF Protection (state-modifying actions)")
+            print("   ✅ Rate Limiting (abuse prevention)")
+            print("   ✅ HTTPS Enforcement (secure connections)")
+            print("   ✅ WebAuthn Hardware-Backed Encryption")
+            print("   ✅ Content Security Policy")
+        } catch {
+            print("⚠️  Security initialization failed: \(error)")
+            print("⚠️  Running with REDUCED security - manual intervention required")
+            // Note: App will still function but with reduced security
+        }
+
         // Detect GPU support
         #if canImport(JavaScriptKit)
         detectGPUSupport()

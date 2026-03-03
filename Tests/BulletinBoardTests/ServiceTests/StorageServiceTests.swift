@@ -110,7 +110,7 @@ final class StorageServiceTests: XCTestCase {
         let existsBefore = await service.exists(forKey: "test-delete")
         XCTAssertTrue(existsBefore)
 
-        await service.delete(forKey: "test-delete")
+        try await service.delete(forKey: "test-delete")
         let existsAfter = await service.exists(forKey: "test-delete")
         XCTAssertFalse(existsAfter)
     }
@@ -144,7 +144,7 @@ final class StorageServiceTests: XCTestCase {
         XCTAssertTrue(exists2)
         XCTAssertTrue(exists3)
 
-        await service.clearAll()
+        try await service.clearAll()
 
         let notExists1 = await service.exists(forKey: "key1")
         let notExists2 = await service.exists(forKey: "key2")
