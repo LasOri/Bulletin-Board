@@ -18,6 +18,14 @@ public struct App {
     public static func main() async {
         print("🗞️ Bulletin Board - Starting...")
 
+        // Detect GPU support
+        #if canImport(JavaScriptKit)
+        detectGPUSupport()
+        #else
+        // Non-WASM environment: disable GPU
+        GPUComponentConfig.enabled = false
+        #endif
+
         // Load persisted data
         await loadPersistedData()
 
@@ -36,6 +44,27 @@ public struct App {
 
         print("✅ Bulletin Board ready!")
     }
+
+    // MARK: - GPU Detection
+
+    #if canImport(JavaScriptKit) && arch(wasm32)
+    /// Detects WebGPU support and configures GPU effects accordingly.
+    private static func detectGPUSupport() {
+        if WebGPUBridge.isSupported() {
+            print("✅ WebGPU supported - enabling GPU effects")
+            GPUComponentConfig.configureForBalanced()
+        } else {
+            print("⚠️ WebGPU not supported - using CSS fallback")
+            GPUComponentConfig.enabled = false
+        }
+    }
+    #elseif canImport(JavaScriptKit)
+    /// Detects WebGPU support (stub for non-WASM JavaScript environments).
+    private static func detectGPUSupport() {
+        print("ℹ️ Non-WASM environment - disabling GPU effects")
+        GPUComponentConfig.enabled = false
+    }
+    #endif
 
     // MARK: - Data Loading
 
@@ -216,7 +245,7 @@ public struct App {
             )
             children.append(AnyNode(emptyState))
         } else {
-            // Render article list
+            // Render article list with GPU effects
             let listProps = ArticleList.Props(
                 articles: articles,
                 onToggleFavorite: { articleId in
@@ -229,7 +258,8 @@ public struct App {
                     appStore.dispatch(ArticleAction.selectArticle(id: articleId))
                 }
             )
-            children.append(contentsOf: ArticleList.render(props: listProps))
+            // Use GPU-enhanced variant if enabled
+            children.append(contentsOf: ArticleList.renderGPU(props: listProps))
         }
 
         return Element<AnyHTMLContext>(
