@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulletin Board - RSS Feed Reader</title>
+
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;">
+
+    <!-- Meta Tags -->
+    <meta name="description" content="A modern RSS feed reader built with Swift WASM and LINKER framework">
+    <meta name="author" content="Bulletin Board">
+    <meta name="theme-color" content="#2196f3">
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗞️</text></svg>">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Root mounting point -->
+    <div id="app">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading Bulletin Board...</p>
+            <p class="loading-subtitle">Initializing security features & GPU effects</p>
+        </div>
+    </div>
+
+    <!-- WASM Bundle -->
+    <script type="module">
+        import { startWasmApp } from './BulletinBoard.js'
+
+        console.log('🗞️ Bulletin Board starting...')
+
+        startWasmApp().catch(err => {
+            console.error('Failed to start WASM app:', err)
+            document.getElementById('app').innerHTML = `
+                <div class="error-container">
+                    <div class="error-icon">⚠️</div>
+                    <h1>Failed to Load</h1>
+                    <p>The application could not be initialized.</p>
+                    <p class="error-details">${err.message || 'Unknown error'}</p>
+                    <button onclick="location.reload()" class="retry-button">Retry</button>
+                </div>
+            `
+        })
+    </script>
+</body>
+</html>

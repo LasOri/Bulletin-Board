@@ -7,9 +7,12 @@ import LINKER
 /// demonstrating Swift WASM capabilities, reactive UI patterns, and local NLP processing.
 @main
 struct BulletinBoard {
-    static func main() {
+    static func main() async {
         print("🗞️ Bulletin Board - News Feed Reader")
         print("Built with LINKER Framework")
         print("https://github.com/LasOri/LINKER")
+
+        // Initialize the application
+        await App.main()
     }
 }

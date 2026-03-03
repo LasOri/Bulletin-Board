@@ -1,5 +1,8 @@
 import Foundation
 import LINKER
+#if canImport(JavaScriptKit)
+import JavaScriptKit
+#endif
 
 /// Root application component.
 ///
@@ -155,13 +158,257 @@ public struct App {
 
     // MARK: - UI Mounting
 
-    #if canImport(JavaScriptKit)
+    #if canImport(JavaScriptKit) && arch(wasm32)
     /// Mounts the UI to the DOM.
     private static func mountUI() {
         print("🎨 Mounting UI...")
-        // TODO: Implement actual DOM mounting when in WASM environment
-        // For now, this is a placeholder
-        print("  ℹ️ DOM mounting not yet implemented")
+
+        guard let document = SafeJSGlobal.global?.document.object else {
+            print("❌ Failed to access document")
+            return
+        }
+
+        // Get root element
+        guard let rootElement = document.getElementById!("app").object else {
+            print("❌ Root element #app not found")
+            return
+        }
+
+        // Initial render
+        renderToDOM(rootElement: rootElement)
+
+        // Set up reactive rendering - re-render on state changes
+        _ = appStore.subscribe { _ in
+            Task {
+                renderToDOM(rootElement: rootElement)
+            }
+        }
+
+        // Set up event handlers after initial render
+        setupEventHandlers(document: document)
+
+        print("✅ UI mounted successfully")
+    }
+
+    /// Renders the main view to the DOM
+    private static func renderToDOM(rootElement: JSObject) {
+        let nodes = MainView()
+        let html = nodesToHTML(nodes)
+        rootElement.innerHTML = JSValue.string(html)
+    }
+
+    /// Converts AnyNode array to HTML string
+    private static func nodesToHTML(_ nodes: [AnyNode]) -> String {
+        return nodes.map { node in
+            // Use Plot's HTML generation
+            if let element = node.node as? Element<AnyHTMLContext> {
+                return element.html()
+            } else if let text = node.node as? Text {
+                return text.content
+            }
+            return ""
+        }.joined()
+    }
+
+    /// Sets up all event listeners for user interactions
+    private static func setupEventHandlers(document: JSObject) {
+        setupArticleHandlers(document: document)
+        setupFeedManagerHandlers(document: document)
+        setupSearchHandlers(document: document)
+        print("⚡ Event handlers registered")
+    }
+
+    // MARK: - Article Event Handlers
+
+    /// Set up article card event listeners
+    private static func setupArticleHandlers(document: JSObject) {
+        // Use event delegation on document for all article interactions
+        let clickHandler = JSClosure { args in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let target = event.target.object else {
+                return .undefined
+            }
+
+            // Check for data-action attribute
+            guard let action = target.dataset?.object?["action"].string else {
+                return .undefined
+            }
+
+            // Get article ID
+            guard let articleId = target.dataset?.object?["articleId"].string else {
+                return .undefined
+            }
+
+            // Dispatch appropriate action
+            switch action {
+            case "toggle-favorite":
+                appStore.dispatch(ArticleAction.toggleFavorite(id: articleId))
+            case "mark-read":
+                appStore.dispatch(ArticleAction.markAsRead(id: articleId))
+            case "article-click":
+                appStore.dispatch(UIAction.toggleArticleExpand(id: articleId))
+            default:
+                break
+            }
+
+            return .undefined
+        }
+
+        document.addEventListener!("click", clickHandler)
+    }
+
+    // MARK: - Feed Manager Event Handlers
+
+    /// Set up feed manager event listeners
+    private static func setupFeedManagerHandlers(document: JSObject) {
+        // Click handler for buttons
+        let clickHandler = JSClosure { args in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let target = event.target.object else {
+                return .undefined
+            }
+
+            guard let action = target.dataset?.object?["action"].string else {
+                return .undefined
+            }
+
+            switch action {
+            case "open-feed-manager":
+                appStore.dispatch(UIAction.openFeedManager)
+            case "close-feed-manager":
+                appStore.dispatch(UIAction.closeFeedManager)
+            default:
+                break
+            }
+
+            return .undefined
+        }
+
+        // Form submission handler
+        let submitHandler = JSClosure { args in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let form = event.target.object else {
+                return .undefined
+            }
+
+            // Prevent default form submission
+            _ = event.preventDefault!()
+
+            // Check if this is the add feed form
+            guard let formAction = form.dataset?.object?["form"].string,
+                  formAction == "add-feed" else {
+                return .undefined
+            }
+
+            // Get form values
+            guard let urlInput = document.getElementById!("feed-url").object,
+                  let url = urlInput.value.string else {
+                print("❌ Feed URL input not found")
+                return .undefined
+            }
+
+            // Validate CSRF token
+            guard let csrfInput = document.getElementById!("csrf-token").object,
+                  let csrfToken = csrfInput.value.string,
+                  SecurityManager.shared.csrfManager.validateToken(csrfToken) else {
+                print("❌ CSRF token validation failed")
+                appStore.dispatch(UIAction.showError(message: "Security validation failed"))
+                return .undefined
+            }
+
+            // Dispatch add feed action
+            Task {
+                await addFeedFromURL(url: url)
+            }
+
+            return .undefined
+        }
+
+        document.addEventListener!("click", clickHandler)
+        document.addEventListener!("submit", submitHandler)
+    }
+
+    /// Async helper to add feed from URL
+    private static func addFeedFromURL(url: String) async {
+        do {
+            let feedService = FeedService()
+            let feedId = UUID().uuidString
+
+            // Show loading state
+            appStore.dispatch(UIAction.setAnimating(true))
+
+            // Fetch feed
+            let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
+
+            // Add feed to state
+            appStore.dispatch(FeedAction.addFeed(
+                url: url,
+                title: "New Feed",
+                description: ""
+            ))
+
+            // Add articles
+            appStore.dispatch(ArticleAction.addArticles(articles))
+
+            // Success
+            appStore.dispatch(UIAction.closeFeedManager)
+            appStore.dispatch(UIAction.showToast(message: "Feed added successfully"))
+            appStore.dispatch(UIAction.setAnimating(false))
+
+            print("✅ Feed added: \(url) with \(articles.count) articles")
+
+        } catch {
+            appStore.dispatch(UIAction.showError(message: "Failed to add feed: \(error.localizedDescription)"))
+            appStore.dispatch(UIAction.setAnimating(false))
+            print("❌ Failed to add feed: \(error)")
+        }
+    }
+
+    // MARK: - Search Event Handlers
+
+    /// Set up search bar event listeners
+    private static func setupSearchHandlers(document: JSObject) {
+        // Debounced search input
+        var searchTask: Task<Void, Never>?
+
+        let inputHandler = JSClosure { args in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let target = event.target.object else {
+                return .undefined
+            }
+
+            // Check if this is the search input
+            guard let inputId = target.id.string,
+                  inputId == "search-input",
+                  let query = target.value.string else {
+                return .undefined
+            }
+
+            // Cancel previous search task
+            searchTask?.cancel()
+
+            // Debounce search (300ms)
+            searchTask = Task {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                if !Task.isCancelled {
+                    appStore.dispatch(ArticleAction.setSearchQuery(query: query))
+                }
+            }
+
+            return .undefined
+        }
+
+        document.addEventListener!("input", inputHandler)
+    }
+    #elseif canImport(JavaScriptKit)
+    /// Mounts the UI to the DOM (stub for non-WASM JavaScriptKit environments).
+    private static func mountUI() {
+        print("🎨 Mounting UI...")
+        print("  ℹ️ DOM mounting only available in WASM environment")
     }
     #endif
 

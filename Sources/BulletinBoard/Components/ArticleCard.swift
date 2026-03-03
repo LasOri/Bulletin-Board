@@ -33,12 +33,13 @@ public struct ArticleCard {
     public static func render(props: Props) -> [AnyNode] {
         let article = props.article
 
-        // Build card container
+        // Build card container with click action
         let card = Element<AnyHTMLContext>(
             tag: "article",
             attributes: [
                 Attribute(name: "class", value: cardClasses(article: article)),
-                Attribute(name: "data-article-id", value: article.id)
+                Attribute(name: "data-article-id", value: article.id),
+                Attribute(name: "data-action", value: "article-click")
             ],
             children: [
                 AnyNode(renderHeader(article: article, props: props)),

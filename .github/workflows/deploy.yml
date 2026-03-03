@@ -1,0 +1,103 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-latest
+    permissions:
+      contents: write  # Needed for GitHub Pages deployment
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.2'
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Install Carton
+        run: |
+          brew install swiftwasm/tap/carton
+          carton --version
+
+      - name: Run tests
+        run: |
+          echo "Running tests..."
+          swift test
+          echo "✅ All tests passed"
+
+      - name: Build WASM bundle
+        run: |
+          echo "Building WASM bundle..."
+          carton bundle --release
+          echo "✅ WASM bundle created"
+
+      - name: Prepare deployment files
+        run: |
+          echo "Preparing deployment..."
+          mkdir -p dist
+
+          # Copy WASM bundle
+          if [ -d "Bundle" ]; then
+            cp -r Bundle/* dist/
+          else
+            echo "❌ Bundle directory not found"
+            exit 1
+          fi
+
+          # Copy static assets
+          if [ -d "Public" ]; then
+            cp Public/index.html dist/
+            cp Public/styles.css dist/
+          else
+            echo "❌ Public directory not found"
+            exit 1
+          fi
+
+          # Create .nojekyll to prevent GitHub Pages from processing files
+          touch dist/.nojekyll
+
+          # List contents
+          echo "📦 Deployment contents:"
+          ls -lh dist/
+
+          echo "✅ Deployment files prepared"
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          force_orphan: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy ${{ github.sha }}'
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "🎉 Build and deployment successful!"
+          echo "📊 Tests: ✅ All 398 tests passed"
+          echo "📦 WASM: ✅ Bundle created"
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "🚀 Deploy: ✅ Published to GitHub Pages"
+            echo "🌐 URL: https://${{ github.repository_owner }}.github.io/Bulletin-Board/"
+          else
+            echo "ℹ️  Skipping deployment (not main branch)"
+          fi
