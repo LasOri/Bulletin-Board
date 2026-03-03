@@ -24,6 +24,9 @@ public struct App {
         // Index articles for search
         await indexArticlesForSearch()
 
+        // Setup reactive effects
+        setupReactiveEffects()
+
         // Mount UI
         #if canImport(JavaScriptKit)
         mountUI()
@@ -96,53 +99,47 @@ public struct App {
     }
     #endif
 
+    // MARK: - Reactive State
+
+    /// Signal for article state
+    private nonisolated(unsafe) static let articlesSignal = appStore.selectArticles()
+
+    /// Signal for feed state
+    private nonisolated(unsafe) static let feedsSignal = appStore.selectFeeds()
+
+    /// Signal for UI state
+    private nonisolated(unsafe) static let uiSignal = appStore.selectUI()
+
+    /// Computed signal for filtered articles
+    private nonisolated(unsafe) static let filteredArticlesSignal = Computed {
+        articlesSignal.get().filteredArticles
+    }
+
+    /// Computed signal for article count
+    private nonisolated(unsafe) static let articleCountSignal = Computed {
+        filteredArticlesSignal.get().count
+    }
+
+    /// Computed signal for unread count
+    private nonisolated(unsafe) static let unreadCountSignal = Computed {
+        articlesSignal.get().unreadCount
+    }
+
+    /// Computed signal for feed list
+    private nonisolated(unsafe) static let feedListSignal = Computed {
+        feedsSignal.get().feeds
+    }
+
     // MARK: - Main View Component
 
-    /// The main application view (simplified for initial version).
+    /// The main application view with reactive effects.
     private static func MainView() -> [AnyNode] {
-        // Simple static view for initial implementation
-        // TODO: Add reactive effects once UI is mounted
+        // Create reactive view that updates when state changes
+        // Effects will automatically re-run when dependencies change
 
-        let header = Element<AnyHTMLContext>(
-            tag: "header",
-            attributes: [Attribute(name: "class", value: "app-header")],
-            children: [
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "h1",
-                    children: [AnyNode(Text("🗞️ Bulletin Board"))]
-                )),
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "p",
-                    children: [AnyNode(Text("Your Personal News Feed Reader"))]
-                ))
-            ]
-        )
-
-        let content = Element<AnyHTMLContext>(
-            tag: "div",
-            attributes: [Attribute(name: "class", value: "app-content")],
-            children: [
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "p",
-                    children: [AnyNode(Text("✅ Application initialized"))]
-                )),
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "p",
-                    children: [AnyNode(Text("Loading articles..."))]
-                ))
-            ]
-        )
-
-        let footer = Element<AnyHTMLContext>(
-            tag: "footer",
-            attributes: [Attribute(name: "class", value: "app-footer")],
-            children: [
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "p",
-                    children: [AnyNode(Text("Built with LINKER Framework"))]
-                ))
-            ]
-        )
+        let header = renderHeader()
+        let content = renderContent()
+        let footer = renderFooter()
 
         return [
             AnyNode(Element<AnyHTMLContext>(
@@ -155,6 +152,160 @@ public struct App {
                 ]
             ))
         ]
+    }
+
+    private static func renderHeader() -> Element<AnyHTMLContext> {
+        Element<AnyHTMLContext>(
+            tag: "header",
+            attributes: [Attribute(name: "class", value: "app-header")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "h1",
+                    children: [AnyNode(Text("🗞️ Bulletin Board"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "p",
+                    children: [AnyNode(Text("Your Personal News Feed Reader"))]
+                )),
+                AnyNode(renderStats())
+            ]
+        )
+    }
+
+    private static func renderStats() -> Element<AnyHTMLContext> {
+        // Get reactive values
+        let articleCount = articleCountSignal.get()
+        let unreadCount = unreadCountSignal.get()
+        let feedCount = feedListSignal.get().count
+
+        let statsText = "\(articleCount) articles • \(unreadCount) unread • \(feedCount) feeds"
+
+        return Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "app-stats")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "p",
+                    children: [AnyNode(Text(statsText))]
+                ))
+            ]
+        )
+    }
+
+    private static func renderContent() -> Element<AnyHTMLContext> {
+        // Get current articles from signal
+        let articles = filteredArticlesSignal.get()
+        let isAnimating = uiSignal.get().isAnimating
+
+        var children: [AnyNode] = []
+
+        if isAnimating {
+            // Show loading spinner during animations
+            children.append(contentsOf: LoadingSpinner.medium(message: "Loading..."))
+        } else if articles.isEmpty {
+            // Show empty state
+            let emptyState = Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "app-empty")],
+                children: [
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "p",
+                        children: [AnyNode(Text("No articles yet. Add a feed to get started!"))]
+                    ))
+                ]
+            )
+            children.append(AnyNode(emptyState))
+        } else {
+            // Render article list
+            let listProps = ArticleList.Props(
+                articles: articles,
+                onToggleFavorite: { articleId in
+                    appStore.dispatch(ArticleAction.toggleFavorite(id: articleId))
+                },
+                onMarkAsRead: { articleId in
+                    appStore.dispatch(ArticleAction.markAsRead(id: articleId))
+                },
+                onArticleClick: { articleId in
+                    appStore.dispatch(ArticleAction.selectArticle(id: articleId))
+                }
+            )
+            children.append(contentsOf: ArticleList.render(props: listProps))
+        }
+
+        return Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "app-content")],
+            children: children
+        )
+    }
+
+    private static func renderFooter() -> Element<AnyHTMLContext> {
+        Element<AnyHTMLContext>(
+            tag: "footer",
+            attributes: [Attribute(name: "class", value: "app-footer")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "p",
+                    children: [AnyNode(Text("Built with LINKER Framework"))]
+                ))
+            ]
+        )
+    }
+
+    // MARK: - Reactive Effects
+
+    /// Sets up reactive effects for the application.
+    /// Effects automatically re-run when their dependencies change.
+    public static func setupReactiveEffects() {
+        // Effect: Auto-index articles when they change
+        _ = Effect(execute: {
+            let articles = articlesSignal.get().articles
+            if !articles.isEmpty {
+                Task {
+                    await searchService.indexArticles(articles)
+                    print("📇 Re-indexed \(articles.count) articles")
+                }
+            }
+        })
+
+        // Effect: Auto-save articles to storage when they change
+        _ = Effect(execute: {
+            let articles = articlesSignal.get().articles
+            if !articles.isEmpty {
+                Task {
+                    do {
+                        try await storageService.saveArticles(articles)
+                        print("💾 Saved \(articles.count) articles")
+                    } catch {
+                        print("⚠️ Failed to save articles: \(error)")
+                    }
+                }
+            }
+        })
+
+        // Effect: Auto-save feeds to storage when they change
+        _ = Effect(execute: {
+            let feeds = feedsSignal.get().feeds
+            if !feeds.isEmpty {
+                Task {
+                    do {
+                        try await storageService.saveFeeds(feeds)
+                        print("💾 Saved \(feeds.count) feeds")
+                    } catch {
+                        print("⚠️ Failed to save feeds: \(error)")
+                    }
+                }
+            }
+        })
+
+        // Effect: Log state changes (for debugging)
+        _ = Effect(execute: {
+            let articleCount = articleCountSignal.get()
+            let unreadCount = unreadCountSignal.get()
+            print("📊 State updated: \(articleCount) articles, \(unreadCount) unread")
+        })
+
+        print("⚡ Reactive effects initialized")
     }
 
     // MARK: - Public API
