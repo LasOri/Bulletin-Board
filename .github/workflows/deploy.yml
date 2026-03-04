@@ -42,7 +42,7 @@ jobs:
           path: |
             ~/.carton/sdk
             ~/.swiftenv/versions
-          key: ${{ runner.os }}-wasm-sdk-DEVELOPMENT-SNAPSHOT-2024-11-26-a
+          key: ${{ runner.os }}-wasm-sdk-6.3-SNAPSHOT-2026-02-27-a
           restore-keys: |
             ${{ runner.os }}-wasm-sdk-
 
@@ -68,8 +68,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Building WASM bundle..."
-          # Use development snapshot with Swift 6.1+
-          echo "wasm-DEVELOPMENT-SNAPSHOT-2024-11-26-a" > .swift-version
+          # Use Swift WASM 6.3 snapshot (includes Swift 6.3 with tools version 6.1+)
+          echo "wasm-6.3-SNAPSHOT-2026-02-27-a" > .swift-version
           carton bundle --release
           echo "✅ WASM bundle created"
 
