@@ -42,7 +42,7 @@ jobs:
           path: |
             ~/.carton/sdk
             ~/.swiftenv/versions
-          key: ${{ runner.os }}-wasm-sdk-6.0.2
+          key: ${{ runner.os }}-wasm-sdk-6.1.0
           restore-keys: |
             ${{ runner.os }}-wasm-sdk-
 
@@ -68,8 +68,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Building WASM bundle..."
-          # Pass GitHub token to avoid API rate limits
-          carton bundle --release
+          # Use Swift WASM 6.1.0 which is compatible with JavaScriptKit 0.46.5
+          carton bundle --release --sdk wasm-6.1.0-RELEASE
           echo "✅ WASM bundle created"
 
       - name: Prepare deployment files
