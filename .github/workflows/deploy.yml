@@ -17,6 +17,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure Git for private repo access
+        run: |
+          # Configure git to use PAT for LINKER private repo
+          git config --global url."https://${{ secrets.LINKER_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Setup Swift
         uses: swift-actions/setup-swift@v2
         with:

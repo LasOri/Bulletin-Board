@@ -1,13 +1,22 @@
 {
-  "originHash" : "d7e0b7bf2d60aab75cf0b6a65b9bbd6c205d97d4f46592979d7cced1d007634a",
+  "originHash" : "99a70b0fd6c8e81e5f5d6a0639fb3ed9d52dfb1c49e7ac2c1923d6ff303467ec",
   "pins" : [
     {
       "identity" : "javascriptkit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftwasm/JavaScriptKit",
       "state" : {
-        "revision" : "1750eff4b270e55e6f7f07b9521c95165c97b867",
-        "version" : "0.46.4"
+        "revision" : "5529520b25638aa86765ab33b175289f1ab263a3",
+        "version" : "0.46.5"
+      }
+    },
+    {
+      "identity" : "linker",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/LasOri/LINKER.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "cb27988d35cfd00af38404e9535315afb2cd85b8"
       }
     },
     {

@@ -14,8 +14,9 @@ let package = Package(
         )
     ],
     dependencies: [
-        // LINKER Framework (local development)
-        .package(path: "../LINKER")
+        // LINKER Framework
+        // Use GitHub URL for CI, works locally too
+        .package(url: "https://github.com/LasOri/LINKER.git", branch: "main")
     ],
     targets: [
         .executableTarget(
