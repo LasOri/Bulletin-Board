@@ -9,12 +9,9 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest  # Switch to Ubuntu for better WASM tooling
+    runs-on: macos-latest
     permissions:
       contents: write  # Needed for GitHub Pages deployment
-
-    container:
-      image: ghcr.io/swiftwasm/swift:latest  # Official Swift WASM Docker image
 
     steps:
       - name: Checkout code
@@ -25,16 +22,10 @@ jobs:
           # Configure git to use PAT for LINKER private repo
           git config --global url."https://${{ secrets.LINKER_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Verify Swift and WASM SDK
-        run: |
-          echo "Swift version:"
-          swift --version
-          echo ""
-          echo "Available SDKs:"
-          swift sdk list || echo "No SDKs configured yet"
-          echo ""
-          echo "Checking for WASM target support..."
-          swift build --help | grep -i wasm || echo "WASM support built-in"
+      - name: Setup Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.0'  # Use 6.0 for better compatibility
 
       - name: Cache Swift packages
         uses: actions/cache@v4
@@ -44,56 +35,64 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Install Carton
+        run: |
+          # Carton is deprecated but still most reliable for WASM builds
+          echo "Installing Carton..."
+          brew install carton || {
+            echo "Homebrew formula not available, building from source..."
+            git clone --depth 1 --branch 1.1.4 https://github.com/swiftwasm/carton /tmp/carton
+            cd /tmp/carton
+            swift build -c release
+            sudo cp .build/release/carton /usr/local/bin/
+          }
+          carton --version
+          echo "✅ Carton installed"
+
       - name: Run tests
         run: |
           echo "Running tests..."
           swift test
           echo "✅ All tests passed"
 
-      - name: Build WASM binary
+      - name: Build WASM bundle with Carton
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Building WASM binary..."
+          echo "Building WASM bundle with Carton..."
+          carton bundle --release
 
-          # Swift WASM Docker image has built-in WASM support
-          # Build for WASM target directly
-          swift build --triple wasm32-unknown-wasi -c release
-
-          echo "✅ WASM binary created"
-          echo "Build output:"
-          find .build -name "*.wasm" -type f
-          ls -lh .build/wasm32-unknown-wasi/release/ || ls -lh .build/release/
+          echo "✅ WASM bundle created"
+          echo "Bundle contents:"
+          ls -lh Bundle/
 
       - name: Prepare deployment files
         run: |
           echo "Preparing deployment..."
           mkdir -p dist
 
-          # Find WASM binary
-          WASM_FILE=$(find .build -name "BulletinBoard.wasm" -type f | head -1)
-
-          if [ -z "$WASM_FILE" ]; then
-            echo "❌ WASM binary not found"
-            echo "Build directory contents:"
-            find .build -type f -name "*.wasm" || echo "No .wasm files found"
-            find .build -type f | head -20
+          # Copy Carton bundle output
+          if [ -d "Bundle" ]; then
+            cp -r Bundle/* dist/
+            echo "✅ Copied Carton bundle"
+          else
+            echo "❌ Bundle directory not found"
             exit 1
           fi
 
-          echo "Found WASM binary: $WASM_FILE"
-          cp "$WASM_FILE" dist/BulletinBoard.wasm
-          echo "✅ Copied WASM binary ($(stat -c %s dist/BulletinBoard.wasm 2>/dev/null || stat -f %z dist/BulletinBoard.wasm) bytes)"
-
-          # Copy static assets (HTML, CSS, JS)
+          # Overlay our custom files (HTML, CSS)
           if [ -d "Public" ]; then
-            cp Public/index.html dist/
-            cp Public/styles.css dist/
-            cp Public/BulletinBoard.js dist/
-            echo "✅ Copied static assets"
-          else
-            echo "❌ Public directory not found"
-            exit 1
+            cp Public/index.html dist/ 2>/dev/null || echo "Using Carton's index.html"
+            cp Public/styles.css dist/ 2>/dev/null || echo "No custom styles"
+            echo "✅ Overlaid custom assets"
           fi
 
           # Create .nojekyll to prevent GitHub Pages from processing files
