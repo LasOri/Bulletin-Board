@@ -9,9 +9,12 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest  # Switch to Ubuntu for better WASM tooling
     permissions:
       contents: write  # Needed for GitHub Pages deployment
+
+    container:
+      image: ghcr.io/swiftwasm/swift:latest  # Official Swift WASM Docker image
 
     steps:
       - name: Checkout code
@@ -22,10 +25,16 @@ jobs:
           # Configure git to use PAT for LINKER private repo
           git config --global url."https://${{ secrets.LINKER_ACCESS_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-      - name: Setup Swift
-        uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: '6.2'
+      - name: Verify Swift and WASM SDK
+        run: |
+          echo "Swift version:"
+          swift --version
+          echo ""
+          echo "Available SDKs:"
+          swift sdk list || echo "No SDKs configured yet"
+          echo ""
+          echo "Checking for WASM target support..."
+          swift build --help | grep -i wasm || echo "WASM support built-in"
 
       - name: Cache Swift packages
         uses: actions/cache@v4
@@ -34,28 +43,6 @@ jobs:
           key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
-
-      - name: Install Swift WASM SDK via Swiftly
-        run: |
-          echo "Installing Swiftly (Swift toolchain manager)..."
-
-          # Install Swiftly
-          curl -L https://swift-server.github.io/swiftly/swiftly-install.sh | bash
-          export PATH="$HOME/.local/bin:$PATH"
-
-          # Install WASM toolchain using Swiftly
-          echo "Installing Swift WASM toolchain..."
-          swiftly install wasm-latest
-
-          # Verify installation
-          echo "Installed toolchains:"
-          swiftly list
-
-          # List SDKs
-          echo "Available SDKs:"
-          swift sdk list
-
-          echo "✅ Swift WASM toolchain installed"
 
       - name: Run tests
         run: |
@@ -67,46 +54,36 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Building WASM binary with Swift SDK..."
-          export PATH="$HOME/.local/bin:$PATH"
+          echo "Building WASM binary..."
 
-          # Get the installed WASM SDK identifier
-          WASM_SDK=$(swift sdk list | grep wasm | awk '{print $1}' | head -1)
-          echo "Using WASM SDK: $WASM_SDK"
-
-          if [ -z "$WASM_SDK" ]; then
-            echo "❌ No WASM SDK found"
-            echo "Available SDKs:"
-            swift sdk list
-            exit 1
-          fi
-
-          # Build for WASM using the installed SDK
-          swift build --swift-sdk "$WASM_SDK" -c release
+          # Swift WASM Docker image has built-in WASM support
+          # Build for WASM target directly
+          swift build --triple wasm32-unknown-wasi -c release
 
           echo "✅ WASM binary created"
+          echo "Build output:"
           find .build -name "*.wasm" -type f
-          ls -lh .build/*/release/ 2>/dev/null || ls -lh .build/release/ 2>/dev/null || echo "Checking build output..."
+          ls -lh .build/wasm32-unknown-wasi/release/ || ls -lh .build/release/
 
       - name: Prepare deployment files
         run: |
           echo "Preparing deployment..."
           mkdir -p dist
 
-          # Find WASM binary (location varies by SDK)
+          # Find WASM binary
           WASM_FILE=$(find .build -name "BulletinBoard.wasm" -type f | head -1)
 
           if [ -z "$WASM_FILE" ]; then
             echo "❌ WASM binary not found"
             echo "Build directory contents:"
             find .build -type f -name "*.wasm" || echo "No .wasm files found"
-            ls -R .build/ | head -50
+            find .build -type f | head -20
             exit 1
           fi
 
           echo "Found WASM binary: $WASM_FILE"
           cp "$WASM_FILE" dist/BulletinBoard.wasm
-          echo "✅ Copied WASM binary ($(ls -lh dist/BulletinBoard.wasm | awk '{print $5}'))"
+          echo "✅ Copied WASM binary ($(stat -c %s dist/BulletinBoard.wasm 2>/dev/null || stat -f %z dist/BulletinBoard.wasm) bytes)"
 
           # Copy static assets (HTML, CSS, JS)
           if [ -d "Public" ]; then
