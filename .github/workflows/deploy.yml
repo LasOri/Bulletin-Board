@@ -42,9 +42,18 @@ jobs:
           path: |
             ~/.carton/sdk
             ~/.swiftenv/versions
-          key: ${{ runner.os }}-wasm-sdk-6.3-SNAPSHOT-2026-02-27-a
+          key: ${{ runner.os }}-wasm-sdk-6.0.2
           restore-keys: |
             ${{ runner.os }}-wasm-sdk-
+
+      - name: Install Swift WASM SDK
+        run: |
+          echo "Installing Swift WASM SDK for Swift 6.2..."
+          # Download and install the WASM SDK artifact bundle
+          swift sdk install https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.0.2-RELEASE/swift-wasm-6.0.2-RELEASE-wasm32-unknown-wasi.artifactbundle.zip
+          # List available SDKs
+          swift sdk list
+          echo "✅ Swift WASM SDK installed"
 
       - name: Install Carton
         run: |
@@ -67,10 +76,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Building WASM bundle..."
-          # Use Swift WASM 6.3 snapshot (includes Swift 6.3 with tools version 6.1+)
-          echo "wasm-6.3-SNAPSHOT-2026-02-27-a" > .swift-version
-          carton bundle --release
+          echo "Building WASM bundle with Swift 6.2 and WASM SDK..."
+          # Build using swift build with WASM SDK (no Carton needed)
+          swift build -c release --triple wasm32-unknown-wasi
+
+          # Create Bundle directory structure like Carton does
+          mkdir -p Bundle
+          cp .build/release/BulletinBoard.wasm Bundle/
+
+          # Create the JavaScript loader file
+          cat > Bundle/BulletinBoard.wasm.js << 'EOF'
+import { SwiftRuntime } from "javascript-kit-swift";
+const swift = await SwiftRuntime();
+EOF
+
           echo "✅ WASM bundle created"
 
       - name: Prepare deployment files
