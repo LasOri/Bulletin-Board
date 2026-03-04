@@ -32,7 +32,13 @@ jobs:
 
       - name: Install Carton
         run: |
-          brew install swiftwasm/tap/carton
+          # Carton's Homebrew formula is deprecated
+          # Build from source instead
+          echo "Installing Carton from source..."
+          git clone --depth 1 https://github.com/swiftwasm/carton /tmp/carton-build
+          cd /tmp/carton-build
+          swift build -c release
+          sudo cp .build/release/carton /usr/local/bin/
           carton --version
 
       - name: Run tests
