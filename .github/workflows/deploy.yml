@@ -78,8 +78,8 @@ jobs:
         run: |
           echo "Building WASM bundle with Swift 6.2 and WASM SDK..."
 
-          # Get the installed SDK ID
-          SDK_ID=$(swift sdk list | grep wasm | awk '{print $1}')
+          # Get the installed SDK ID (use non-embedded version)
+          SDK_ID=$(swift sdk list | grep wasm | grep -v embedded | awk '{print $1}')
           echo "Using Swift SDK: $SDK_ID"
 
           # Build using swift build with WASM SDK
