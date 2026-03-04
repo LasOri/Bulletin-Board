@@ -35,39 +35,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Install Swift WASM SDK
+      - name: Install Swift WASM SDK via Swiftly
         run: |
-          echo "Installing Swift WASM SDK..."
+          echo "Installing Swiftly (Swift toolchain manager)..."
 
-          # Download Swift WASM SDK artifact bundle
-          # Note: GitHub releases requires proper User-Agent and redirects
-          WASM_SDK_VERSION="6.0.2"
-          WASM_SDK_FILE="swift-${WASM_SDK_VERSION}-RELEASE_wasm32-unknown-wasi.artifactbundle.zip"
-          WASM_SDK_URL="https://github.com/swiftlang/swift/releases/download/swift-${WASM_SDK_VERSION}-RELEASE/${WASM_SDK_FILE}"
+          # Install Swiftly
+          curl -L https://swift-server.github.io/swiftly/swiftly-install.sh | bash
+          export PATH="$HOME/.local/bin:$PATH"
 
-          echo "Downloading from: $WASM_SDK_URL"
-          curl -L \
-            --fail \
-            --show-error \
-            --output "/tmp/${WASM_SDK_FILE}" \
-            --header "Accept: application/octet-stream" \
-            "$WASM_SDK_URL"
-
-          # Verify download
-          if [ ! -f "/tmp/${WASM_SDK_FILE}" ] || [ ! -s "/tmp/${WASM_SDK_FILE}" ]; then
-            echo "❌ Download failed or file is empty"
-            exit 1
-          fi
-
-          echo "Downloaded $(ls -lh /tmp/${WASM_SDK_FILE} | awk '{print $5}') WASM SDK"
-
-          # Install SDK using Swift SDK command (no checksum needed for local install)
-          swift sdk install "/tmp/${WASM_SDK_FILE}"
+          # Install WASM toolchain using Swiftly
+          echo "Installing Swift WASM toolchain..."
+          swiftly install wasm-latest
 
           # Verify installation
-          echo "Installed SDKs:"
+          echo "Installed toolchains:"
+          swiftly list
+
+          # List SDKs
+          echo "Available SDKs:"
           swift sdk list
-          echo "✅ Swift WASM SDK installed"
+
+          echo "✅ Swift WASM toolchain installed"
 
       - name: Run tests
         run: |
@@ -80,25 +68,45 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Building WASM binary with Swift SDK..."
-          # Build for WASM using Swift SDK
-          swift build --swift-sdk wasm32-unknown-wasi -c release
+          export PATH="$HOME/.local/bin:$PATH"
+
+          # Get the installed WASM SDK identifier
+          WASM_SDK=$(swift sdk list | grep wasm | awk '{print $1}' | head -1)
+          echo "Using WASM SDK: $WASM_SDK"
+
+          if [ -z "$WASM_SDK" ]; then
+            echo "❌ No WASM SDK found"
+            echo "Available SDKs:"
+            swift sdk list
+            exit 1
+          fi
+
+          # Build for WASM using the installed SDK
+          swift build --swift-sdk "$WASM_SDK" -c release
 
           echo "✅ WASM binary created"
-          ls -lh .build/wasm32-unknown-wasi/release/
+          find .build -name "*.wasm" -type f
+          ls -lh .build/*/release/ 2>/dev/null || ls -lh .build/release/ 2>/dev/null || echo "Checking build output..."
 
       - name: Prepare deployment files
         run: |
           echo "Preparing deployment..."
           mkdir -p dist
 
-          # Copy WASM binary
-          if [ -f ".build/wasm32-unknown-wasi/release/BulletinBoard.wasm" ]; then
-            cp .build/wasm32-unknown-wasi/release/BulletinBoard.wasm dist/
-            echo "✅ Copied WASM binary"
-          else
+          # Find WASM binary (location varies by SDK)
+          WASM_FILE=$(find .build -name "BulletinBoard.wasm" -type f | head -1)
+
+          if [ -z "$WASM_FILE" ]; then
             echo "❌ WASM binary not found"
+            echo "Build directory contents:"
+            find .build -type f -name "*.wasm" || echo "No .wasm files found"
+            ls -R .build/ | head -50
             exit 1
           fi
+
+          echo "Found WASM binary: $WASM_FILE"
+          cp "$WASM_FILE" dist/BulletinBoard.wasm
+          echo "✅ Copied WASM binary ($(ls -lh dist/BulletinBoard.wasm | awk '{print $5}'))"
 
           # Copy static assets (HTML, CSS, JS)
           if [ -d "Public" ]; then
