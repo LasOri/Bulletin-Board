@@ -48,8 +48,8 @@ jobs:
           CHECKSUM=$(cat /tmp/wasm-sdk.sha256)
           echo "SDK Checksum: $CHECKSUM"
 
-          # Install the SDK
-          swift sdk install file:///tmp/wasm-sdk.zip --checksum $CHECKSUM
+          # Install the SDK (use path directly, not file:// URL)
+          swift sdk install /tmp/wasm-sdk.zip --checksum $CHECKSUM
 
           # List available SDKs
           swift sdk list
