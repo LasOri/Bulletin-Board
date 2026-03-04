@@ -43,36 +43,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Install Carton
-        run: |
-          # Carton is deprecated but still most reliable for WASM builds
-          echo "Installing Carton..."
-          brew install carton || {
-            echo "Homebrew formula not available, building from source..."
-            git clone --depth 1 --branch 1.1.4 https://github.com/swiftwasm/carton /tmp/carton
-            cd /tmp/carton
-            swift build -c release
-            sudo cp .build/release/carton /usr/local/bin/
-          }
-          carton --version
-          echo "✅ Carton installed"
-
       - name: Run tests
         run: |
           echo "Running tests..."
           swift test
           echo "✅ All tests passed"
 
-      - name: Build WASM bundle with Carton
+      - name: Build WASM bundle with Carton plugin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Building WASM bundle with Carton..."
-          carton bundle --release
+          echo "Building WASM bundle using Carton SwiftPM plugin..."
+
+          # Carton provides SwiftPM plugins that are declared in LINKER's Package.swift
+          # Use the CartonBundlePlugin directly
+          swift package plugin carton bundle --release
 
           echo "✅ WASM bundle created"
           echo "Bundle contents:"
-          ls -lh Bundle/
+          ls -lh Bundle/ || ls -lh .build/plugins/outputs/ || find . -name "*.wasm" | head -5
 
       - name: Prepare deployment files
         run: |
