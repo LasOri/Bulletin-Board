@@ -25,7 +25,7 @@ jobs:
       - name: Setup Swift
         uses: swift-actions/setup-swift@v2
         with:
-          swift-version: '6.3'
+          swift-version: '6.2'
 
       - name: Cache Swift packages
         uses: actions/cache@v4
@@ -37,23 +37,8 @@ jobs:
 
       - name: Install Swift WASM SDK
         run: |
-          echo "Installing latest Swift WASM development snapshot..."
-          # Use the latest development snapshot which should be compatible with Swift 6.2
-          # Note: This is a WASM SDK artifact bundle, not a full toolchain
-          curl -L -o /tmp/wasm-sdk.zip \
-            https://github.com/swiftwasm/swift/releases/download/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a-wasm32-unknown-wasip1.artifactbundle.zip
-
-          # Get checksum from release
-          curl -L https://github.com/swiftwasm/swift/releases/download/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a-wasm32-unknown-wasip1.artifactbundle.zip.sha256 | awk '{print $1}' > /tmp/wasm-sdk.sha256
-          CHECKSUM=$(cat /tmp/wasm-sdk.sha256)
-          echo "SDK Checksum: $CHECKSUM"
-
-          # Install the SDK (use path directly, not file:// URL)
-          swift sdk install /tmp/wasm-sdk.zip --checksum $CHECKSUM
-
-          # List available SDKs
-          swift sdk list
-          echo "✅ Swift WASM SDK installed"
+          echo "Skipping manual SDK installation - Carton will handle it"
+          echo "✅ Ready to build with Carton"
 
       - name: Install Carton
         run: |
@@ -76,27 +61,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Building WASM bundle with Swift 6.2 and WASM SDK..."
-
-          # Get the installed SDK ID (use non-embedded version)
-          SDK_ID=$(swift sdk list | grep wasm | grep -v embedded | awk '{print $1}')
-          echo "Using Swift SDK: $SDK_ID"
-
-          # Build using swift build with WASM SDK
-          swift build -c release --swift-sdk $SDK_ID
-
-          # Create Bundle directory structure like Carton does
-          mkdir -p Bundle
-
-          # Find and copy the WASM file (might be in different location)
-          find .build -name "*.wasm" -exec cp {} Bundle/BulletinBoard.wasm \;
-
-          # Create the JavaScript loader file
-          cat > Bundle/BulletinBoard.wasm.js << 'JSEOF'
-          import { SwiftRuntime } from "javascript-kit-swift";
-          const swift = await SwiftRuntime();
-          JSEOF
-
+          echo "Building WASM bundle with Carton..."
+          # Let Carton handle everything - it will download compatible SDK
+          carton bundle --release
           echo "✅ WASM bundle created"
           ls -lh Bundle/
 
