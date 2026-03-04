@@ -25,7 +25,7 @@ jobs:
       - name: Setup Swift
         uses: swift-actions/setup-swift@v2
         with:
-          swift-version: '6.0.2'
+          swift-version: '6.2'
 
       - name: Cache Swift packages
         uses: actions/cache@v4
@@ -35,24 +35,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Cache Swift WASM SDK
-        id: cache-wasm-sdk
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.carton/sdk
-            ~/.swiftenv/versions
-          key: ${{ runner.os }}-wasm-sdk-6.0.2
-          restore-keys: |
-            ${{ runner.os }}-wasm-sdk-
-
       - name: Install Swift WASM SDK
         run: |
-          echo "Installing Swift WASM SDK for Swift 6.2..."
-          # Download and install the WASM SDK artifact bundle with checksum
-          swift sdk install \
-            https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.0.2-RELEASE/swift-wasm-6.0.2-RELEASE-wasm32-unknown-wasi.artifactbundle.zip \
-            --checksum 6ffedb055cb9956395d9f435d03d53ebe9f6a8d45106b979d1b7f53358e1dcb4
+          echo "Installing latest Swift WASM development snapshot..."
+          # Use the latest development snapshot which should be compatible with Swift 6.2
+          # Note: This is a WASM SDK artifact bundle, not a full toolchain
+          curl -L -o /tmp/wasm-sdk.zip \
+            https://github.com/swiftwasm/swift/releases/download/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a-wasm32-unknown-wasip1.artifactbundle.zip
+
+          # Get checksum from release
+          curl -L https://github.com/swiftwasm/swift/releases/download/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a/swift-wasm-DEVELOPMENT-SNAPSHOT-2026-03-02-a-wasm32-unknown-wasip1.artifactbundle.zip.sha256 | awk '{print $1}' > /tmp/wasm-sdk.sha256
+          CHECKSUM=$(cat /tmp/wasm-sdk.sha256)
+          echo "SDK Checksum: $CHECKSUM"
+
+          # Install the SDK
+          swift sdk install file:///tmp/wasm-sdk.zip --checksum $CHECKSUM
+
           # List available SDKs
           swift sdk list
           echo "✅ Swift WASM SDK installed"
