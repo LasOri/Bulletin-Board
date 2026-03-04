@@ -49,8 +49,10 @@ jobs:
       - name: Install Swift WASM SDK
         run: |
           echo "Installing Swift WASM SDK for Swift 6.2..."
-          # Download and install the WASM SDK artifact bundle
-          swift sdk install https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.0.2-RELEASE/swift-wasm-6.0.2-RELEASE-wasm32-unknown-wasi.artifactbundle.zip
+          # Download and install the WASM SDK artifact bundle with checksum
+          swift sdk install \
+            https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.0.2-RELEASE/swift-wasm-6.0.2-RELEASE-wasm32-unknown-wasi.artifactbundle.zip \
+            --checksum 6ffedb055cb9956395d9f435d03d53ebe9f6a8d45106b979d1b7f53358e1dcb4
           # List available SDKs
           swift sdk list
           echo "✅ Swift WASM SDK installed"
