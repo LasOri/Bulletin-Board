@@ -35,6 +35,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
+      - name: Cache Swift WASM SDK
+        id: cache-wasm-sdk
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.carton/sdk
+            ~/.swiftenv/versions
+          key: ${{ runner.os }}-wasm-sdk-6.0.2
+          restore-keys: |
+            ${{ runner.os }}-wasm-sdk-
+
       - name: Install Carton
         run: |
           # Carton's Homebrew formula is deprecated
@@ -53,8 +64,11 @@ jobs:
           echo "✅ All tests passed"
 
       - name: Build WASM bundle
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Building WASM bundle..."
+          # Pass GitHub token to avoid API rate limits
           carton bundle --release
           echo "✅ WASM bundle created"
 
