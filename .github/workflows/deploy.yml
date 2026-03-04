@@ -85,10 +85,10 @@ jobs:
           cp .build/release/BulletinBoard.wasm Bundle/
 
           # Create the JavaScript loader file
-          cat > Bundle/BulletinBoard.wasm.js << 'EOF'
-import { SwiftRuntime } from "javascript-kit-swift";
-const swift = await SwiftRuntime();
-EOF
+          cat > Bundle/BulletinBoard.wasm.js << 'JSEOF'
+          import { SwiftRuntime } from "javascript-kit-swift";
+          const swift = await SwiftRuntime();
+          JSEOF
 
           echo "✅ WASM bundle created"
 
