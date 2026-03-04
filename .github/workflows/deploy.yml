@@ -66,10 +66,13 @@ jobs:
       - name: Build WASM bundle
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARTON_SWIFT_VERSION: wasm-6.1.0-RELEASE
         run: |
           echo "Building WASM bundle..."
+          # Create .swift-version to force Swift WASM 6.1.0
+          echo "wasm-6.1.0-RELEASE" > .swift-version
           # Use Swift WASM 6.1.0 which is compatible with JavaScriptKit 0.46.5
-          carton bundle --release --sdk wasm-6.1.0-RELEASE
+          carton bundle --release
           echo "✅ WASM bundle created"
 
       - name: Prepare deployment files
