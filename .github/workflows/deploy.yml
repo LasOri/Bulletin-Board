@@ -79,12 +79,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Building WASM bundle with Swift 6.2 and WASM SDK..."
-          # Build using swift build with WASM SDK (no Carton needed)
-          swift build -c release --triple wasm32-unknown-wasi
+
+          # Get the installed SDK ID
+          SDK_ID=$(swift sdk list | grep wasm | awk '{print $1}')
+          echo "Using Swift SDK: $SDK_ID"
+
+          # Build using swift build with WASM SDK
+          swift build -c release --swift-sdk $SDK_ID
 
           # Create Bundle directory structure like Carton does
           mkdir -p Bundle
-          cp .build/release/BulletinBoard.wasm Bundle/
+
+          # Find and copy the WASM file (might be in different location)
+          find .build -name "*.wasm" -exec cp {} Bundle/BulletinBoard.wasm \;
 
           # Create the JavaScript loader file
           cat > Bundle/BulletinBoard.wasm.js << 'JSEOF'
@@ -93,6 +100,7 @@ jobs:
           JSEOF
 
           echo "✅ WASM bundle created"
+          ls -lh Bundle/
 
       - name: Prepare deployment files
         run: |
