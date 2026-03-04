@@ -37,19 +37,17 @@ jobs:
 
       - name: Install Swift WASM SDK
         run: |
-          echo "Skipping manual SDK installation - Carton will handle it"
-          echo "✅ Ready to build with Carton"
+          echo "Installing Swift WASM SDK..."
+          # Download and install Swift WASM SDK
+          WASM_SDK_URL="https://github.com/swiftlang/swift/releases/download/swift-6.0.2-RELEASE/swift-6.0.2-RELEASE_wasm32-unknown-wasi.artifactbundle.zip"
+          curl -L -o /tmp/wasm-sdk.zip "$WASM_SDK_URL"
 
-      - name: Install Carton
-        run: |
-          # Carton's Homebrew formula is deprecated
-          # Build from source instead
-          echo "Installing Carton from source..."
-          git clone --depth 1 https://github.com/swiftwasm/carton /tmp/carton-build
-          cd /tmp/carton-build
-          swift build -c release
-          sudo cp .build/release/carton /usr/local/bin/
-          carton --version
+          # Install SDK using Swift SDK command
+          swift sdk install /tmp/wasm-sdk.zip --checksum 4c3e19644f57da39a27ade0b22de8a00d274e023fc2a6e061c7a5c9ceb4b682e
+
+          # Verify installation
+          swift sdk list
+          echo "✅ Swift WASM SDK installed"
 
       - name: Run tests
         run: |
@@ -57,33 +55,37 @@ jobs:
           swift test
           echo "✅ All tests passed"
 
-      - name: Build WASM bundle
+      - name: Build WASM binary
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Building WASM bundle with Carton..."
-          # Let Carton handle everything - it will download compatible SDK
-          carton bundle --release
-          echo "✅ WASM bundle created"
-          ls -lh Bundle/
+          echo "Building WASM binary with Swift SDK..."
+          # Build for WASM using Swift SDK
+          swift build --swift-sdk wasm32-unknown-wasi -c release
+
+          echo "✅ WASM binary created"
+          ls -lh .build/wasm32-unknown-wasi/release/
 
       - name: Prepare deployment files
         run: |
           echo "Preparing deployment..."
           mkdir -p dist
 
-          # Copy WASM bundle
-          if [ -d "Bundle" ]; then
-            cp -r Bundle/* dist/
+          # Copy WASM binary
+          if [ -f ".build/wasm32-unknown-wasi/release/BulletinBoard.wasm" ]; then
+            cp .build/wasm32-unknown-wasi/release/BulletinBoard.wasm dist/
+            echo "✅ Copied WASM binary"
           else
-            echo "❌ Bundle directory not found"
+            echo "❌ WASM binary not found"
             exit 1
           fi
 
-          # Copy static assets
+          # Copy static assets (HTML, CSS, JS)
           if [ -d "Public" ]; then
             cp Public/index.html dist/
             cp Public/styles.css dist/
+            cp Public/BulletinBoard.js dist/
+            echo "✅ Copied static assets"
           else
             echo "❌ Public directory not found"
             exit 1
