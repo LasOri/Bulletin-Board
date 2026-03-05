@@ -218,22 +218,22 @@ public struct App {
     /// Set up article card event listeners
     private static func setupArticleHandlers(document: JSObject) {
         // Use event delegation on document for all article interactions
-        let clickHandler = JSClosure { args in
+        let clickHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
                   let event = args[0].object,
                   let target = event.target.object else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Check for data-action attribute
             guard let datasetObj = target.dataset.object,
                   let action = datasetObj["action"].string else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Get article ID
             guard let articleId = datasetObj["articleId"].string else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Dispatch appropriate action
@@ -248,7 +248,7 @@ public struct App {
                 break
             }
 
-            return .undefined
+            return JSValue.undefined
         }
 
         document.addEventListener!("click", clickHandler)
@@ -259,15 +259,15 @@ public struct App {
     /// Set up feed manager event listeners
     private static func setupFeedManagerHandlers(document: JSObject) {
         // Click handler for buttons
-        let clickHandler = JSClosure { args in
+        let clickHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
                   let event = args[0].object,
                   let target = event.target.object else {
-                return .undefined
+                return JSValue.undefined
             }
 
             guard let action = target.dataset.object?["action"].string else {
-                return .undefined
+                return JSValue.undefined
             }
 
             switch action {
@@ -298,15 +298,15 @@ public struct App {
                 break
             }
 
-            return .undefined
+            return JSValue.undefined
         }
 
         // Form submission handler
-        let submitHandler = JSClosure { args in
+        let submitHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
                   let event = args[0].object,
                   let form = event.target.object else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Prevent default form submission
@@ -315,14 +315,14 @@ public struct App {
             // Check if this is the add feed form
             guard let formAction = form.dataset.object?["form"].string,
                   formAction == "add-feed" else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Get form values
             guard let urlInput = document.getElementById!("feed-url").object,
                   let url = urlInput.value.string else {
                 print("❌ Feed URL input not found")
-                return .undefined
+                return JSValue.undefined
             }
 
             // Validate CSRF token
@@ -331,7 +331,7 @@ public struct App {
                   SecurityManager.shared.csrfManager.validateToken(csrfToken) else {
                 print("❌ CSRF token validation failed")
                 appStore.dispatch(UIAction.showError("Security validation failed"))
-                return .undefined
+                return JSValue.undefined
             }
 
             // Dispatch add feed action
@@ -339,7 +339,7 @@ public struct App {
                 await addFeedHelper(url: url)
             }
 
-            return .undefined
+            return JSValue.undefined
         }
 
         document.addEventListener!("click", clickHandler)
@@ -406,11 +406,11 @@ public struct App {
         // Debounced search input
         var searchTask: Task<Void, Never>?
 
-        let inputHandler = JSClosure { args in
+        let inputHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
                   let event = args[0].object,
                   let target = event.target.object else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Check if this is the search input (using data-search-input attribute)
@@ -418,7 +418,7 @@ public struct App {
                   let isSearchInput = datasetObj["searchInput"].string,
                   isSearchInput == "true",
                   let query = target.value.string else {
-                return .undefined
+                return JSValue.undefined
             }
 
             // Cancel previous search task
@@ -432,7 +432,7 @@ public struct App {
                 }
             }
 
-            return .undefined
+            return JSValue.undefined
         }
 
         document.addEventListener!("input", inputHandler)
