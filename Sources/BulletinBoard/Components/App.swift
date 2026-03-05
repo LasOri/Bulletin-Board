@@ -401,7 +401,6 @@ public struct App {
             }
         }
 
-        appStore.dispatch(UIAction.setAnimating(false))
         appStore.dispatch(UIAction.showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds"))
     }
 
