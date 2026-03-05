@@ -330,13 +330,13 @@ public struct App {
                   let csrfToken = csrfInput.value.string,
                   SecurityManager.shared.csrfManager.validateToken(csrfToken) else {
                 print("❌ CSRF token validation failed")
-                appStore.dispatch(UIAction.showError(message: "Security validation failed"))
+                appStore.dispatch(UIAction.showError("Security validation failed"))
                 return .undefined
             }
 
             // Dispatch add feed action
             Task {
-                await addFeedFromURL(url: url)
+                await addFeedHelper(url: url)
             }
 
             return .undefined
@@ -358,7 +358,7 @@ public struct App {
         case "toggle":
             var updated = feed
             updated.isEnabled = !updated.isEnabled
-            appStore.dispatch(FeedAction.updateFeed(updated))
+            appStore.dispatch(FeedAction.updateFeed(id: feedId, updated))
 
         case "refresh":
             Task {
