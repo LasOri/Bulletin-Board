@@ -52,13 +52,14 @@ public struct CSPConfiguration {
         }
 
         // Create CSP meta tag
-        guard let metaTag = document.createElement("meta").object else {
+        guard let metaTag = document.createElement("meta").object,
+              let setAttribute = metaTag.setAttribute.function else {
             print("⚠️ Cannot create CSP meta tag")
             return
         }
 
-        metaTag.setAttribute("http-equiv", "Content-Security-Policy")
-        metaTag.setAttribute("content", configure())
+        _ = setAttribute("http-equiv", "Content-Security-Policy")
+        _ = setAttribute("content", configure())
 
         // Add to document head
         guard let head = document.head.object,
