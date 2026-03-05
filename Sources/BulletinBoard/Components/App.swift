@@ -200,13 +200,8 @@ public struct App {
     /// Converts AnyNode array to HTML string
     private static func nodesToHTML(_ nodes: [AnyNode]) -> String {
         return nodes.map { node in
-            // Use Plot's HTML generation
-            if let element = node.node as? Element<AnyHTMLContext> {
-                return element.html()
-            } else if let text = node.node as? Text {
-                return text.content
-            }
-            return ""
+            // Use AnyNode's render method
+            return node.render()
         }.joined()
     }
 
@@ -236,7 +231,8 @@ public struct App {
             }
 
             // Get article ID
-            guard let articleId = target.dataset?.object?["articleId"].string else {
+            guard let datasetObj = target.dataset.object,
+                  let articleId = datasetObj["articleId"].string else {
                 return .undefined
             }
 
