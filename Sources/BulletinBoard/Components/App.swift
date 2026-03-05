@@ -282,7 +282,7 @@ public struct App {
             case "dismiss-toast":
                 appStore.dispatch(UIAction.clearToast)
             case "clear-search":
-                appStore.dispatch(ArticleAction.setSearchQuery(query: ""))
+                appStore.dispatch(ArticleAction.setSearchQuery(""))
             case "show-add-form":
                 // Switch to add feed mode
                 print("Show add feed form")
