@@ -266,7 +266,7 @@ public struct App {
                 return .undefined
             }
 
-            guard let action = target.dataset?.object?["action"].string else {
+            guard let action = target.dataset.object?["action"].string else {
                 return .undefined
             }
 
@@ -291,7 +291,7 @@ public struct App {
                 print("Show feed list")
             case "toggle", "refresh", "edit", "delete":
                 // Feed-specific actions
-                if let feedId = target.dataset?.object?["feedId"].string {
+                if let feedId = target.dataset.object?["feedId"].string {
                     handleFeedAction(action: action, feedId: feedId)
                 }
             default:
@@ -313,7 +313,7 @@ public struct App {
             _ = event.preventDefault!()
 
             // Check if this is the add feed form
-            guard let formAction = form.dataset?.object?["form"].string,
+            guard let formAction = form.dataset.object?["form"].string,
                   formAction == "add-feed" else {
                 return .undefined
             }

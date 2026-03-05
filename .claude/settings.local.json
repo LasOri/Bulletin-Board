@@ -26,7 +26,8 @@
       "Bash(docker:*)",
       "Bash(open:*)",
       "Bash(ps aux:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(timeout 600 docker build:*)"
     ]
   }
 }
