@@ -371,7 +371,7 @@ public struct App {
 
         case "delete":
             appStore.dispatch(FeedAction.removeFeed(id: feedId))
-            appStore.dispatch(UIAction.showToast(message: "Feed removed"))
+            appStore.dispatch(UIAction.showToast("Feed removed"))
 
         default:
             break
@@ -382,8 +382,7 @@ public struct App {
     private static func refreshAllFeeds() async {
         let feedsState = appStore.getState().feeds
 
-        appStore.dispatch(UIAction.setAnimating(true))
-        appStore.dispatch(UIAction.showToast(message: "Refreshing all feeds..."))
+        appStore.dispatch(UIAction.showToast("Refreshing all feeds..."))
 
         var totalArticles = 0
 
