@@ -61,12 +61,13 @@ public struct CSPConfiguration {
         metaTag.setAttribute("content", configure())
 
         // Add to document head
-        guard let head = document.head.object else {
+        guard let head = document.head.object,
+              let appendChild = head.appendChild.function else {
             print("⚠️ Cannot access document head")
             return
         }
 
-        _ = head.appendChild(metaTag)
+        _ = appendChild(metaTag)
         print("✅ CSP applied via meta tag")
     }
     #endif

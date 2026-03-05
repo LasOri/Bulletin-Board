@@ -14,9 +14,10 @@ let package = Package(
         )
     ],
     dependencies: [
-        // LINKER Framework
-        // Use GitHub URL for CI, works locally too
-        .package(url: "https://github.com/LasOri/LINKER.git", branch: "main")
+        // LINKER Framework - use local path
+        .package(path: "../LINKER"),
+        // Carton for WASM build plugins (modern SwiftPM plugin approach)
+        .package(url: "https://github.com/swiftwasm/carton", from: "1.1.0")
     ],
     targets: [
         .executableTarget(
