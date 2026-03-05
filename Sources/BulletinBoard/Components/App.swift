@@ -243,7 +243,7 @@ public struct App {
             case "mark-read":
                 appStore.dispatch(ArticleAction.markAsRead(id: articleId))
             case "article-click":
-                appStore.dispatch(UIAction.toggleArticleExpand(id: articleId))
+                appStore.dispatch(UIAction.expandArticle(id: articleId))
             default:
                 break
             }
