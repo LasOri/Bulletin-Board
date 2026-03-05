@@ -255,9 +255,27 @@ public struct FeedManager {
         }
 
         if let lastFetch = feed.lastSuccessfulFetch {
+            #if !arch(wasm32)
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .short
             let timeAgo = formatter.localizedString(for: lastFetch, relativeTo: Date())
+            #else
+            // WASM: Simple time ago calculation
+            let seconds = Date().timeIntervalSince(lastFetch)
+            let timeAgo: String
+            if seconds < 60 {
+                timeAgo = "just now"
+            } else if seconds < 3600 {
+                let minutes = Int(seconds / 60)
+                timeAgo = "\(minutes)m ago"
+            } else if seconds < 86400 {
+                let hours = Int(seconds / 3600)
+                timeAgo = "\(hours)h ago"
+            } else {
+                let days = Int(seconds / 86400)
+                timeAgo = "\(days)d ago"
+            }
+            #endif
             stats.append("Updated \(timeAgo)")
         }
 
