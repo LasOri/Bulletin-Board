@@ -226,13 +226,13 @@ public struct App {
             }
 
             // Check for data-action attribute
-            guard let action = target.dataset?.object?["action"].string else {
+            guard let datasetObj = target.dataset.object,
+                  let action = datasetObj["action"].string else {
                 return .undefined
             }
 
             // Get article ID
-            guard let datasetObj = target.dataset.object,
-                  let articleId = datasetObj["articleId"].string else {
+            guard let articleId = datasetObj["articleId"].string else {
                 return .undefined
             }
 
