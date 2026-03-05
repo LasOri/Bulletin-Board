@@ -434,7 +434,7 @@ public struct App {
             searchTask = Task {
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 if !Task.isCancelled {
-                    appStore.dispatch(ArticleAction.setSearchQuery(query: query))
+                    appStore.dispatch(ArticleAction.setSearchQuery(query))
                 }
             }
 
