@@ -402,7 +402,7 @@ public struct App {
         }
 
         appStore.dispatch(UIAction.setAnimating(false))
-        appStore.dispatch(UIAction.showToast(message: "Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds"))
+        appStore.dispatch(UIAction.showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds"))
     }
 
     // MARK: - Search Event Handlers
@@ -420,7 +420,8 @@ public struct App {
             }
 
             // Check if this is the search input (using data-search-input attribute)
-            guard let isSearchInput = target.dataset?.object?["searchInput"].string,
+            guard let datasetObj = target.dataset.object,
+                  let isSearchInput = datasetObj["searchInput"].string,
                   isSearchInput == "true",
                   let query = target.value.string else {
                 return .undefined
