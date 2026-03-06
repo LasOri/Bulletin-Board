@@ -15,6 +15,7 @@ public struct App {
     private static let feedService = FeedService()
     private static let storageService = StorageService()
     private static let searchService = SearchService()
+    private static let nlpService = NLPService()
 
     // MARK: - Main Entry Point
 
@@ -71,6 +72,9 @@ public struct App {
 
         // Index articles for search
         await indexArticlesForSearch()
+
+        // Process articles with NLP
+        await processArticlesWithNLP()
 
         // Setup reactive effects
         setupReactiveEffects()
@@ -154,6 +158,29 @@ public struct App {
             let termCount = await searchService.termCount()
             print("  ✓ Indexed \(termCount) unique terms")
         }
+    }
+
+    /// Processes unprocessed articles through the NLP pipeline.
+    private static func processArticlesWithNLP() async {
+        let articles = appStore.getState().articles.articles
+        let unprocessed = articles.filter { !$0.isNLPProcessed }
+        guard !unprocessed.isEmpty else { return }
+
+        print("🧠 Processing \(unprocessed.count) articles with NLP...")
+
+        await nlpService.buildCorpus(from: articles)
+        let results = await nlpService.processArticles(unprocessed)
+
+        let updates = results.map { result in
+            (id: result.articleId,
+             summary: result.summary,
+             keywords: result.keywords,
+             category: result.category,
+             sentiment: nil as Double?,
+             cluster: nil as Int?)
+        }
+        appStore.dispatch(ArticleAction.batchUpdateNLP(updates))
+        print("  ✓ NLP processing complete for \(results.count) articles")
     }
 
     // MARK: - UI Mounting
@@ -869,6 +896,15 @@ public struct App {
             print("📊 State updated: \(articleCount) articles, \(unreadCount) unread")
         })
 
+        // Effect: Auto-process new articles with NLP
+        _ = Effect(execute: {
+            let articles = articlesSignal.get().articles
+            let unprocessed = articles.filter { !$0.isNLPProcessed }
+            if !unprocessed.isEmpty {
+                Task { await processArticlesWithNLP() }
+            }
+        })
+
         print("⚡ Reactive effects initialized")
     }
 
@@ -879,7 +915,8 @@ public struct App {
         Services(
             feed: feedService,
             storage: storageService,
-            search: searchService
+            search: searchService,
+            nlp: nlpService
         )
     }
 
@@ -888,5 +925,6 @@ public struct App {
         public let feed: FeedService
         public let storage: StorageService
         public let search: SearchService
+        public let nlp: NLPService
     }
 }

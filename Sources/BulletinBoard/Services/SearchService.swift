@@ -201,19 +201,8 @@ public actor SearchService {
 
     // MARK: - Private Methods
 
-    /// Extracts searchable terms from text.
-    /// Tokenizes, lowercases, and filters out stop words.
+    /// Extracts searchable terms from text using shared TextProcessor.
     private func extractTerms(from text: String) -> [String] {
-        let stopWords = Set([
-            "a", "an", "and", "are", "as", "at", "be", "by", "for",
-            "from", "has", "he", "in", "is", "it", "its", "of", "on",
-            "that", "the", "to", "was", "will", "with"
-        ])
-
-        return text
-            .lowercased()
-            .components(separatedBy: .whitespacesAndNewlines)
-            .map { $0.trimmingCharacters(in: .punctuationCharacters) }
-            .filter { !$0.isEmpty && $0.count > 2 && !stopWords.contains($0) }
+        TextProcessor.extractTerms(from: text)
     }
 }
