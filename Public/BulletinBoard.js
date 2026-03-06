@@ -672,7 +672,52 @@ function createBJSStubs() {
 // ============================================================
 
 function createWASI(getMemory) {
+    // ENOSYS=52, EBADF=8
     return {
+        // Arguments
+        args_get: () => 0,
+        args_sizes_get: (argc, argvBufSize) => {
+            const view = new DataView(getMemory().buffer);
+            view.setUint32(argc, 0, true);
+            view.setUint32(argvBufSize, 0, true);
+            return 0;
+        },
+
+        // Environment
+        environ_get: () => 0,
+        environ_sizes_get: (environc, environBufSize) => {
+            const view = new DataView(getMemory().buffer);
+            view.setUint32(environc, 0, true);
+            view.setUint32(environBufSize, 0, true);
+            return 0;
+        },
+
+        // Clock
+        clock_res_get: (clockId, resolution) => {
+            const view = new DataView(getMemory().buffer);
+            view.setBigUint64(resolution, 1000000n, true);
+            return 0;
+        },
+        clock_time_get: (clockId, precision, timestamp) => {
+            const view = new DataView(getMemory().buffer);
+            const now = BigInt(Date.now()) * 1000000n;
+            view.setBigUint64(timestamp, now, true);
+            return 0;
+        },
+
+        // File descriptor operations
+        fd_close: () => 0,
+        fd_fdstat_get: () => 0,
+        fd_filestat_get: () => 8,
+        fd_filestat_set_size: () => 8,
+        fd_pread: () => 8,
+        fd_prestat_get: () => 8,
+        fd_prestat_dir_name: () => 8,
+        fd_read: () => 0,
+        fd_readdir: () => 8,
+        fd_seek: () => 0,
+        fd_sync: () => 0,
+        fd_tell: () => 8,
         fd_write: (fd, iovs, iovsLen, nwritten) => {
             const memory = getMemory();
             if (fd === 1 || fd === 2) {
@@ -691,57 +736,34 @@ function createWASI(getMemory) {
             }
             return 8;
         },
-        fd_read: () => 0,
-        fd_close: () => 0,
-        fd_seek: () => 0,
-        fd_fdstat_get: () => 0,
-        fd_fdstat_set_flags: () => 0,
-        fd_prestat_get: () => 8,
-        fd_prestat_dir_name: () => 8,
-        path_open: () => 8,
-        path_filestat_get: () => 8,
+
+        // Path operations
         path_create_directory: () => 8,
+        path_filestat_get: () => 8,
+        path_filestat_set_times: () => 8,
+        path_link: () => 8,
+        path_open: () => 8,
+        path_readlink: () => 8,
         path_remove_directory: () => 8,
+        path_rename: () => 8,
+        path_symlink: () => 8,
         path_unlink_file: () => 8,
+
+        // Poll
+        poll_oneoff: () => 0,
+
+        // Process
         proc_exit: (code) => {
             console.log(`Process exited with code: ${code}`);
             throw new Error(`WASM process exited: ${code}`);
         },
-        environ_sizes_get: (environc, environBufSize) => {
-            const view = new DataView(getMemory().buffer);
-            view.setUint32(environc, 0, true);
-            view.setUint32(environBufSize, 0, true);
-            return 0;
-        },
-        environ_get: () => 0,
-        clock_res_get: (clockId, resolution) => {
-            const view = new DataView(getMemory().buffer);
-            view.setBigUint64(resolution, 1000000n, true); // 1ms resolution in nanoseconds
-            return 0;
-        },
-        clock_time_get: (clockId, precision, timestamp) => {
-            const view = new DataView(getMemory().buffer);
-            const now = BigInt(Date.now()) * 1000000n;
-            view.setBigUint64(timestamp, now, true);
-            return 0;
-        },
+
+        // Random
         random_get: (buf, bufLen) => {
             const bytes = new Uint8Array(getMemory().buffer, buf, bufLen);
             crypto.getRandomValues(bytes);
             return 0;
         },
-        args_sizes_get: (argc, argvBufSize) => {
-            const view = new DataView(getMemory().buffer);
-            view.setUint32(argc, 0, true);
-            view.setUint32(argvBufSize, 0, true);
-            return 0;
-        },
-        args_get: () => 0,
-        poll_oneoff: () => 0,
-        sock_accept: () => 58,
-        sock_recv: () => 58,
-        sock_send: () => 58,
-        sock_shutdown: () => 58,
     };
 }
 
@@ -783,9 +805,37 @@ export async function startWasmApp() {
 
         console.log('WASM module instantiated');
 
-        // Use reactor ABI: setInstance + main
-        swift.setInstance(wasmInstance);
-        swift.main();
+        // Detect ABI and start accordingly
+        if (typeof wasmInstance.exports._start === 'function') {
+            // Command ABI: wire up SwiftRuntime manually, then call _start
+            // (SwiftRuntime.setInstance rejects _start, so we bypass it)
+            swift._instance = wasmInstance;
+            const wasmMem = wasmInstance.exports.memory;
+            if (wasmMem instanceof WebAssembly.Memory) {
+                let dv = new DataView(wasmMem.buffer);
+                let u8 = new Uint8Array(wasmMem.buffer);
+                swift.getDataView = () => {
+                    if (dv.buffer.byteLength === 0) dv = new DataView(wasmMem.buffer);
+                    return dv;
+                };
+                swift.getUint8Array = () => {
+                    if (u8.byteLength === 0) u8 = new Uint8Array(wasmMem.buffer);
+                    return u8;
+                };
+                swift.wasmMemory = wasmMem;
+            }
+            try {
+                wasmInstance.exports._start();
+            } catch (e) {
+                if (e instanceof swift.UnsafeEventLoopYield) { /* expected */ }
+                else if (e.message && e.message.includes('WASM process exited: 0')) { /* clean exit */ }
+                else throw e;
+            }
+        } else {
+            // Reactor ABI: use standard setInstance + main
+            swift.setInstance(wasmInstance);
+            swift.main();
+        }
 
         console.log('Bulletin Board started successfully');
 
