@@ -1,8 +1,0 @@
-.swiftpm
-.build
-Bundle
-dist
-*.md
-.git
-.github
-.DS_Store
