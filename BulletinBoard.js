@@ -714,6 +714,11 @@ function createWASI(getMemory) {
             return 0;
         },
         environ_get: () => 0,
+        clock_res_get: (clockId, resolution) => {
+            const view = new DataView(getMemory().buffer);
+            view.setBigUint64(resolution, 1000000n, true); // 1ms resolution in nanoseconds
+            return 0;
+        },
         clock_time_get: (clockId, precision, timestamp) => {
             const view = new DataView(getMemory().buffer);
             const now = BigInt(Date.now()) * 1000000n;
@@ -752,15 +757,6 @@ export async function startWasmApp() {
     console.log('Loading WASM binary...');
 
     try {
-        // Fetch WASM binary
-        const response = await fetch('BulletinBoard.wasm');
-        if (!response.ok) {
-            throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
-        }
-
-        const wasmBytes = await response.arrayBuffer();
-        console.log(`WASM binary loaded (${(wasmBytes.byteLength / 1024 / 1024).toFixed(2)} MB)`);
-
         // Create SwiftRuntime instance
         const swift = new SwiftRuntime();
 
@@ -775,8 +771,10 @@ export async function startWasmApp() {
             wasi_snapshot_preview1: createWASI(getMemory),
         };
 
-        console.log('Instantiating WASM module...');
-        const wasmModule = await WebAssembly.instantiate(wasmBytes, importObject);
+        // Use streaming instantiation — compiles while downloading (much faster for large binaries)
+        console.log('Fetching & compiling WASM module (streaming)...');
+        const response = fetch('BulletinBoard.wasm');
+        const wasmModule = await WebAssembly.instantiateStreaming(response, importObject);
         wasmInstance = wasmModule.instance;
 
         // Get memory exported by WASM (not manually created)
