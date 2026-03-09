@@ -659,12 +659,198 @@ class SwiftRuntime {
 }
 
 // ============================================================
-// BridgeJS stub namespace
+// BridgeJS runtime (stack-based ABI from JavaScriptKit 0.46.5)
 // ============================================================
 
-function createBJSStubs() {
-    const noop = () => { throw new Error("Unexpected BridgeJS call — no @JS exported types in this module"); };
-    return new Proxy({}, { get: () => noop });
+function createBJSRuntime(swift) {
+    // Variable declarations matching BridgeJSLink generated code
+    let memory;        // bound later via setInstance()
+    const textDecoder = new TextDecoder("utf-8");
+    const textEncoder = new TextEncoder("utf-8");
+    let tmpRetString;
+    let tmpRetBytes;
+    let tmpRetException;
+    let tmpRetOptionalBool;
+    let tmpRetOptionalInt;
+    let tmpRetOptionalFloat;
+    let tmpRetOptionalDouble;
+    let tmpRetOptionalHeapObject;
+    let strStack = [];
+    let i32Stack = [];
+    let f32Stack = [];
+    let f64Stack = [];
+    let ptrStack = [];
+
+    const bjs = {};
+
+    // --- String / memory operations ---
+    bjs["swift_js_return_string"] = function(ptr, len) {
+        const bytes = new Uint8Array(memory.buffer, ptr, len);
+        tmpRetString = textDecoder.decode(bytes);
+    };
+    bjs["swift_js_init_memory"] = function(sourceId, bytesPtr) {
+        const source = swift.memory.getObject(sourceId);
+        swift.memory.release(sourceId);
+        const bytes = new Uint8Array(memory.buffer, bytesPtr);
+        bytes.set(source);
+    };
+    bjs["swift_js_make_js_string"] = function(ptr, len) {
+        const bytes = new Uint8Array(memory.buffer, ptr, len);
+        return swift.memory.retain(textDecoder.decode(bytes));
+    };
+    bjs["swift_js_init_memory_with_result"] = function(ptr, len) {
+        const target = new Uint8Array(memory.buffer, ptr, len);
+        target.set(tmpRetBytes);
+        tmpRetBytes = undefined;
+    };
+
+    // --- Exception / reference management ---
+    bjs["swift_js_throw"] = function(id) {
+        tmpRetException = swift.memory.retainByRef(id);
+    };
+    bjs["swift_js_retain"] = function(id) {
+        return swift.memory.retainByRef(id);
+    };
+    bjs["swift_js_release"] = function(id) {
+        swift.memory.release(id);
+    };
+
+    // --- Stack push operations ---
+    bjs["swift_js_push_i32"] = function(v) {
+        i32Stack.push(v | 0);
+    };
+    bjs["swift_js_push_f32"] = function(v) {
+        f32Stack.push(Math.fround(v));
+    };
+    bjs["swift_js_push_f64"] = function(v) {
+        f64Stack.push(v);
+    };
+    bjs["swift_js_push_string"] = function(ptr, len) {
+        const bytes = new Uint8Array(memory.buffer, ptr, len);
+        const value = textDecoder.decode(bytes);
+        strStack.push(value);
+    };
+    bjs["swift_js_push_pointer"] = function(pointer) {
+        ptrStack.push(pointer);
+    };
+
+    // --- Stack pop operations ---
+    bjs["swift_js_pop_i32"] = function() {
+        return i32Stack.pop();
+    };
+    bjs["swift_js_pop_f32"] = function() {
+        return f32Stack.pop();
+    };
+    bjs["swift_js_pop_f64"] = function() {
+        return f64Stack.pop();
+    };
+    bjs["swift_js_pop_pointer"] = function() {
+        return ptrStack.pop();
+    };
+
+    // --- Optional return helpers ---
+    bjs["swift_js_return_optional_bool"] = function(isSome, value) {
+        if (isSome === 0) {
+            tmpRetOptionalBool = null;
+        } else {
+            tmpRetOptionalBool = value !== 0;
+        }
+    };
+    bjs["swift_js_return_optional_int"] = function(isSome, value) {
+        if (isSome === 0) {
+            tmpRetOptionalInt = null;
+        } else {
+            tmpRetOptionalInt = value | 0;
+        }
+    };
+    bjs["swift_js_return_optional_float"] = function(isSome, value) {
+        if (isSome === 0) {
+            tmpRetOptionalFloat = null;
+        } else {
+            tmpRetOptionalFloat = Math.fround(value);
+        }
+    };
+    bjs["swift_js_return_optional_double"] = function(isSome, value) {
+        if (isSome === 0) {
+            tmpRetOptionalDouble = null;
+        } else {
+            tmpRetOptionalDouble = value;
+        }
+    };
+    bjs["swift_js_return_optional_string"] = function(isSome, ptr, len) {
+        if (isSome === 0) {
+            tmpRetString = null;
+        } else {
+            const bytes = new Uint8Array(memory.buffer, ptr, len);
+            tmpRetString = textDecoder.decode(bytes);
+        }
+    };
+    bjs["swift_js_return_optional_object"] = function(isSome, objectId) {
+        if (isSome === 0) {
+            tmpRetString = null;
+        } else {
+            tmpRetString = swift.memory.getObject(objectId);
+        }
+    };
+    bjs["swift_js_return_optional_heap_object"] = function(isSome, pointer) {
+        if (isSome === 0) {
+            tmpRetOptionalHeapObject = null;
+        } else {
+            tmpRetOptionalHeapObject = pointer;
+        }
+    };
+
+    // --- Optional getter helpers ---
+    bjs["swift_js_get_optional_int_presence"] = function() {
+        return tmpRetOptionalInt != null ? 1 : 0;
+    };
+    bjs["swift_js_get_optional_int_value"] = function() {
+        const value = tmpRetOptionalInt;
+        tmpRetOptionalInt = undefined;
+        return value;
+    };
+    bjs["swift_js_get_optional_string"] = function() {
+        const str = tmpRetString;
+        tmpRetString = undefined;
+        if (str == null) {
+            return -1;
+        } else {
+            const bytes = textEncoder.encode(str);
+            tmpRetBytes = bytes;
+            return bytes.length;
+        }
+    };
+    bjs["swift_js_get_optional_float_presence"] = function() {
+        return tmpRetOptionalFloat != null ? 1 : 0;
+    };
+    bjs["swift_js_get_optional_float_value"] = function() {
+        const value = tmpRetOptionalFloat;
+        tmpRetOptionalFloat = undefined;
+        return value;
+    };
+    bjs["swift_js_get_optional_double_presence"] = function() {
+        return tmpRetOptionalDouble != null ? 1 : 0;
+    };
+    bjs["swift_js_get_optional_double_value"] = function() {
+        const value = tmpRetOptionalDouble;
+        tmpRetOptionalDouble = undefined;
+        return value;
+    };
+    bjs["swift_js_get_optional_heap_object_pointer"] = function() {
+        const pointer = tmpRetOptionalHeapObject;
+        tmpRetOptionalHeapObject = undefined;
+        return pointer || 0;
+    };
+
+    // --- Closure management (no-op default) ---
+    bjs["swift_js_closure_unregister"] = function(funcRef) {};
+
+    return {
+        imports: bjs,
+        setInstance: (instance) => {
+            memory = instance.exports.memory;
+        },
+    };
 }
 
 // ============================================================
@@ -782,6 +968,9 @@ export async function startWasmApp() {
         // Create SwiftRuntime instance
         const swift = new SwiftRuntime();
 
+        // Create BridgeJS runtime (memory bound after instantiation)
+        const bjsRuntime = createBJSRuntime(swift);
+
         // Memory accessor — resolved after instantiation from WASM exports
         let resolvedMemory = null;
         const getMemory = () => resolvedMemory;
@@ -789,7 +978,7 @@ export async function startWasmApp() {
         // Build import object with all required namespaces
         const importObject = {
             javascript_kit: swift.wasmImports,
-            bjs: createBJSStubs(),
+            bjs: bjsRuntime.imports,
             wasi_snapshot_preview1: createWASI(getMemory),
         };
 
@@ -824,6 +1013,7 @@ export async function startWasmApp() {
                 };
                 swift.wasmMemory = wasmMem;
             }
+            bjsRuntime.setInstance(wasmInstance);
             try {
                 wasmInstance.exports._start();
             } catch (e) {
@@ -832,8 +1022,12 @@ export async function startWasmApp() {
                 else throw e;
             }
         } else {
-            // Reactor ABI: use standard setInstance + main
+            // Reactor ABI: setInstance, call _initialize, then main
             swift.setInstance(wasmInstance);
+            bjsRuntime.setInstance(wasmInstance);
+            if (typeof wasmInstance.exports._initialize === 'function') {
+                wasmInstance.exports._initialize();
+            }
             swift.main();
         }
 

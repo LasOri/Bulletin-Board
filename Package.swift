@@ -16,6 +16,8 @@ let package = Package(
     dependencies: [
         // LINKER Framework - use local path
         .package(path: "../LINKER"),
+        // JavaScriptKit for JavaScriptEventLoop (async executor for WASM)
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.46.0"),
         // Carton for WASM build plugins (modern SwiftPM plugin approach)
         .package(url: "https://github.com/swiftwasm/carton", from: "1.1.0")
     ],
@@ -23,7 +25,8 @@ let package = Package(
         .executableTarget(
             name: "BulletinBoard",
             dependencies: [
-                .product(name: "LINKER", package: "LINKER")
+                .product(name: "LINKER", package: "LINKER"),
+                .product(name: "JavaScriptEventLoop", package: "JavaScriptKit")
             ],
             swiftSettings: [
                 .enableUpcomingFeature("BareSlashRegexLiterals")

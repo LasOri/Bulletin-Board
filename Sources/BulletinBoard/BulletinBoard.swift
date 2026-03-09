@@ -1,5 +1,6 @@
 import Foundation
 import LINKER
+import JavaScriptEventLoop
 
 /// The main entry point for Bulletin Board application.
 ///
@@ -8,6 +9,8 @@ import LINKER
 @main
 struct BulletinBoard {
     static func main() async {
+        JavaScriptEventLoop.installGlobalExecutor()
+
         print("🗞️ Bulletin Board - News Feed Reader")
         print("Built with LINKER Framework")
         print("https://github.com/LasOri/LINKER")
