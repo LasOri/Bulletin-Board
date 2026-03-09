@@ -915,16 +915,18 @@ function createWASI(getMemory) {
             const memory = getMemory();
             if (fd === 1 || fd === 2) {
                 let text = '';
+                let totalBytes = 0;
                 const view = new DataView(memory.buffer);
                 for (let i = 0; i < iovsLen; i++) {
                     const offset = iovs + i * 8;
                     const buf = view.getUint32(offset, true);
                     const bufLen = view.getUint32(offset + 4, true);
+                    totalBytes += bufLen;
                     const bytes = new Uint8Array(memory.buffer, buf, bufLen);
                     text += new TextDecoder().decode(bytes);
                 }
                 if (fd === 1) { console.log(text); } else { console.error(text); }
-                view.setUint32(nwritten, text.length, true);
+                view.setUint32(nwritten, totalBytes, true);
                 return 0;
             }
             return 8;
