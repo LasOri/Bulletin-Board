@@ -1031,7 +1031,6 @@ export async function startWasmApp() {
             swift.main();
             console.log('[startup] swift.main() done');
         }
-        }
 
         console.log('Bulletin Board started successfully');
 
