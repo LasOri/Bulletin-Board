@@ -900,7 +900,19 @@ function createWASI(getMemory) {
 
         // File descriptor operations
         fd_close: () => 0,
-        fd_fdstat_get: () => 0,
+        fd_fdstat_get: (fd, statBuf) => {
+            // Write fdstat struct: filetype(u8) + flags(u16) + rights_base(u64) + rights_inheriting(u64)
+            const view = new DataView(getMemory().buffer);
+            // filetype: 2 = character device (stdout/stderr)
+            view.setUint8(statBuf, fd <= 2 ? 2 : 4);
+            // fdflags: 1 = append for stdout/stderr
+            view.setUint16(statBuf + 2, fd <= 2 ? 1 : 0, true);
+            // rights_base: all rights
+            view.setBigUint64(statBuf + 8, BigInt("0xFFFFFFFFFFFFFFFF"), true);
+            // rights_inheriting: all rights
+            view.setBigUint64(statBuf + 16, BigInt("0xFFFFFFFFFFFFFFFF"), true);
+            return 0;
+        },
         fd_filestat_get: () => 8,
         fd_filestat_set_size: () => 8,
         fd_pread: () => 8,
@@ -925,6 +937,7 @@ function createWASI(getMemory) {
                     const bytes = new Uint8Array(memory.buffer, buf, bufLen);
                     text += new TextDecoder().decode(bytes);
                 }
+                console.log(`[fd_write] fd=${fd} iovsLen=${iovsLen} totalBytes=${totalBytes} text=${JSON.stringify(text)}`);
                 if (fd === 1) { console.log(text); } else { console.error(text); }
                 view.setUint32(nwritten, totalBytes, true);
                 return 0;
