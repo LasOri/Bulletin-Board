@@ -288,9 +288,6 @@ class SwiftRuntime {
         } else {
             throw new Error("instance.exports.memory is not a WebAssembly.Memory!?");
         }
-        if (typeof this.exports._start === "function") {
-            throw new Error("JavaScriptKit supports only WASI reactor ABI. Please make sure you are building with: -Xswiftc -Xclang-linker -Xswiftc -mexec-model=reactor");
-        }
         if (this.exports.swjs_library_version() != this.version) {
             throw new Error(`The versions of JavaScriptKit are incompatible. WebAssembly runtime ${this.exports.swjs_library_version()} != JS runtime ${this.version}`);
         }
@@ -994,37 +991,22 @@ export async function startWasmApp() {
 
         console.log('WASM module instantiated');
 
-        // Detect ABI and start accordingly
+        // Wire up JavaScriptKit runtime and BridgeJS runtime
+        swift.setInstance(wasmInstance);
+        bjsRuntime.setInstance(wasmInstance);
+
+        // Start the application
         if (typeof wasmInstance.exports._start === 'function') {
-            // Command ABI: wire up SwiftRuntime manually, then call _start
-            // (SwiftRuntime.setInstance rejects _start, so we bypass it)
-            swift._instance = wasmInstance;
-            const wasmMem = wasmInstance.exports.memory;
-            if (wasmMem instanceof WebAssembly.Memory) {
-                let dv = new DataView(wasmMem.buffer);
-                let u8 = new Uint8Array(wasmMem.buffer);
-                swift.getDataView = () => {
-                    if (dv.buffer.byteLength === 0) dv = new DataView(wasmMem.buffer);
-                    return dv;
-                };
-                swift.getUint8Array = () => {
-                    if (u8.byteLength === 0) u8 = new Uint8Array(wasmMem.buffer);
-                    return u8;
-                };
-                swift.wasmMemory = wasmMem;
-            }
-            bjsRuntime.setInstance(wasmInstance);
+            // Command ABI: _start calls _initialize + main
             try {
                 wasmInstance.exports._start();
             } catch (e) {
-                if (e instanceof swift.UnsafeEventLoopYield) { /* expected */ }
+                if (e instanceof swift.UnsafeEventLoopYield) { /* expected for async main */ }
                 else if (e.message && e.message.includes('WASM process exited: 0')) { /* clean exit */ }
                 else throw e;
             }
         } else {
-            // Reactor ABI: setInstance, call _initialize, then main
-            swift.setInstance(wasmInstance);
-            bjsRuntime.setInstance(wasmInstance);
+            // Reactor ABI: call _initialize, then main
             if (typeof wasmInstance.exports._initialize === 'function') {
                 wasmInstance.exports._initialize();
             }
