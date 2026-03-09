@@ -30,6 +30,9 @@ let package = Package(
             ],
             swiftSettings: [
                 .enableUpcomingFeature("BareSlashRegexLiterals")
+            ],
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "--export=__main_argc_argv"])
             ]
         ),
         .testTarget(
