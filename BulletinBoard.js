@@ -987,6 +987,18 @@ function createWASI(getMemory) {
 export async function startWasmApp() {
     console.log('Loading WASM binary...');
 
+    // Catch unhandled promise rejections from microtask callbacks
+    // (e.g. promise.then inside JavaScriptEventLoop's job queue)
+    window.addEventListener('unhandledrejection', (event) => {
+        if (event.reason instanceof UnsafeEventLoopYield) {
+            // Expected: async main yielding control to JS event loop
+            console.log('[event-loop] UnsafeEventLoopYield caught in promise — this is expected');
+            event.preventDefault();
+            return;
+        }
+        console.error('[unhandledrejection] Promise rejected:', event.reason);
+    });
+
     try {
         // Create SwiftRuntime instance
         const swift = new SwiftRuntime();
