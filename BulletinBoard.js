@@ -344,7 +344,6 @@ class SwiftRuntime {
         return this._closureDeallocator;
     }
     callHostFunction(host_func_id, line, file, args) {
-        console.log(`[callHostFunction] id=${host_func_id} file=${file} line=${line} argc=${args.length}`);
         const argc = args.length;
         const argv = this.exports.swjs_prepare_host_function_call(argc);
         const memory = this.memory;
@@ -519,7 +518,6 @@ class SwiftRuntime {
             },
             swjs_create_function: (host_func_id, line, file) => {
                 const fileString = this.memory.getObject(file);
-                console.log(`[swjs_create_function] id=${host_func_id} file=${fileString} line=${line}`);
                 const func = (...args) => this.callHostFunction(host_func_id, line, fileString, args);
                 const func_ref = this.memory.retain(func);
                 this.closureDeallocator?.track(func, host_func_id);
@@ -527,7 +525,6 @@ class SwiftRuntime {
             },
             swjs_create_oneshot_function: (host_func_id, line, file) => {
                 const fileString = this.memory.getObject(file);
-                console.log(`[swjs_create_oneshot_function] id=${host_func_id} file=${fileString} line=${line}`);
                 const func = (...args) => this.callHostFunction(host_func_id, line, fileString, args);
                 const func_ref = this.memory.retain(func);
                 return func_ref;
@@ -916,9 +913,9 @@ function createWASI(getMemory) {
             view.setBigUint64(statBuf + 16, BigInt("0xFFFFFFFFFFFFFFFF"), true);
             return 0;
         },
+        fd_fdstat_set_flags: () => 0,
         fd_filestat_get: () => 8,
         fd_filestat_set_size: () => 8,
-        fd_fdstat_set_flags: () => 0,
         fd_pread: () => 8,
         fd_prestat_get: () => 8,
         fd_prestat_dir_name: () => 8,
@@ -1064,22 +1061,6 @@ export async function startWasmApp() {
         }
 
         console.log('Bulletin Board started successfully');
-
-        // Diagnostic: Check if JS microtasks and event loop work after WASM startup
-        Promise.resolve().then(() => {
-            console.log('[diag] Promise microtask fired — JS event loop is working');
-        });
-        queueMicrotask(() => {
-            console.log('[diag] queueMicrotask fired — microtask queue is working');
-        });
-        setTimeout(() => {
-            console.log('[diag] setTimeout(0) fired — macro task queue is working');
-            console.log('[diag] Checking if #app still has loading class...');
-            const app = document.getElementById('app');
-            if (app) {
-                console.log('[diag] #app innerHTML:', app.innerHTML.substring(0, 200));
-            }
-        }, 100);
 
     } catch (error) {
         console.error('Failed to load WASM:', error);
