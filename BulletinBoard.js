@@ -918,6 +918,7 @@ function createWASI(getMemory) {
         },
         fd_filestat_get: () => 8,
         fd_filestat_set_size: () => 8,
+        fd_fdstat_set_flags: () => 0,
         fd_pread: () => 8,
         fd_prestat_get: () => 8,
         fd_prestat_dir_name: () => 8,
