@@ -519,6 +519,7 @@ class SwiftRuntime {
             },
             swjs_create_function: (host_func_id, line, file) => {
                 const fileString = this.memory.getObject(file);
+                console.log(`[swjs_create_function] id=${host_func_id} file=${fileString} line=${line}`);
                 const func = (...args) => this.callHostFunction(host_func_id, line, fileString, args);
                 const func_ref = this.memory.retain(func);
                 this.closureDeallocator?.track(func, host_func_id);
@@ -526,6 +527,7 @@ class SwiftRuntime {
             },
             swjs_create_oneshot_function: (host_func_id, line, file) => {
                 const fileString = this.memory.getObject(file);
+                console.log(`[swjs_create_oneshot_function] id=${host_func_id} file=${fileString} line=${line}`);
                 const func = (...args) => this.callHostFunction(host_func_id, line, fileString, args);
                 const func_ref = this.memory.retain(func);
                 return func_ref;
