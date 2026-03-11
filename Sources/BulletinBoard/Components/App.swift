@@ -4,6 +4,28 @@ import LINKER
 import JavaScriptKit
 #endif
 
+// MARK: - App Log Features
+
+/// Application-specific log features for structured LINKER logging.
+public enum AppLogFeature: LogFeature {
+    case startup
+    case security
+    case data
+    case nlp
+    case ui
+
+    public var name: String {
+        switch self {
+        case .startup: return "APP.STARTUP"
+        case .security: return "APP.SECURITY"
+        case .data: return "APP.DATA"
+        case .nlp: return "APP.NLP"
+        case .ui: return "APP.UI"
+        }
+    }
+    public var parent: LogFeature? { nil }
+}
+
 /// Root application component.
 ///
 /// Initializes the Redux store, connects services, loads persisted data,
@@ -20,11 +42,14 @@ public struct App {
     // MARK: - Main Entry Point
 
     public static func main() async {
-        print("🗞️ Bulletin Board - Starting...")
+        // Configure LINKER logging
+        await Logger.shared.configureForDevelopment()
+        await Logger.shared.info(AppLogFeature.startup, "Bulletin Board starting...")
 
         // ============================================
         // SECURITY: Enable ALL LINKER security features
         // ============================================
+        await Logger.shared.info(AppLogFeature.security, "Enabling security features...")
         do {
             try await LINKERSecurity.enableAllSecurity(
                 htmlPolicy: .moderate,              // Allow some HTML formatting in feeds
@@ -53,9 +78,11 @@ public struct App {
             print("   ✅ HTTPS Enforcement (secure connections)")
             print("   ✅ WebAuthn Hardware-Backed Encryption")
             print("   ✅ Content Security Policy")
+            await Logger.shared.info(AppLogFeature.security, "All security features enabled")
         } catch {
             print("⚠️  Security initialization failed: \(error)")
             print("⚠️  Running with REDUCED security - manual intervention required")
+            await Logger.shared.error(AppLogFeature.security, "Security initialization failed: \(error)")
             // Note: App will still function but with reduced security
         }
 
@@ -68,24 +95,29 @@ public struct App {
         #endif
 
         // Load persisted data
+        await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
         await loadPersistedData()
 
         // Index articles for search
+        await Logger.shared.info(AppLogFeature.data, "Indexing articles for search...")
         await indexArticlesForSearch()
 
         // Process articles with NLP
+        await Logger.shared.info(AppLogFeature.nlp, "Processing articles with NLP...")
         await processArticlesWithNLP()
 
         // Setup reactive effects
         setupReactiveEffects()
 
         // Mount UI
+        await Logger.shared.info(AppLogFeature.ui, "Mounting UI...")
         #if canImport(JavaScriptKit)
         mountUI()
         #else
         print("✅ Bulletin Board initialized (no UI in non-WASM environment)")
         #endif
 
+        await Logger.shared.info(AppLogFeature.startup, "Bulletin Board ready!")
         print("✅ Bulletin Board ready!")
     }
 
@@ -219,9 +251,15 @@ public struct App {
 
     /// Renders the main view to the DOM
     private static func renderToDOM(rootElement: JSObject) {
+        // Cleanup previous GPU effects before replacing DOM
+        LifecycleRegistry.shared.triggerAllUnmounts()
+
         let nodes = MainView()
         let html = nodesToHTML(nodes)
         rootElement.innerHTML = JSValue.string(html)
+
+        // Initialize GPU effects now that canvas elements are in the DOM
+        LifecycleRegistry.shared.triggerAllMounts()
     }
 
     /// Converts AnyNode array to HTML string
@@ -252,14 +290,15 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Check for data-action attribute
-            guard let datasetObj = target.dataset.object,
-                  let action = datasetObj["action"].string else {
+            // Walk up the DOM tree to find the element with data-action
+            guard let actionEl = target.closest!("[data-action]").object,
+                  let action = actionEl.dataset.object?["action"].string else {
                 return JSValue.undefined
             }
 
-            // Get article ID
-            guard let articleId = datasetObj["articleId"].string else {
+            // Walk up to find the element with data-article-id
+            guard let articleEl = target.closest!("[data-article-id]").object,
+                  let articleId = articleEl.dataset.object?["articleId"].string else {
                 return JSValue.undefined
             }
 
@@ -293,7 +332,8 @@ public struct App {
                 return JSValue.undefined
             }
 
-            guard let action = target.dataset.object?["action"].string else {
+            guard let actionEl = target.closest!("[data-action]").object,
+                  let action = actionEl.dataset.object?["action"].string else {
                 return JSValue.undefined
             }
 
@@ -318,7 +358,7 @@ public struct App {
                 print("Show feed list")
             case "toggle", "refresh", "edit", "delete":
                 // Feed-specific actions
-                if let feedId = target.dataset.object?["feedId"].string {
+                if let feedId = actionEl.dataset.object?["feedId"].string {
                     handleFeedAction(action: action, feedId: feedId)
                 }
             default:

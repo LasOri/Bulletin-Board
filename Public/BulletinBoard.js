@@ -296,22 +296,15 @@ class SwiftRuntime {
         const instance = this.instance;
         try {
             if (typeof instance.exports.main === "function") {
-                console.log('[swift.main] calling exports.main()');
                 instance.exports.main();
-                console.log('[swift.main] exports.main() returned normally');
             } else if (typeof instance.exports.__main_argc_argv === "function") {
-                console.log('[swift.main] calling exports.__main_argc_argv(0, 0)');
                 instance.exports.__main_argc_argv(0, 0);
-                console.log('[swift.main] exports.__main_argc_argv returned normally');
-            } else {
-                console.log('[swift.main] no main export found');
             }
         } catch (error) {
             if (error instanceof UnsafeEventLoopYield) {
-                console.log('[swift.main] caught UnsafeEventLoopYield (expected for async main)');
                 return;
             }
-            console.error('[swift.main] caught unexpected error:', error);
+            console.error('Swift main() threw unexpected error:', error);
             throw error;
         }
     }
@@ -573,7 +566,7 @@ class SwiftRuntime {
                 const value = BigInt.asUintN(32, BigInt(lower)) + (BigInt.asUintN(32, BigInt(upper)) << BigInt(32));
                 return this.memory.retain(signed ? BigInt.asIntN(64, value) : BigInt.asUintN(64, value));
             },
-            swjs_unsafe_event_loop_yield: () => { console.log('[swjs] unsafe_event_loop_yield called!'); throw new UnsafeEventLoopYield(); },
+            swjs_unsafe_event_loop_yield: () => { throw new UnsafeEventLoopYield(); },
             swjs_send_job_to_main_thread: (unowned_job) => {
                 this.postMessageToMainThread({ type: "job", data: unowned_job });
             },
@@ -915,6 +908,7 @@ function createWASI(getMemory) {
         },
         fd_filestat_get: () => 8,
         fd_filestat_set_size: () => 8,
+        fd_fdstat_set_flags: () => 0,
         fd_pread: () => 8,
         fd_prestat_get: () => 8,
         fd_prestat_dir_name: () => 8,
@@ -937,7 +931,6 @@ function createWASI(getMemory) {
                     const bytes = new Uint8Array(memory.buffer, buf, bufLen);
                     text += new TextDecoder().decode(bytes);
                 }
-                console.log(`[fd_write] fd=${fd} iovsLen=${iovsLen} totalBytes=${totalBytes} text=${JSON.stringify(text)}`);
                 if (fd === 1) { console.log(text); } else { console.error(text); }
                 view.setUint32(nwritten, totalBytes, true);
                 return 0;
@@ -986,6 +979,17 @@ function createWASI(getMemory) {
 export async function startWasmApp() {
     console.log('Loading WASM binary...');
 
+    // Catch unhandled promise rejections from microtask callbacks
+    // (e.g. promise.then inside JavaScriptEventLoop's job queue)
+    window.addEventListener('unhandledrejection', (event) => {
+        if (event.reason instanceof UnsafeEventLoopYield) {
+            // Expected: async main yielding control to JS event loop
+            event.preventDefault();
+            return;
+        }
+        console.error('[unhandledrejection] Promise rejected:', event.reason);
+    });
+
     try {
         // Create SwiftRuntime instance
         const swift = new SwiftRuntime();
@@ -1017,34 +1021,25 @@ export async function startWasmApp() {
         console.log('WASM module instantiated');
 
         // Wire up JavaScriptKit runtime and BridgeJS runtime
-        console.log('[startup] calling setInstance...');
         swift.setInstance(wasmInstance);
-        console.log('[startup] setInstance done');
         bjsRuntime.setInstance(wasmInstance);
-        console.log('[startup] bjsRuntime.setInstance done');
 
         // Start the application
         if (typeof wasmInstance.exports._start === 'function') {
             // Command ABI: _start calls _initialize + main
-            console.log('[startup] using command ABI (_start)');
             try {
                 wasmInstance.exports._start();
             } catch (e) {
-                if (e instanceof swift.UnsafeEventLoopYield) { console.log('[startup] _start threw UnsafeEventLoopYield (expected)'); }
-                else if (e.message && e.message.includes('WASM process exited: 0')) { console.log('[startup] _start threw proc_exit(0)'); }
+                if (e instanceof swift.UnsafeEventLoopYield) { /* expected */ }
+                else if (e.message && e.message.includes('WASM process exited: 0')) { /* normal exit */ }
                 else throw e;
             }
         } else {
             // Reactor ABI: call _initialize, then main
-            console.log('[startup] using reactor ABI (_initialize + main)');
             if (typeof wasmInstance.exports._initialize === 'function') {
-                console.log('[startup] calling _initialize...');
                 wasmInstance.exports._initialize();
-                console.log('[startup] _initialize done');
             }
-            console.log('[startup] calling swift.main()...');
             swift.main();
-            console.log('[startup] swift.main() done');
         }
 
         console.log('Bulletin Board started successfully');
