@@ -18,12 +18,17 @@ COPY ../LINKER /linker
 # Copy Bulletin Board project
 COPY . .
 
-# Build WASM binary
-RUN swift build --swift-sdk swift-6.2.4-RELEASE_wasm --configuration release
+# Build WASM binary and JS wrapper using PackageToJS plugin
+RUN swift package --swift-sdk swift-6.2.4-RELEASE_wasm plugin js \
+    --product BulletinBoard \
+    -c release \
+    --no-optimize
 
-# Create output directory and copy WASM binary
+# Copy output to /output for extraction
 RUN mkdir -p /output && \
-    cp .build/swift-6.2.4-RELEASE_wasm/wasm32-unknown-wasip1/release/BulletinBoard.wasm /output/
+    cp -r .build/plugins/PackageToJS/outputs/Package/* /output/ && \
+    echo "Output contents:" && ls -lh /output/ && \
+    echo "WASM size:" && ls -lh /output/*.wasm 2>/dev/null || true
 
 # Default command
-CMD ["swift", "build", "--swift-sdk", "swift-6.2.4-RELEASE_wasm", "--configuration", "release"]
+CMD ["ls", "-la", "/output/"]
