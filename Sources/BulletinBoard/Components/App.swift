@@ -88,7 +88,7 @@ public struct App {
 
         // Detect GPU support
         #if canImport(JavaScriptKit)
-        detectGPUSupport()
+        await detectGPUSupport()
         #else
         // Non-WASM environment: disable GPU
         GPUComponentConfig.enabled = false
@@ -125,10 +125,18 @@ public struct App {
 
     #if canImport(JavaScriptKit) && arch(wasm32)
     /// Detects WebGPU support and configures GPU effects accordingly.
-    private static func detectGPUSupport() {
+    private static func detectGPUSupport() async {
         if WebGPUBridge.isSupported() {
-            print("✅ WebGPU supported - enabling GPU effects")
             GPUComponentConfig.configureForBalanced()
+            // Wait for the WebGPU bridge to finish initializing
+            // so effects can register immediately when lifecycle hooks fire
+            await GPUEffectManager.shared.ensureInitialized()
+            if GPUEffectManager.shared.isWebGPUAvailable {
+                print("✅ WebGPU initialized - GPU effects enabled")
+            } else {
+                print("⚠️ WebGPU init failed - using CSS fallback")
+                GPUComponentConfig.enabled = false
+            }
         } else {
             print("⚠️ WebGPU not supported - using CSS fallback")
             GPUComponentConfig.enabled = false
@@ -136,7 +144,7 @@ public struct App {
     }
     #elseif canImport(JavaScriptKit)
     /// Detects WebGPU support (stub for non-WASM JavaScript environments).
-    private static func detectGPUSupport() {
+    private static func detectGPUSupport() async {
         print("ℹ️ Non-WASM environment - disabling GPU effects")
         GPUComponentConfig.enabled = false
     }
@@ -237,10 +245,17 @@ public struct App {
         renderToDOM(rootElement: rootElement)
 
         // Set up reactive rendering - re-render on state changes
+        // Debounced + diffed to avoid destroying focus/input state
+        var renderScheduled = false
         _ = appStore.subscribe { _ in
-            Task {
+            guard !renderScheduled else { return }
+            renderScheduled = true
+            // Batch updates in next microtask
+            _ = SafeJSGlobal.global?.queueMicrotask.function?(JSClosure { _ in
+                renderScheduled = false
                 renderToDOM(rootElement: rootElement)
-            }
+                return .undefined
+            })
         }
 
         // Set up event handlers after initial render
@@ -249,13 +264,21 @@ public struct App {
         print("✅ UI mounted successfully")
     }
 
+    /// Last rendered HTML — used to skip no-op re-renders that would destroy focus
+    private nonisolated(unsafe) static var lastRenderedHTML: String = ""
+
     /// Renders the main view to the DOM
     private static func renderToDOM(rootElement: JSObject) {
+        let nodes = MainView()
+        let html = nodesToHTML(nodes)
+
+        // Skip re-render if HTML hasn't changed (preserves focus, input, scroll)
+        guard html != lastRenderedHTML else { return }
+        lastRenderedHTML = html
+
         // Cleanup previous GPU effects before replacing DOM
         LifecycleRegistry.shared.triggerAllUnmounts()
 
-        let nodes = MainView()
-        let html = nodesToHTML(nodes)
         rootElement.innerHTML = JSValue.string(html)
 
         // Initialize GPU effects now that canvas elements are in the DOM
