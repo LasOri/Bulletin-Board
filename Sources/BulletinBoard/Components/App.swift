@@ -126,21 +126,10 @@ public struct App {
     #if canImport(JavaScriptKit) && arch(wasm32)
     /// Detects WebGPU support and configures GPU effects accordingly.
     private static func detectGPUSupport() async {
-        if WebGPUBridge.isSupported() {
-            GPUComponentConfig.configureForBalanced()
-            // Wait for the WebGPU bridge to finish initializing
-            // so effects can register immediately when lifecycle hooks fire
-            await GPUEffectManager.shared.ensureInitialized()
-            if GPUEffectManager.shared.isWebGPUAvailable {
-                print("✅ WebGPU initialized - GPU effects enabled")
-            } else {
-                print("⚠️ WebGPU init failed - using CSS fallback")
-                GPUComponentConfig.enabled = false
-            }
-        } else {
-            print("⚠️ WebGPU not supported - using CSS fallback")
-            GPUComponentConfig.enabled = false
-        }
+        // GPU canvas path requires lifecycle hooks which don't work with innerHTML rendering.
+        // Force CSS fallback (box-shadow, backdrop-filter) which works immediately.
+        GPUComponentConfig.enabled = false
+        print("ℹ️ Using CSS effects (backdrop-filter, box-shadow)")
     }
     #elseif canImport(JavaScriptKit)
     /// Detects WebGPU support (stub for non-WASM JavaScript environments).
@@ -267,6 +256,9 @@ public struct App {
     /// Last rendered HTML — used to skip no-op re-renders that would destroy focus
     private nonisolated(unsafe) static var lastRenderedHTML: String = ""
 
+    /// Current feed manager view mode (local UI state, not in Redux)
+    private nonisolated(unsafe) static var feedManagerViewMode: FeedManager.ViewMode = .list
+
     /// Renders the main view to the DOM
     private static func renderToDOM(rootElement: JSObject) {
         let nodes = MainView()
@@ -295,17 +287,16 @@ public struct App {
 
     /// Sets up all event listeners for user interactions
     private static func setupEventHandlers(document: JSObject) {
-        setupArticleHandlers(document: document)
-        setupFeedManagerHandlers(document: document)
+        setupClickHandler(document: document)
+        setupSubmitHandler(document: document)
         setupSearchHandlers(document: document)
         print("⚡ Event handlers registered")
     }
 
-    // MARK: - Article Event Handlers
+    // MARK: - Unified Click Handler
 
-    /// Set up article card event listeners
-    private static func setupArticleHandlers(document: JSObject) {
-        // Use event delegation on document for all article interactions
+    /// Single click handler for ALL actions (avoids competing listeners)
+    private static func setupClickHandler(document: JSObject) {
         let clickHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
                   let event = args[0].object,
@@ -313,26 +304,81 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Walk up the DOM tree to find the element with data-action
+            // Walk up the DOM tree to find the nearest element with data-action
             guard let actionEl = target.closest!("[data-action]").object,
                   let action = actionEl.dataset.object?["action"].string else {
                 return JSValue.undefined
             }
 
-            // Walk up to find the element with data-article-id
-            guard let articleEl = target.closest!("[data-article-id]").object,
-                  let articleId = articleEl.dataset.object?["articleId"].string else {
-                return JSValue.undefined
-            }
-
-            // Dispatch appropriate action
             switch action {
-            case "toggle-favorite":
-                appStore.dispatch(ArticleAction.toggleFavorite(id: articleId))
-            case "mark-read":
-                appStore.dispatch(ArticleAction.markAsRead(id: articleId))
-            case "article-click":
-                appStore.dispatch(UIAction.expandArticle(id: articleId))
+            // -- Toolbar / global actions --
+            case "open-feed-manager":
+                feedManagerViewMode = .list
+                appStore.dispatch(UIAction.openFeedManager)
+
+            case "close-feed-manager-overlay":
+                // Only close if clicking directly on the overlay background,
+                // not on content that bubbled up to the overlay.
+                // Check: target's own data-action must be "close-feed-manager-overlay"
+                if target.dataset.object?["action"].string == "close-feed-manager-overlay" {
+                    appStore.dispatch(UIAction.closeFeedManager)
+                }
+
+            case "close-feed-manager", "close":
+                appStore.dispatch(UIAction.closeFeedManager)
+
+            case "refresh-all":
+                Task { await refreshAllFeeds() }
+
+            case "dismiss-toast":
+                appStore.dispatch(UIAction.clearToast)
+
+            case "clear-search":
+                appStore.dispatch(ArticleAction.setSearchQuery(""))
+
+            // -- Feed manager mode switching --
+            case "show-add-form":
+                feedManagerViewMode = .add
+                // Force re-render to show the form
+                lastRenderedHTML = ""
+                if let doc = SafeJSGlobal.global?.document.object,
+                   let rootElement = doc.getElementById!("app").object {
+                    renderToDOM(rootElement: rootElement)
+                }
+
+            case "show-list":
+                feedManagerViewMode = .list
+                lastRenderedHTML = ""
+                if let doc = SafeJSGlobal.global?.document.object,
+                   let rootElement = doc.getElementById!("app").object {
+                    renderToDOM(rootElement: rootElement)
+                }
+
+            // -- Feed-specific actions (need data-feed-id from item or button) --
+            case "toggle", "refresh", "edit", "delete":
+                // data-feed-id may be on the button itself or on a parent feed-item wrapper
+                let feedId = actionEl.dataset.object?["feedId"].string
+                    ?? target.closest!("[data-feed-id]").object?.dataset.object?["feedId"].string
+                if let feedId = feedId {
+                    handleFeedAction(action: action, feedId: feedId)
+                }
+
+            // -- Article actions (need data-article-id from parent) --
+            case "toggle-favorite", "mark-read", "article-click":
+                if let articleEl = target.closest!("[data-article-id]").object,
+                   let articleId = articleEl.dataset.object?["articleId"].string {
+                    switch action {
+                    case "toggle-favorite":
+                        appStore.dispatch(ArticleAction.toggleFavorite(id: articleId))
+                    case "mark-read":
+                        appStore.dispatch(ArticleAction.markAsRead(id: articleId))
+                    case "article-click":
+                        appStore.dispatch(UIAction.expandArticle(id: articleId))
+                    default:
+                        break
+                    }
+                }
+
             default:
                 break
             }
@@ -343,55 +389,9 @@ public struct App {
         document.addEventListener!("click", clickHandler)
     }
 
-    // MARK: - Feed Manager Event Handlers
+    // MARK: - Form Submit Handler
 
-    /// Set up feed manager event listeners
-    private static func setupFeedManagerHandlers(document: JSObject) {
-        // Click handler for buttons
-        let clickHandler = JSClosure { args -> JSValue in
-            guard args.count > 0,
-                  let event = args[0].object,
-                  let target = event.target.object else {
-                return JSValue.undefined
-            }
-
-            guard let actionEl = target.closest!("[data-action]").object,
-                  let action = actionEl.dataset.object?["action"].string else {
-                return JSValue.undefined
-            }
-
-            switch action {
-            case "open-feed-manager":
-                appStore.dispatch(UIAction.openFeedManager)
-            case "close-feed-manager", "close-feed-manager-overlay":
-                appStore.dispatch(UIAction.closeFeedManager)
-            case "refresh-all":
-                Task {
-                    await refreshAllFeeds()
-                }
-            case "dismiss-toast":
-                appStore.dispatch(UIAction.clearToast)
-            case "clear-search":
-                appStore.dispatch(ArticleAction.setSearchQuery(""))
-            case "show-add-form":
-                // Switch to add feed mode
-                print("Show add feed form")
-            case "show-list":
-                // Switch back to list mode
-                print("Show feed list")
-            case "toggle", "refresh", "edit", "delete":
-                // Feed-specific actions
-                if let feedId = actionEl.dataset.object?["feedId"].string {
-                    handleFeedAction(action: action, feedId: feedId)
-                }
-            default:
-                break
-            }
-
-            return JSValue.undefined
-        }
-
-        // Form submission handler
+    private static func setupSubmitHandler(document: JSObject) {
         let submitHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
                   let event = args[0].object,
@@ -432,7 +432,6 @@ public struct App {
             return JSValue.undefined
         }
 
-        document.addEventListener!("click", clickHandler)
         document.addEventListener!("submit", submitHandler)
     }
 
@@ -771,7 +770,7 @@ public struct App {
 
         let props = FeedManager.Props(
             feeds: feedsState.feeds,
-            viewMode: .list,
+            viewMode: feedManagerViewMode,
             isLoading: false,
             error: nil,
             onAddFeed: { url in

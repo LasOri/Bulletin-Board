@@ -304,16 +304,19 @@ public struct FeedManager {
     }
 
     private static func renderRefreshButton(feed: Feed) -> Element<AnyHTMLContext> {
-        Element<AnyHTMLContext>(
+        var attrs = [
+            Attribute(name: "type", value: "button"),
+            Attribute(name: "class", value: "feed-item__action"),
+            Attribute(name: "aria-label", value: "Refresh feed"),
+            Attribute(name: "data-action", value: "refresh"),
+            Attribute(name: "data-feed-id", value: feed.id),
+        ]
+        if feed.isFetching {
+            attrs.append(Attribute(name: "disabled"))
+        }
+        return Element<AnyHTMLContext>(
             tag: "button",
-            attributes: [
-                Attribute(name: "type", value: "button"),
-                Attribute(name: "class", value: "feed-item__action"),
-                Attribute(name: "aria-label", value: "Refresh feed"),
-                Attribute(name: "data-action", value: "refresh"),
-                Attribute(name: "data-feed-id", value: feed.id),
-                Attribute(name: "disabled", value: feed.isFetching ? "true" : nil)
-            ],
+            attributes: attrs,
             children: [AnyNode(Text("🔄"))]
         )
     }

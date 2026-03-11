@@ -52,23 +52,22 @@ public struct CSPConfiguration {
         }
 
         // Create CSP meta tag
-        guard let metaTag = document.createElement("meta").object,
-              let setAttribute = metaTag.setAttribute.function else {
+        guard let metaTag = document.createElement("meta").object else {
             print("⚠️ Cannot create CSP meta tag")
             return
         }
 
-        _ = setAttribute("http-equiv", "Content-Security-Policy")
-        _ = setAttribute("content", configure())
+        // Call setAttribute on the element (not as detached function — loses `this`)
+        _ = metaTag.setAttribute!("http-equiv", "Content-Security-Policy")
+        _ = metaTag.setAttribute!("content", configure())
 
         // Add to document head
-        guard let head = document.head.object,
-              let appendChild = head.appendChild.function else {
+        guard let head = document.head.object else {
             print("⚠️ Cannot access document head")
             return
         }
 
-        _ = appendChild(metaTag)
+        _ = head.appendChild!(metaTag)
         print("✅ CSP applied via meta tag")
     }
     #endif
