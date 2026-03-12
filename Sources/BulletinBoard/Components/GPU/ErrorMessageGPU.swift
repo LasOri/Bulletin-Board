@@ -48,7 +48,7 @@ extension ErrorMessage {
         let errorContent = error(message: message, onDismiss: onDismiss)
 
         // Wrap with GPU shadow
-        return ShadowView(style: shadowStyle) {
+        return ShadowView(id: "error-message-shadow", style: shadowStyle) {
             return errorContent
         }
     }
@@ -76,7 +76,7 @@ extension ErrorMessage {
         let warningContent = warning(message: message, onDismiss: onDismiss)
 
         // Wrap with GPU shadow
-        return ShadowView(style: shadowStyle) {
+        return ShadowView(id: "warning-message-shadow", style: shadowStyle) {
             return warningContent
         }
     }
@@ -104,7 +104,7 @@ extension ErrorMessage {
         let infoContent = info(message: message, onDismiss: onDismiss)
 
         // Wrap with GPU shadow
-        return ShadowView(style: shadowStyle) {
+        return ShadowView(id: "info-message-shadow", style: shadowStyle) {
             return infoContent
         }
     }

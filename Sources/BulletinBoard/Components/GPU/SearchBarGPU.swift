@@ -47,7 +47,7 @@ extension SearchBar {
             }
 
             // Wrap with GPU shadow
-            return ShadowView(style: shadowStyle) {
+            return ShadowView(id: "search-bar-shadow", style: shadowStyle) {
                 return searchBarContent
             }
         } else {

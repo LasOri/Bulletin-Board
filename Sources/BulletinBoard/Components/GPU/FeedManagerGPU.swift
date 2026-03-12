@@ -68,8 +68,8 @@ extension FeedManager {
 
         // Layer 1: Blur background (frosted glass effect)
         // Layer 2: Shadow on modal (elevation)
-        return BlurView(style: blurStyle, intensity: 0.8, animated: true) {
-            return ShadowView(style: shadowStyle) {
+        return BlurView(id: "feed-manager-blur", style: blurStyle, intensity: 0.8, animated: true) {
+            return ShadowView(id: "feed-manager-shadow", style: shadowStyle) {
                 return modalContent
             }
         }

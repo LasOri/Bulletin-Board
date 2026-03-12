@@ -94,6 +94,10 @@ public struct App {
         GPUComponentConfig.enabled = false
         #endif
 
+        // Configure CORS proxy for cross-origin RSS feed fetching
+        // Browser security blocks direct cross-origin requests from WASM
+        FeedService.corsProxy = "https://api.allorigins.win/raw?url="
+
         // Load persisted data
         await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
         await loadPersistedData()
@@ -126,10 +130,15 @@ public struct App {
     #if canImport(JavaScriptKit) && arch(wasm32)
     /// Detects WebGPU support and configures GPU effects accordingly.
     private static func detectGPUSupport() async {
-        // GPU canvas path requires lifecycle hooks which don't work with innerHTML rendering.
-        // Force CSS fallback (box-shadow, backdrop-filter) which works immediately.
-        GPUComponentConfig.enabled = false
-        print("ℹ️ Using CSS effects (backdrop-filter, box-shadow)")
+        let supported = WebGPUBridge.isSupported()
+        GPUComponentConfig.enabled = supported
+        if supported {
+            // Pre-initialize the GPU bridge so it's ready when onMount fires
+            await GPUEffectManager.shared.ensureInitialized()
+            print("✅ WebGPU supported — GPU effects enabled")
+        } else {
+            print("ℹ️ WebGPU not supported — using CSS effects (backdrop-filter, box-shadow)")
+        }
     }
     #elseif canImport(JavaScriptKit)
     /// Detects WebGPU support (stub for non-WASM JavaScript environments).
@@ -230,11 +239,16 @@ public struct App {
             return
         }
 
+        // Initialize DOM reconciler
+        let bridge = DOMBridge()
+        reconciler = DOMReconciler(bridge: bridge)
+        reconciler?.mount(rootElement: rootElement)
+
         // Initial render
-        renderToDOM(rootElement: rootElement)
+        renderToDOM()
 
         // Set up reactive rendering - re-render on state changes
-        // Debounced + diffed to avoid destroying focus/input state
+        // Debounced to avoid excessive patching
         var renderScheduled = false
         _ = appStore.subscribe { _ in
             guard !renderScheduled else { return }
@@ -242,7 +256,7 @@ public struct App {
             // Batch updates in next microtask
             _ = SafeJSGlobal.global?.queueMicrotask.function?(JSClosure { _ in
                 renderScheduled = false
-                renderToDOM(rootElement: rootElement)
+                renderToDOM()
                 return .undefined
             })
         }
@@ -253,36 +267,13 @@ public struct App {
         print("✅ UI mounted successfully")
     }
 
-    /// Last rendered HTML — used to skip no-op re-renders that would destroy focus
-    private nonisolated(unsafe) static var lastRenderedHTML: String = ""
+    /// The DOM reconciler instance
+    private nonisolated(unsafe) static var reconciler: DOMReconciler?
 
-    /// Current feed manager view mode (local UI state, not in Redux)
-    private nonisolated(unsafe) static var feedManagerViewMode: FeedManager.ViewMode = .list
-
-    /// Renders the main view to the DOM
-    private static func renderToDOM(rootElement: JSObject) {
+    /// Renders the main view to the DOM using reconciliation
+    private static func renderToDOM() {
         let nodes = MainView()
-        let html = nodesToHTML(nodes)
-
-        // Skip re-render if HTML hasn't changed (preserves focus, input, scroll)
-        guard html != lastRenderedHTML else { return }
-        lastRenderedHTML = html
-
-        // Cleanup previous GPU effects before replacing DOM
-        LifecycleRegistry.shared.triggerAllUnmounts()
-
-        rootElement.innerHTML = JSValue.string(html)
-
-        // Initialize GPU effects now that canvas elements are in the DOM
-        LifecycleRegistry.shared.triggerAllMounts()
-    }
-
-    /// Converts AnyNode array to HTML string
-    private static func nodesToHTML(_ nodes: [AnyNode]) -> String {
-        return nodes.map { node in
-            // Use AnyNode's render method
-            return node.render()
-        }.joined()
+        reconciler?.update(newTree: nodes)
     }
 
     /// Sets up all event listeners for user interactions
@@ -340,19 +331,11 @@ public struct App {
             case "show-add-form":
                 feedManagerViewMode = .add
                 // Force re-render to show the form
-                lastRenderedHTML = ""
-                if let doc = SafeJSGlobal.global?.document.object,
-                   let rootElement = doc.getElementById!("app").object {
-                    renderToDOM(rootElement: rootElement)
-                }
+                renderToDOM()
 
             case "show-list":
                 feedManagerViewMode = .list
-                lastRenderedHTML = ""
-                if let doc = SafeJSGlobal.global?.document.object,
-                   let rootElement = doc.getElementById!("app").object {
-                    renderToDOM(rootElement: rootElement)
-                }
+                renderToDOM()
 
             // -- Feed-specific actions (need data-feed-id from item or button) --
             case "toggle", "refresh", "edit", "delete":
@@ -533,6 +516,9 @@ public struct App {
         print("  ℹ️ DOM mounting only available in WASM environment")
     }
     #endif
+
+    /// Current feed manager view mode (local UI state, not in Redux)
+    private nonisolated(unsafe) static var feedManagerViewMode: FeedManager.ViewMode = .list
 
     // MARK: - Reactive State
 
@@ -883,6 +869,8 @@ public struct App {
 
     /// Helper: Add feed from URL
     private static func addFeedHelper(url: String) async {
+        appStore.dispatch(UIAction.showToast("Fetching feed..."))
+
         do {
             let feedId = UUID().uuidString
             let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
@@ -896,9 +884,27 @@ public struct App {
 
             // Success
             appStore.dispatch(UIAction.closeFeedManager)
-            appStore.dispatch(UIAction.showToast("Feed added successfully"))
+            appStore.dispatch(UIAction.showToast("Feed added with \(articles.count) articles"))
 
             print("✅ Feed added: \(url) with \(articles.count) articles")
+        } catch let error as FeedService.FeedError {
+            let message: String
+            switch error {
+            case .invalidURL:
+                message = "Invalid URL. Please enter a valid feed address."
+            case .corsBlocked(let detail):
+                message = detail
+            case .parseError(let detail):
+                message = "Not a valid RSS/Atom feed: \(detail)"
+            case .noItems:
+                message = "Feed has no articles. Check the URL and try again."
+            case .networkError(let detail):
+                message = "Network error: \(detail)"
+            case .rateLimitExceeded:
+                message = "Too many requests. Please wait a moment and try again."
+            }
+            appStore.dispatch(UIAction.showError(message))
+            print("❌ Failed to add feed: \(error)")
         } catch {
             appStore.dispatch(UIAction.showError("Failed to add feed: \(error.localizedDescription)"))
             print("❌ Failed to add feed: \(error)")

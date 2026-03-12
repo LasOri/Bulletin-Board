@@ -46,7 +46,7 @@ extension ArticleList {
         let listContent = render(props: props)
 
         // Wrap container with GPU shadow
-        return ShadowView(style: shadowStyle) {
+        return ShadowView(id: "article-list-shadow", style: shadowStyle) {
             return listContent
         }
     }
@@ -77,7 +77,7 @@ extension ArticleList {
         let listContent = renderVirtual(props: props, scrollTop: scrollTop, config: config)
 
         // Wrap container with GPU shadow
-        return ShadowView(style: shadowStyle) {
+        return ShadowView(id: "article-list-virtual-shadow", style: shadowStyle) {
             return listContent
         }
     }

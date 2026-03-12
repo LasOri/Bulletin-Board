@@ -382,7 +382,8 @@ public struct FeedManager {
                         Attribute(name: "id", value: "feed-url"),
                         Attribute(name: "name", value: "url"),
                         Attribute(name: "placeholder", value: "https://example.com/feed.xml"),
-                        Attribute(name: "required", value: "true")
+                        Attribute(name: "required", value: "true"),
+                        Attribute(name: "autocomplete", value: "url")
                     ],
                     children: []
                 )),

@@ -18,6 +18,7 @@ public actor FeedService {
     public enum FeedError: Error, Equatable {
         case invalidURL
         case networkError(String)
+        case corsBlocked(String)
         case parseError(String)
         case noItems
         case rateLimitExceeded
@@ -26,6 +27,10 @@ public actor FeedService {
     // MARK: - Properties
 
     private let httpClient: SecureHTTPClient
+
+    /// CORS proxy URL prefix. Set to nil to disable.
+    /// Example: "https://api.allorigins.win/raw?url="
+    public nonisolated(unsafe) static var corsProxy: String? = nil
 
     // MARK: - Initialization
 
@@ -50,18 +55,31 @@ public actor FeedService {
             throw FeedError.invalidURL
         }
 
-        // Fetch feed data with SecureHTTPClient
-        // Automatically applies:
-        // - HTTPS enforcement
-        // - Rate limiting
-        // - CSRF tokens
-        // - Host validation
-        do {
-            let response = try await httpClient.get(feedURL.absoluteString)
+        // Try direct fetch first, fall back to CORS proxy if available
+        let fetchURL: String
+        if let proxy = FeedService.corsProxy {
+            // Use CORS proxy to avoid cross-origin restrictions
+            guard let encoded = feedURL.absoluteString.addingPercentEncoding(
+                withAllowedCharacters: .urlQueryAllowed
+            ) else {
+                throw FeedError.invalidURL
+            }
+            fetchURL = proxy + encoded
+        } else {
+            fetchURL = feedURL.absoluteString
+        }
 
-            // Convert Json body to string for XML parsing
+        do {
+            let response = try await httpClient.get(fetchURL)
+
             guard let xmlString = response.body.stringValue else {
                 throw FeedError.parseError("Expected XML string in response body")
+            }
+
+            // Check if we got an HTML error page instead of XML
+            let trimmed = xmlString.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("<!DOCTYPE") || trimmed.hasPrefix("<html") {
+                throw FeedError.parseError("URL returned an HTML page, not an RSS/Atom feed")
             }
 
             let rssFeed = try RSSParser.parse(xmlString)
@@ -84,9 +102,18 @@ public actor FeedService {
                 }
                 return articles
             }
+        } catch let error as FeedError {
+            throw error
         } catch {
-            // Map SecureHTTPClient errors to FeedError
-            throw FeedError.networkError(error.localizedDescription)
+            let msg = error.localizedDescription
+            // Detect CORS-like failures
+            if msg.contains("TypeError") || msg.contains("Failed to fetch") || msg.contains("NetworkError") {
+                throw FeedError.corsBlocked(
+                    "Cannot fetch this feed due to cross-origin restrictions. " +
+                    "The feed server doesn't allow browser requests."
+                )
+            }
+            throw FeedError.networkError(msg)
         }
     }
 

@@ -45,7 +45,7 @@ extension ArticleCard {
         let cardContent = render(props: props)
 
         // Wrap with GPU shadow
-        return ShadowView(style: shadowStyle) {
+        return ShadowView(id: "article-shadow-\(props.article.id)", style: shadowStyle) {
             return cardContent
         }
     }

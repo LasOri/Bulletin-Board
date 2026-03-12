@@ -70,6 +70,7 @@ public struct SearchBar {
             tag: "input",
             attributes: [
                 Attribute(name: "type", value: "text"),
+                Attribute(name: "id", value: "search-input"),
                 Attribute(name: "class", value: "search-bar__input"),
                 Attribute(name: "placeholder", value: props.placeholder),
                 Attribute(name: "value", value: props.query),
