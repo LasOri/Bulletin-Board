@@ -96,7 +96,7 @@ public struct App {
 
         // Configure CORS proxy for cross-origin RSS feed fetching
         // Browser security blocks direct cross-origin requests from WASM
-        FeedService.corsProxy = "https://api.allorigins.win/raw?url="
+        FeedService.corsProxy = "https://api.codetabs.com/v1/proxy?quest="
 
         // Load persisted data
         await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
@@ -304,7 +304,6 @@ public struct App {
             switch action {
             // -- Toolbar / global actions --
             case "open-feed-manager":
-                feedManagerViewMode = .list
                 appStore.dispatch(UIAction.openFeedManager)
 
             case "close-feed-manager-overlay":
@@ -326,16 +325,6 @@ public struct App {
 
             case "clear-search":
                 appStore.dispatch(ArticleAction.setSearchQuery(""))
-
-            // -- Feed manager mode switching --
-            case "show-add-form":
-                feedManagerViewMode = .add
-                // Force re-render to show the form
-                renderToDOM()
-
-            case "show-list":
-                feedManagerViewMode = .list
-                renderToDOM()
 
             // -- Feed-specific actions (need data-feed-id from item or button) --
             case "toggle", "refresh", "edit", "delete":
@@ -391,21 +380,16 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Get form values
+            // Get feed URL
             guard let urlInput = document.getElementById!("feed-url").object,
-                  let url = urlInput.value.string else {
-                print("❌ Feed URL input not found")
+                  let url = urlInput.value.string,
+                  !url.isEmpty else {
+                print("❌ Feed URL input not found or empty")
                 return JSValue.undefined
             }
 
-            // Validate CSRF token
-            guard let csrfInput = form.querySelector!("[name='csrf_token']").object,
-                  let csrfToken = csrfInput.value.string,
-                  SecurityManager.shared.csrfManager.validateToken(csrfToken) else {
-                print("❌ CSRF token validation failed")
-                appStore.dispatch(UIAction.showError("Security validation failed"))
-                return JSValue.undefined
-            }
+            // Clear input
+            urlInput.value = .string("")
 
             // Dispatch add feed action
             Task {
@@ -443,7 +427,7 @@ public struct App {
 
         case "delete":
             appStore.dispatch(FeedAction.removeFeed(id: feedId))
-            appStore.dispatch(UIAction.showToast("Feed removed"))
+            showToast("Feed removed")
 
         default:
             break
@@ -454,7 +438,7 @@ public struct App {
     private static func refreshAllFeeds() async {
         let feedsState = appStore.getState().feeds
 
-        appStore.dispatch(UIAction.showToast("Refreshing all feeds..."))
+        showToast("Refreshing all feeds...")
 
         var totalArticles = 0
 
@@ -468,7 +452,7 @@ public struct App {
             }
         }
 
-        appStore.dispatch(UIAction.showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds"))
+        showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds")
     }
 
     // MARK: - Search Event Handlers
@@ -485,13 +469,15 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Check if this is the search input (using data-search-input attribute)
-            guard let datasetObj = target.dataset.object,
-                  let isSearchInput = datasetObj["searchInput"].string,
-                  isSearchInput == "true",
-                  let query = target.value.string else {
+            // Check if this is the search input by id
+            let targetId = target.id.string ?? ""
+            let isSearch = targetId == "search-input"
+
+            guard isSearch else {
                 return JSValue.undefined
             }
+
+            let query = target.value.string ?? ""
 
             // Cancel previous search task
             searchTask?.cancel()
@@ -516,9 +502,6 @@ public struct App {
         print("  ℹ️ DOM mounting only available in WASM environment")
     }
     #endif
-
-    /// Current feed manager view mode (local UI state, not in Redux)
-    private nonisolated(unsafe) static var feedManagerViewMode: FeedManager.ViewMode = .list
 
     // MARK: - Reactive State
 
@@ -756,7 +739,7 @@ public struct App {
 
         let props = FeedManager.Props(
             feeds: feedsState.feeds,
-            viewMode: feedManagerViewMode,
+            viewMode: .list,
             isLoading: false,
             error: nil,
             onAddFeed: { url in
@@ -774,16 +757,13 @@ public struct App {
                 appStore.dispatch(FeedAction.toggleFeedEnabled(id: feedId))
             },
             onRefreshFeed: { feedId in
-                // Refresh specific feed
                 Task {
                     if let feed = feedsState.feeds.first(where: { $0.id == feedId }) {
                         await refreshFeed(feed: feed)
                     }
                 }
             },
-            onChangeMode: { _ in
-                // Mode changes handled by event handlers
-            },
+            onChangeMode: { _ in },
             onClose: {
                 appStore.dispatch(UIAction.closeFeedManager)
             }
@@ -861,7 +841,7 @@ public struct App {
             // Note: UIState.isAnimating is automatically managed by animation actions
             let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
             appStore.dispatch(ArticleAction.addArticles(articles))
-            appStore.dispatch(UIAction.showToast("Feed refreshed: \(feed.title)"))
+            showToast("Feed refreshed: \(feed.title)")
         } catch {
             appStore.dispatch(UIAction.showError("Failed to refresh: \(error.localizedDescription)"))
         }
@@ -869,7 +849,7 @@ public struct App {
 
     /// Helper: Add feed from URL
     private static func addFeedHelper(url: String) async {
-        appStore.dispatch(UIAction.showToast("Fetching feed..."))
+        showToast("Fetching feed...")
 
         do {
             let feedId = UUID().uuidString
@@ -884,7 +864,7 @@ public struct App {
 
             // Success
             appStore.dispatch(UIAction.closeFeedManager)
-            appStore.dispatch(UIAction.showToast("Feed added with \(articles.count) articles"))
+            showToast("Feed added with \(articles.count) articles")
 
             print("✅ Feed added: \(url) with \(articles.count) articles")
         } catch let error as FeedService.FeedError {
@@ -908,6 +888,18 @@ public struct App {
         } catch {
             appStore.dispatch(UIAction.showError("Failed to add feed: \(error.localizedDescription)"))
             print("❌ Failed to add feed: \(error)")
+        }
+    }
+
+    /// Shows a toast that auto-dismisses after a delay
+    private static func showToast(_ message: String, duration: UInt64 = 3_000_000_000) {
+        appStore.dispatch(UIAction.showToast(message))
+        Task {
+            try? await Task.sleep(nanoseconds: duration)
+            // Only dismiss if the toast message hasn't changed
+            if appStore.getState().ui.toastMessage == message {
+                appStore.dispatch(UIAction.clearToast)
+            }
         }
     }
 
