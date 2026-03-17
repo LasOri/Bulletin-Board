@@ -56,6 +56,10 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
 
     case .clearToast:
         newState.clearToast()
+
+    // MARK: - Tabs
+    case .switchTab(let tab):
+        newState.switchToTab(tab)
     }
 
     return newState

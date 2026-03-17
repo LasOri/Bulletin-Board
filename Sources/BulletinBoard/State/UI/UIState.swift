@@ -27,6 +27,9 @@ public struct UIState: Codable, Equatable, Sendable {
     /// Toast notification message
     public var toastMessage: String?
 
+    /// Active tab (webgpu-test or news-feed)
+    public var activeTab: String
+
     public init(
         expandedArticleId: String? = nil,
         isSidebarVisible: Bool = true,
@@ -35,7 +38,8 @@ public struct UIState: Codable, Equatable, Sendable {
         theme: Theme = .auto,
         isAnimating: Bool = false,
         errorMessage: String? = nil,
-        toastMessage: String? = nil
+        toastMessage: String? = nil,
+        activeTab: String = "webgpu-test"
     ) {
         self.expandedArticleId = expandedArticleId
         self.isSidebarVisible = isSidebarVisible
@@ -45,6 +49,7 @@ public struct UIState: Codable, Equatable, Sendable {
         self.isAnimating = isAnimating
         self.errorMessage = errorMessage
         self.toastMessage = toastMessage
+        self.activeTab = activeTab
     }
 }
 
@@ -127,5 +132,10 @@ extension UIState {
     /// Toggle settings
     public mutating func toggleSettings() {
         isSettingsOpen.toggle()
+    }
+
+    /// Switch to tab
+    public mutating func switchToTab(_ tab: String) {
+        activeTab = tab
     }
 }

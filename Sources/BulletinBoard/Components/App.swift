@@ -281,6 +281,7 @@ public struct App {
         setupClickHandler(document: document)
         setupSubmitHandler(document: document)
         setupSearchHandlers(document: document)
+        setupDragHandler(document: document)
         print("⚡ Event handlers registered")
     }
 
@@ -302,6 +303,12 @@ public struct App {
             }
 
             switch action {
+            // -- Tab navigation --
+            case "switch-tab":
+                if let tab = actionEl.dataset.object?["tab"].string {
+                    appStore.dispatch(UIAction.switchTab(tab))
+                }
+
             // -- Toolbar / global actions --
             case "open-feed-manager":
                 appStore.dispatch(UIAction.openFeedManager)
@@ -495,6 +502,83 @@ public struct App {
 
         document.addEventListener!("input", inputHandler)
     }
+
+    // MARK: - Drag Handler
+
+    /// Set up draggable image handler
+    private static func setupDragHandler(document: JSObject) {
+        let global = JSObject.global
+
+        // Drag state (mutable across closures via UnsafeSendableBox)
+        var isDragging = false
+        var startX = 0.0
+        var startY = 0.0
+        var initialLeft = 0.0
+        var initialTop = 0.0
+
+        let mouseDownHandler = JSClosure { args -> JSValue in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let target = event.target.object else {
+                return JSValue.undefined
+            }
+
+            // Check if this is the draggable image container
+            let targetId = target.id.string ?? ""
+            let container = targetId == "draggable-image-container"
+                ? target
+                : target.closest!("#draggable-image-container").object
+
+            guard let container = container else {
+                return JSValue.undefined
+            }
+
+            isDragging = true
+            startX = event.clientX.number ?? 0.0
+            startY = event.clientY.number ?? 0.0
+
+            let computedStyle = global.getComputedStyle!(container)
+            initialLeft = Double(computedStyle.left.string?.replacingOccurrences(of: "px", with: "") ?? "0") ?? 0.0
+            initialTop = Double(computedStyle.top.string?.replacingOccurrences(of: "px", with: "") ?? "0") ?? 0.0
+
+            event.preventDefault!()
+            return JSValue.undefined
+        }
+
+        let mouseMoveHandler = JSClosure { args -> JSValue in
+            guard isDragging,
+                  args.count > 0,
+                  let event = args[0].object else {
+                return JSValue.undefined
+            }
+
+            let currentX = event.clientX.number ?? 0.0
+            let currentY = event.clientY.number ?? 0.0
+
+            let deltaX = currentX - startX
+            let deltaY = currentY - startY
+
+            let newLeft = initialLeft + deltaX
+            let newTop = initialTop + deltaY
+
+            if let container = document.getElementById!("draggable-image-container").object {
+                container.style.object?.setProperty!("left", "\(newLeft)px")
+                container.style.object?.setProperty!("top", "\(newTop)px")
+            }
+
+            return JSValue.undefined
+        }
+
+        let mouseUpHandler = JSClosure { _ -> JSValue in
+            isDragging = false
+            return JSValue.undefined
+        }
+
+        document.addEventListener!("mousedown", mouseDownHandler)
+        document.addEventListener!("mousemove", mouseMoveHandler)
+        document.addEventListener!("mouseup", mouseUpHandler)
+    }
+
     #elseif canImport(JavaScriptKit)
     /// Mounts the UI to the DOM (stub for non-WASM JavaScriptKit environments).
     private static func mountUI() {
@@ -543,18 +627,27 @@ public struct App {
 
         var children: [AnyNode] = []
 
-        // Main app container
-        let header = renderHeader()
-        let searchBar = renderSearchBar()
-        let toolbar = renderToolbar()
-        let content = renderContent()
-        let footer = renderFooter()
+        // Tab navigation
+        children.append(contentsOf: renderTabNav())
 
-        children.append(AnyNode(header))
-        children.append(contentsOf: searchBar)
-        children.append(contentsOf: toolbar)
-        children.append(AnyNode(content))
-        children.append(AnyNode(footer))
+        // Active tab content
+        let activeTab = uiSignal.get().activeTab
+        if activeTab == "webgpu-test" {
+            children.append(contentsOf: renderWebGPUTestTab())
+        } else {
+            // Original news feed UI
+            let header = renderHeader()
+            let searchBar = renderSearchBar()
+            let toolbar = renderToolbar()
+            let content = renderContent()
+            let footer = renderFooter()
+
+            children.append(AnyNode(header))
+            children.append(contentsOf: searchBar)
+            children.append(contentsOf: toolbar)
+            children.append(AnyNode(content))
+            children.append(AnyNode(footer))
+        }
 
         // Overlays (conditionally rendered)
         children.append(contentsOf: renderFeedManager())
@@ -566,6 +659,224 @@ public struct App {
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "bulletin-board-app")],
                 children: children
+            ))
+        ]
+    }
+
+    // MARK: - Tab Navigation
+
+    private static func renderTabNav() -> [AnyNode] {
+        let activeTab = uiSignal.get().activeTab
+
+        let webgpuTabClass = activeTab == "webgpu-test" ? "tab-button tab-button--active" : "tab-button"
+        let newsFeedTabClass = activeTab == "news-feed" ? "tab-button tab-button--active" : "tab-button"
+
+        return [
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "nav",
+                attributes: [Attribute(name: "class", value: "tab-nav")],
+                children: [
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "button",
+                        attributes: [
+                            Attribute(name: "type", value: "button"),
+                            Attribute(name: "class", value: webgpuTabClass),
+                            Attribute(name: "data-action", value: "switch-tab"),
+                            Attribute(name: "data-tab", value: "webgpu-test")
+                        ],
+                        children: [AnyNode(Text("WebGPU Test Grid"))]
+                    )),
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "button",
+                        attributes: [
+                            Attribute(name: "type", value: "button"),
+                            Attribute(name: "class", value: newsFeedTabClass),
+                            Attribute(name: "data-action", value: "switch-tab"),
+                            Attribute(name: "data-tab", value: "news-feed")
+                        ],
+                        children: [AnyNode(Text("News Feed"))]
+                    ))
+                ]
+            ))
+        ]
+    }
+
+    // MARK: - WebGPU Test Tab
+
+    private static func renderWebGPUTestTab() -> [AnyNode] {
+        var children: [AnyNode] = []
+
+        // Shadow test view above grid
+        children.append(contentsOf: renderShadowTestView())
+
+        // 5x5 grid of random WebGPU effects
+        children.append(AnyNode(renderWebGPUGrid()))
+
+        // Draggable image for testing
+        children.append(contentsOf: renderDraggableImage())
+
+        return children
+    }
+
+    private static func renderShadowTestView() -> [AnyNode] {
+        // High elevation shadow view to test shadow effects - MOUSE REACTIVE
+        // Note: ShadowView sizes its canvas to its container, so the container
+        // must be the same size as the visible content for proper shadow alignment.
+        return [AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [
+                Attribute(name: "style", value: "padding: 2rem; max-width: 600px; margin: 2rem auto;")
+            ],
+            children: ShadowView(style: .elevation16, mouseReactive: true) {
+                return [AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [
+                        Attribute(name: "class", value: "shadow-test-box"),
+                        Attribute(name: "style", value: "padding: 2rem; background: white; border-radius: 8px;")
+                    ],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "h2",
+                            children: [AnyNode(Text("Shadow Test - Elevation 16 🖱️"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "p",
+                            children: [AnyNode(Text("This box has a mouse-reactive shadow rendered by WebGPU. Move your mouse around the page and watch the shadow direction change based on your cursor position!"))]
+                        ))
+                    ]
+                ))]
+            }
+        ))]
+    }
+
+    private static func renderWebGPUGrid() -> Element<AnyHTMLContext> {
+        var gridCells: [AnyNode] = []
+
+        // Create 5x5 grid (25 cells) with random WebGPU effects
+        for row in 0..<5 {
+            for col in 0..<5 {
+                let cellIndex = row * 5 + col
+                gridCells.append(AnyNode(renderGridCell(index: cellIndex, row: row, col: col)))
+            }
+        }
+
+        return Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [
+                Attribute(name: "class", value: "webgpu-grid"),
+                Attribute(name: "style", value: "display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; padding: 2rem; max-width: 1200px; margin: 0 auto;")
+            ],
+            children: gridCells
+        )
+    }
+
+    private static func renderGridCell(index: Int, row: Int, col: Int) -> Element<AnyHTMLContext> {
+        // Randomly select effect type based on cell index
+        let effectType = index % 4
+
+        let cellContent: [AnyNode]
+        let cellLabel: String
+        let cellBackground: String
+
+        // Diverse gradients for blur testing
+        let gradients = [
+            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+            "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+            "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+            "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+            "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+            "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+            "linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)"
+        ]
+
+        let gradientIndex = (row * 5 + col) % gradients.count
+        let background = gradients[gradientIndex]
+
+        switch effectType {
+        case 0:
+            // BlurView with systemMaterial — transparent cell so backdrop-filter blurs page content behind
+            cellLabel = "Blur: System"
+            cellBackground = "transparent"
+            cellContent = BlurView(style: .systemMaterial, intensity: 1.0) {
+                return [AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "style", value: "padding: 1rem; color: white; font-weight: bold; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); min-height: 100px; display: flex; align-items: center; justify-content: center;")],
+                    children: [AnyNode(Text("Cell \(index)\n\(cellLabel)"))]
+                ))]
+            }
+        case 1:
+            // BlurView with frostedGlass — transparent cell so backdrop-filter blurs page content behind
+            cellLabel = "Blur: Frosted"
+            cellBackground = "transparent"
+            cellContent = BlurView(style: .frostedGlass, intensity: 1.0) {
+                return [AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "style", value: "padding: 1rem; color: white; font-weight: bold; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); min-height: 100px; display: flex; align-items: center; justify-content: center;")],
+                    children: [AnyNode(Text("Cell \(index)\n\(cellLabel)"))]
+                ))]
+            }
+        case 2:
+            // ShadowView with varying elevations — transparent cell, colorful card inside
+            let elevation: ShadowStyle = [.elevation1, .elevation2, .elevation4, .elevation8].randomElement()!
+            cellLabel = "Shadow: \(elevation)"
+            cellBackground = "transparent"
+            cellContent = ShadowView(style: elevation, mouseReactive: true) {
+                return [AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "style", value: "padding: 1rem; background: \(background); border-radius: 8px; text-align: center; min-height: 80px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.3);")],
+                    children: [AnyNode(Text("Cell \(index)\n\(cellLabel)\n🖱️ REACTIVE"))]
+                ))]
+            }
+        default:
+            // Combined BlurView + ShadowView — transparent cell for blur, shadow inside
+            cellLabel = "Blur+Shadow"
+            cellBackground = "transparent"
+            cellContent = BlurView(style: .frostedGlass, intensity: 1.0) {
+                return ShadowView(style: .elevation4, mouseReactive: true) {
+                    return [AnyNode(Element<AnyHTMLContext>(
+                        tag: "div",
+                        attributes: [Attribute(name: "style", value: "padding: 1rem; color: white; font-weight: bold; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); min-height: 100px; display: flex; align-items: center; justify-content: center;")],
+                        children: [AnyNode(Text("Cell \(index)\n\(cellLabel)\n🖱️ REACTIVE"))]
+                    ))]
+                }
+            }
+        }
+
+        return Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [
+                Attribute(name: "class", value: "grid-cell"),
+                Attribute(name: "style", value: "min-height: 120px; background: \(cellBackground); border-radius: 8px; position: relative; overflow: visible;")
+            ],
+            children: cellContent
+        )
+    }
+
+    private static func renderDraggableImage() -> [AnyNode] {
+        // Real photo from picsum.photos (CORS-safe, no auth needed)
+        let imageUrl = "https://picsum.photos/id/29/400/300"
+
+        return [
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [
+                    Attribute(name: "id", value: "draggable-image-container"),
+                    Attribute(name: "style", value: "position: fixed; left: 50px; top: 300px; cursor: move; z-index: 0; pointer-events: auto;")
+                ],
+                children: [
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "img",
+                        attributes: [
+                            Attribute(name: "id", value: "draggable-image"),
+                            Attribute(name: "src", value: imageUrl),
+                            Attribute(name: "alt", value: "Draggable test image"),
+                            Attribute(name: "crossorigin", value: "anonymous"),
+                            Attribute(name: "draggable", value: "false"),
+                            Attribute(name: "style", value: "width: 400px; height: 300px; border: 3px solid white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); user-select: none; object-fit: cover;")
+                        ]
+                    ))
+                ]
             ))
         ]
     }

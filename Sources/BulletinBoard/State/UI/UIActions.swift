@@ -26,4 +26,7 @@ public enum UIAction: Action {
     case clearError
     case showToast(String)
     case clearToast
+
+    // MARK: - Tabs
+    case switchTab(String)
 }

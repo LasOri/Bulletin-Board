@@ -36,7 +36,8 @@ public struct CSPConfiguration {
             .addDirective(.baseUri, sources: [.selfOrigin])
             .addDirective(.formAction, sources: [.selfOrigin])
             .addDirective(.frameAncestors, sources: [.none])
-            .addDirective(.upgradeInsecureRequests, sources: [])
+            // Note: upgrade-insecure-requests should be set by the server, not via meta tag.
+            // When set via meta tag it breaks local HTTP development (localhost).
             .build()
     }
 
