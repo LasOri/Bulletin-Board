@@ -11,14 +11,17 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
 
     switch action {
     // MARK: - Article Expansion
-    case .expandArticle(let id):
-        newState.expandArticle(id)
+    case .beginExpanding(let id):
+        newState.beginExpanding(id)
 
-    case .collapseArticle:
-        newState.collapseArticle()
+    case .expandComplete:
+        newState.expandComplete()
 
-    case .completeAnimation:
-        newState.completeAnimation()
+    case .beginCollapsing:
+        newState.beginCollapsing()
+
+    case .collapseComplete:
+        newState.collapseComplete()
 
     // MARK: - Modals
     case .openFeedManager:

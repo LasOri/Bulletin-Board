@@ -5,33 +5,45 @@ final class UIReducerTests: XCTestCase {
 
     // MARK: - Article Expansion Tests
 
-    func test_expandArticle_setsExpandedIdAndAnimation() {
+    func test_beginExpanding_setsExpandedIdAndPhase() {
         let state = UIState()
 
-        let newState = uiReducer(state: state, action: UIAction.expandArticle(id: "article-1"))
+        let newState = uiReducer(state: state, action: UIAction.beginExpanding(id: "article-1"))
 
         XCTAssertEqual(newState.expandedArticleId, "article-1")
-        XCTAssertTrue(newState.isAnimating)
+        XCTAssertEqual(newState.animationPhase, .expanding)
     }
 
-    func test_collapseArticle_clearsExpandedIdAndSetsAnimation() {
+    func test_expandComplete_setsExpandedPhase() {
         var state = UIState()
         state.expandedArticleId = "article-1"
-        state.isAnimating = false
+        state.animationPhase = .expanding
 
-        let newState = uiReducer(state: state, action: UIAction.collapseArticle)
+        let newState = uiReducer(state: state, action: UIAction.expandComplete)
 
-        XCTAssertNil(newState.expandedArticleId)
-        XCTAssertTrue(newState.isAnimating)
+        XCTAssertEqual(newState.expandedArticleId, "article-1")
+        XCTAssertEqual(newState.animationPhase, .expanded)
     }
 
-    func test_completeAnimation_setsAnimatingFalse() {
+    func test_beginCollapsing_setsCollapsingPhase() {
         var state = UIState()
-        state.isAnimating = true
+        state.expandedArticleId = "article-1"
+        state.animationPhase = .expanded
 
-        let newState = uiReducer(state: state, action: UIAction.completeAnimation)
+        let newState = uiReducer(state: state, action: UIAction.beginCollapsing)
 
-        XCTAssertFalse(newState.isAnimating)
+        XCTAssertEqual(newState.animationPhase, .collapsing)
+    }
+
+    func test_collapseComplete_clearsExpandedIdAndResetsPhase() {
+        var state = UIState()
+        state.expandedArticleId = "article-1"
+        state.animationPhase = .collapsing
+
+        let newState = uiReducer(state: state, action: UIAction.collapseComplete)
+
+        XCTAssertNil(newState.expandedArticleId)
+        XCTAssertEqual(newState.animationPhase, .idle)
     }
 
     // MARK: - Modal Tests
@@ -146,10 +158,10 @@ final class UIReducerTests: XCTestCase {
     func test_reducerReturnsNewState_doesNotMutateOriginal() {
         let state = UIState()
 
-        _ = uiReducer(state: state, action: UIAction.expandArticle(id: "article-1"))
+        _ = uiReducer(state: state, action: UIAction.beginExpanding(id: "article-1"))
 
         // Original state should remain unchanged
         XCTAssertNil(state.expandedArticleId)
-        XCTAssertFalse(state.isAnimating)
+        XCTAssertEqual(state.animationPhase, .idle)
     }
 }

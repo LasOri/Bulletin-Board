@@ -324,6 +324,7 @@ public struct App {
         setupSubmitHandler(document: document)
         setupSearchHandlers(document: document)
         setupDragHandler(document: document)
+        CardExpansionController.shared.setupEscapeHandler(document: document)
         print("⚡ Event handlers registered")
     }
 
@@ -394,10 +395,20 @@ public struct App {
                     case "mark-read":
                         appStore.dispatch(ArticleAction.markAsRead(id: articleId))
                     case "article-click":
-                        appStore.dispatch(UIAction.expandArticle(id: articleId))
+                        CardExpansionController.shared.beginExpand(articleId: articleId)
                     default:
                         break
                     }
+                }
+
+            // -- Article detail dismiss --
+            case "collapse-article":
+                CardExpansionController.shared.beginCollapse()
+
+            case "collapse-article-overlay":
+                // Only close if clicking directly on the overlay background
+                if target.dataset.object?["action"].string == "collapse-article-overlay" {
+                    CardExpansionController.shared.beginCollapse()
                 }
 
             default:
@@ -693,6 +704,7 @@ public struct App {
 
         // Overlays (conditionally rendered)
         children.append(contentsOf: renderFeedManager())
+        children.append(contentsOf: renderArticleDetail())
         children.append(contentsOf: renderToast())
         children.append(contentsOf: renderErrorMessage())
 
@@ -964,14 +976,10 @@ public struct App {
     private static func renderContent() -> Element<AnyHTMLContext> {
         // Get current articles from signal
         let articles = filteredArticlesSignal.get()
-        let isAnimating = uiSignal.get().isAnimating
 
         var children: [AnyNode] = []
 
-        if isAnimating {
-            // Show loading spinner during animations
-            children.append(contentsOf: LoadingSpinner.medium(message: "Loading..."))
-        } else if articles.isEmpty {
+        if articles.isEmpty {
             // Show empty state
             let emptyState = Element<AnyHTMLContext>(
                 tag: "div",
@@ -1135,6 +1143,27 @@ public struct App {
         return [AnyNode(modal)]
     }
 
+    /// Render article detail overlay (when expanded)
+    private static func renderArticleDetail() -> [AnyNode] {
+        let uiState = uiSignal.get()
+
+        // Only render at rest (expanded) — during expanding/collapsing,
+        // CardExpansionController handles the clone animation outside the reconciler.
+        guard uiState.animationPhase == .expanded,
+              let articleId = uiState.expandedArticleId else {
+            return []
+        }
+
+        // Look up the article
+        let articles = articlesSignal.get().articles
+        guard let article = articles.first(where: { $0.id == articleId }) else {
+            return []
+        }
+
+        let props = ArticleDetailView.Props(article: article)
+        return ArticleDetailView.renderGPU(props: props)
+    }
+
     /// Render toast notification (conditionally)
     private static func renderToast() -> [AnyNode] {
         let uiState = uiSignal.get()
@@ -1191,7 +1220,6 @@ public struct App {
     /// Helper: Refresh a specific feed
     private static func refreshFeed(feed: Feed) async {
         do {
-            // Note: UIState.isAnimating is automatically managed by animation actions
             let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
             appStore.dispatch(ArticleAction.addArticles(articles))
             showToast("Feed refreshed: \(feed.title)")

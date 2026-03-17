@@ -4,9 +4,10 @@ import LINKER
 /// Actions for UI state management
 public enum UIAction: Action {
     // MARK: - Article Expansion
-    case expandArticle(id: String)
-    case collapseArticle
-    case completeAnimation
+    case beginExpanding(id: String)
+    case expandComplete
+    case beginCollapsing
+    case collapseComplete
 
     // MARK: - Modals
     case openFeedManager

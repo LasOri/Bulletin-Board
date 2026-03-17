@@ -24,6 +24,15 @@ public struct ArticleAnimations {
     /// Spring config for list item entry
     public static let listEntry = SpringConfig(tension: 190, friction: 22)
 
+    /// Spring config for card-to-fullscreen expansion transform
+    public static let cardExpandTransform = SpringConfig(tension: 200, friction: 22)
+
+    /// Spring config for fullscreen-to-card collapse transform
+    public static let cardCollapseTransform = SpringConfig(tension: 250, friction: 28)
+
+    /// Spring config for backdrop fade in/out
+    public static let backdropFade = SpringConfig(tension: 280, friction: 40)
+
     // MARK: - Transition Configs
 
     /// Fade transition for article cards

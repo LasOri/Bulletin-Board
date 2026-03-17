@@ -1,6 +1,18 @@
 import Foundation
 import LINKER
 
+/// Phase of card expansion/collapse animation
+public enum AnimationPhase: String, Codable, Equatable, Sendable {
+    /// No animation — article list visible
+    case idle
+    /// Clone animating from card rect to fullscreen
+    case expanding
+    /// Detail view rendered by reconciler (resting state)
+    case expanded
+    /// Clone animating from fullscreen back to card rect
+    case collapsing
+}
+
 /// UI state for app-level UI concerns
 public struct UIState: Codable, Equatable, Sendable {
     /// Currently expanded article ID (for detail view)
@@ -18,8 +30,8 @@ public struct UIState: Codable, Equatable, Sendable {
     /// Current theme
     public var theme: Theme
 
-    /// Is expansion animation in progress
-    public var isAnimating: Bool
+    /// Current phase of the card expansion animation
+    public var animationPhase: AnimationPhase
 
     /// Last error message to display
     public var errorMessage: String?
@@ -36,7 +48,7 @@ public struct UIState: Codable, Equatable, Sendable {
         isFeedManagerOpen: Bool = false,
         isSettingsOpen: Bool = false,
         theme: Theme = .auto,
-        isAnimating: Bool = false,
+        animationPhase: AnimationPhase = .idle,
         errorMessage: String? = nil,
         toastMessage: String? = nil,
         activeTab: String = "news-feed"
@@ -46,7 +58,7 @@ public struct UIState: Codable, Equatable, Sendable {
         self.isFeedManagerOpen = isFeedManagerOpen
         self.isSettingsOpen = isSettingsOpen
         self.theme = theme
-        self.isAnimating = isAnimating
+        self.animationPhase = animationPhase
         self.errorMessage = errorMessage
         self.toastMessage = toastMessage
         self.activeTab = activeTab
@@ -97,21 +109,26 @@ extension UIState {
         toastMessage = nil
     }
 
-    /// Expand article
-    public mutating func expandArticle(_ id: String) {
+    /// Begin expanding article (clone animation phase)
+    public mutating func beginExpanding(_ id: String) {
         expandedArticleId = id
-        isAnimating = true
+        animationPhase = .expanding
     }
 
-    /// Collapse article
-    public mutating func collapseArticle() {
+    /// Expand animation complete — reconciler renders detail view
+    public mutating func expandComplete() {
+        animationPhase = .expanded
+    }
+
+    /// Begin collapsing (clone animation phase)
+    public mutating func beginCollapsing() {
+        animationPhase = .collapsing
+    }
+
+    /// Collapse animation complete — back to idle
+    public mutating func collapseComplete() {
         expandedArticleId = nil
-        isAnimating = true
-    }
-
-    /// Animation complete
-    public mutating func completeAnimation() {
-        isAnimating = false
+        animationPhase = .idle
     }
 
     /// Toggle sidebar
