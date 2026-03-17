@@ -33,9 +33,12 @@
     <script type="module">
         import { startWasmApp } from './BulletinBoard.js'
 
-        console.log('🗞️ Bulletin Board starting...')
+        const pageStart = performance.now();
+        console.log(`[PERF] Page script executing at ${pageStart.toFixed(1)}ms from navigationStart`);
 
-        startWasmApp().catch(err => {
+        startWasmApp().then(() => {
+            console.log(`[PERF] App fully started: ${(performance.now() - pageStart).toFixed(1)}ms from script start`);
+        }).catch(err => {
             console.error('Failed to start WASM app:', err)
             document.getElementById('app').innerHTML = `
                 <div class="error-container">

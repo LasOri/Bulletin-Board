@@ -978,7 +978,8 @@ function createWASI(getMemory) {
  * @returns {Promise<void>}
  */
 export async function startWasmApp() {
-    console.log('Loading WASM binary...');
+    const t0 = performance.now();
+    console.log('[PERF] Loading WASM binary...');
 
     // Catch unhandled promise rejections from microtask callbacks
     // (e.g. promise.then inside JavaScriptEventLoop's job queue)
@@ -993,10 +994,12 @@ export async function startWasmApp() {
 
     try {
         // Create SwiftRuntime instance
+        let t1 = performance.now();
         const swift = new SwiftRuntime();
 
         // Create BridgeJS runtime (memory bound after instantiation)
         const bjsRuntime = createBJSRuntime(swift);
+        console.log(`[PERF] Runtime setup: ${(performance.now() - t1).toFixed(1)}ms`);
 
         // Memory accessor — resolved after instantiation from WASM exports
         let resolvedMemory = null;
@@ -1010,22 +1013,27 @@ export async function startWasmApp() {
         };
 
         // Use streaming instantiation — compiles while downloading (much faster for large binaries)
-        console.log('Fetching & compiling WASM module (streaming)...');
+        const tFetch = performance.now();
+        console.log('[PERF] Fetching & compiling WASM module (streaming)...');
         const response = fetch('BulletinBoard.wasm');
         const wasmModule = await WebAssembly.instantiateStreaming(response, importObject);
         wasmInstance = wasmModule.instance;
+        console.log(`[PERF] WASM fetch+compile+instantiate: ${(performance.now() - tFetch).toFixed(1)}ms`);
 
         // Get memory exported by WASM (not manually created)
         resolvedMemory = wasmInstance.exports.memory;
         wasmMemory = resolvedMemory;
 
-        console.log('WASM module instantiated');
+        console.log(`[PERF] WASM memory size: ${(resolvedMemory.buffer.byteLength / 1024 / 1024).toFixed(1)}MB`);
 
         // Wire up JavaScriptKit runtime and BridgeJS runtime
+        const tWire = performance.now();
         swift.setInstance(wasmInstance);
         bjsRuntime.setInstance(wasmInstance);
+        console.log(`[PERF] Runtime wiring: ${(performance.now() - tWire).toFixed(1)}ms`);
 
         // Start the application
+        const tStart = performance.now();
         if (typeof wasmInstance.exports._start === 'function') {
             // Command ABI: _start calls _initialize + main
             try {
@@ -1042,7 +1050,9 @@ export async function startWasmApp() {
             }
             swift.main();
         }
+        console.log(`[PERF] _start (sync phase): ${(performance.now() - tStart).toFixed(1)}ms`);
 
+        console.log(`[PERF] Total JS bootstrap: ${(performance.now() - t0).toFixed(1)}ms`);
         console.log('Bulletin Board started successfully');
 
     } catch (error) {

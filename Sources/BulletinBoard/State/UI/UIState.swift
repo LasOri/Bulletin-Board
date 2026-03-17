@@ -39,7 +39,7 @@ public struct UIState: Codable, Equatable, Sendable {
         isAnimating: Bool = false,
         errorMessage: String? = nil,
         toastMessage: String? = nil,
-        activeTab: String = "webgpu-test"
+        activeTab: String = "news-feed"
     ) {
         self.expandedArticleId = expandedArticleId
         self.isSidebarVisible = isSidebarVisible

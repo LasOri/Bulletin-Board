@@ -41,9 +41,34 @@ public struct App {
 
     // MARK: - Main Entry Point
 
+    /// Returns milliseconds since epoch (for performance timing).
+    private static func now() -> Double {
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        // Use JS performance.now() for sub-ms precision
+        // Must call via performance object to preserve `this` binding
+        if let perf = SafeJSGlobal.global?.performance.object {
+            return perf.now!().number ?? (Date().timeIntervalSince1970 * 1000)
+        }
+        return Date().timeIntervalSince1970 * 1000
+        #else
+        return Date().timeIntervalSince1970 * 1000
+        #endif
+    }
+
+    /// Logs elapsed time for a phase.
+    private static func perf(_ phase: String, since start: Double) -> Double {
+        let elapsed = now() - start
+        print("[PERF] \(phase): \(String(format: "%.1f", elapsed))ms")
+        return now()
+    }
+
     public static func main() async {
+        let t0 = now()
+        var t = t0
+
         // Configure LINKER logging
         await Logger.shared.configureForDevelopment()
+        t = perf("Logger setup", since: t)
         await Logger.shared.info(AppLogFeature.startup, "Bulletin Board starting...")
 
         // ============================================
@@ -83,35 +108,38 @@ public struct App {
             print("⚠️  Security initialization failed: \(error)")
             print("⚠️  Running with REDUCED security - manual intervention required")
             await Logger.shared.error(AppLogFeature.security, "Security initialization failed: \(error)")
-            // Note: App will still function but with reduced security
         }
+        t = perf("Security init", since: t)
 
         // Detect GPU support
         #if canImport(JavaScriptKit)
         await detectGPUSupport()
         #else
-        // Non-WASM environment: disable GPU
         GPUComponentConfig.enabled = false
         #endif
+        t = perf("GPU detection + WebGPU init", since: t)
 
         // Configure CORS proxy for cross-origin RSS feed fetching
-        // Browser security blocks direct cross-origin requests from WASM
         FeedService.corsProxy = "https://api.codetabs.com/v1/proxy?quest="
 
         // Load persisted data
         await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
         await loadPersistedData()
+        t = perf("Load persisted data", since: t)
 
         // Index articles for search
         await Logger.shared.info(AppLogFeature.data, "Indexing articles for search...")
         await indexArticlesForSearch()
+        t = perf("Search indexing", since: t)
 
         // Process articles with NLP
         await Logger.shared.info(AppLogFeature.nlp, "Processing articles with NLP...")
         await processArticlesWithNLP()
+        t = perf("NLP processing", since: t)
 
         // Setup reactive effects
         setupReactiveEffects()
+        t = perf("Reactive effects setup", since: t)
 
         // Mount UI
         await Logger.shared.info(AppLogFeature.ui, "Mounting UI...")
@@ -120,7 +148,9 @@ public struct App {
         #else
         print("✅ Bulletin Board initialized (no UI in non-WASM environment)")
         #endif
+        t = perf("UI mount + initial render", since: t)
 
+        _ = perf("TOTAL Swift startup", since: t0)
         await Logger.shared.info(AppLogFeature.startup, "Bulletin Board ready!")
         print("✅ Bulletin Board ready!")
     }
@@ -270,10 +300,22 @@ public struct App {
     /// The DOM reconciler instance
     private nonisolated(unsafe) static var reconciler: DOMReconciler?
 
+    private nonisolated(unsafe) static var renderCount = 0
+
     /// Renders the main view to the DOM using reconciliation
     private static func renderToDOM() {
+        let t0 = now()
         let nodes = MainView()
+        let tVdom = now()
         reconciler?.update(newTree: nodes)
+        renderCount += 1
+        let total = now() - t0
+        let vdom = tVdom - t0
+        let patch = now() - tVdom
+        // Log first 3 renders and any that take >50ms
+        if renderCount <= 3 || total > 50 {
+            print("[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)")
+        }
     }
 
     /// Sets up all event listeners for user interactions
