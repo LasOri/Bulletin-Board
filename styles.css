@@ -1103,7 +1103,13 @@ body {
 }
 
 .article-card--tinted {
-    background: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: none;
+}
+
+.article-card--tinted:hover {
+    box-shadow: none;
+    transform: translateY(-2px);
 }
 
 .article-card--tinted .article-card__title {
