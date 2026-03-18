@@ -1,4 +1,5 @@
 import Foundation
+import LINKER
 
 /// Orchestrates all NLP processing for articles.
 ///
@@ -17,6 +18,7 @@ public actor NLPService {
         public let category: ArticleCategory
         public let entities: [EntityExtractor.Entity]
         public let summary: String?
+        public let sentimentScore: Double
     }
 
     public init() {}
@@ -40,12 +42,16 @@ public actor NLPService {
         // Generate extractive summary (first 2 sentences of description or content)
         let summary = generateSummary(from: article)
 
+        // Sentiment analysis
+        let sentimentScore = SentimentAnalyzer.analyze(text: text)
+
         return NLPResult(
             articleId: article.id,
             keywords: keywords,
             category: category,
             entities: entities,
-            summary: summary
+            summary: summary,
+            sentimentScore: sentimentScore
         )
     }
 
@@ -84,6 +90,28 @@ public actor NLPService {
         let documents = articles.map { (id: $0.id, text: $0.textForNLP) }
         await tfidfEngine.indexDocuments(documents)
         print("📊 NLP corpus built: \(articles.count) documents indexed")
+    }
+
+    /// Cluster articles by TF-IDF similarity.
+    /// - Parameters:
+    ///   - articleIds: IDs of articles to cluster
+    ///   - threshold: Minimum similarity to group articles (default 0.3)
+    /// - Returns: Mapping of articleId to clusterId
+    public func clusterArticles(_ articleIds: [String], threshold: Double = 0.3) async -> [String: Int] {
+        var pairs: [TextClusterer.SimilarityPair] = []
+
+        for id in articleIds {
+            let similar = await tfidfEngine.findSimilar(to: id, limit: 10, threshold: threshold)
+            for match in similar {
+                pairs.append(TextClusterer.SimilarityPair(
+                    id1: id,
+                    id2: match.id,
+                    similarity: match.similarity
+                ))
+            }
+        }
+
+        return TextClusterer.cluster(similarities: pairs, threshold: threshold)
     }
 
     // MARK: - Private

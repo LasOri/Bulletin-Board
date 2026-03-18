@@ -25,6 +25,7 @@ extension ArticleDetailView {
         }
 
         let article = props.article
+        let relatedArticles = props.relatedArticles
 
         // Backdrop with BlurView (GPU frosted glass)
         let backdrop = BlurView(id: "article-detail-backdrop", style: .frostedGlass, intensity: 1.0) {
@@ -37,7 +38,7 @@ extension ArticleDetailView {
                 children:
                     // Wrap content card in ShadowView
                     ShadowView(id: "article-detail-shadow-\(article.id)", style: shadowStyle) {
-                        return [AnyNode(renderContentCard(article: article))]
+                        return [AnyNode(renderContentCard(article: article, relatedArticles: relatedArticles))]
                     }
             ))]
         }

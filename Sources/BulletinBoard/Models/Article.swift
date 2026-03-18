@@ -188,6 +188,22 @@ extension Article {
         nlpSummary != nil && !keywords.isEmpty
     }
 
+    /// Human-readable sentiment label
+    public var sentimentLabel: String? {
+        guard let score = sentimentScore else { return nil }
+        if score > 0.2 { return "Positive" }
+        if score < -0.2 { return "Negative" }
+        return "Neutral"
+    }
+
+    /// Sentiment emoji indicator
+    public var sentimentEmoji: String? {
+        guard let score = sentimentScore else { return nil }
+        if score > 0.2 { return "\u{1F60A}" }   // 😊
+        if score < -0.2 { return "\u{1F61F}" }   // 😟
+        return "\u{1F610}"                         // 😐
+    }
+
     /// Mark as read
     public mutating func markAsRead() {
         isRead = true

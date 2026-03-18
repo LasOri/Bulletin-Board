@@ -169,10 +169,11 @@ extension ArticleState {
                 }
 
                 // Category filter
-                if !filters.categories.isEmpty,
-                   let category = article.autoCategory,
-                   !filters.categories.contains(category) {
-                    return false
+                if !filters.categories.isEmpty {
+                    guard let category = article.autoCategory,
+                          filters.categories.contains(category) else {
+                        return false
+                    }
                 }
 
                 // Unread filter
@@ -229,5 +230,19 @@ extension ArticleState {
     /// Get favorite count
     public var favoriteCount: Int {
         articles.filter { $0.isFavorite }.count
+    }
+
+    /// Get article counts per category (non-archived only)
+    public var categoryCounts: [(category: ArticleCategory, count: Int)] {
+        var counts: [ArticleCategory: Int] = [:]
+        for article in articles where !article.isArchived {
+            if let cat = article.autoCategory {
+                counts[cat, default: 0] += 1
+            }
+        }
+        return ArticleCategory.allCases.compactMap { cat in
+            guard let count = counts[cat], count > 0 else { return nil }
+            return (category: cat, count: count)
+        }
     }
 }

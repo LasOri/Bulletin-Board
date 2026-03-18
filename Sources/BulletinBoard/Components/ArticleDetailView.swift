@@ -11,9 +11,11 @@ public struct ArticleDetailView {
 
     public struct Props {
         public let article: Article
+        public let relatedArticles: [Article]
 
-        public init(article: Article) {
+        public init(article: Article, relatedArticles: [Article] = []) {
             self.article = article
+            self.relatedArticles = relatedArticles
         }
     }
 
@@ -21,6 +23,7 @@ public struct ArticleDetailView {
 
     public static func render(props: Props) -> [AnyNode] {
         let article = props.article
+        let relatedArticles = props.relatedArticles
 
         // Backdrop — BlurView provides WebGPU frosted glass
         let backdrop = BlurView(id: "article-detail-backdrop", style: .frostedGlass, intensity: 1.0) {
@@ -31,7 +34,7 @@ public struct ArticleDetailView {
                     Attribute(name: "data-action", value: "collapse-article-overlay")
                 ],
                 children: [
-                    AnyNode(renderContentCard(article: article))
+                    AnyNode(renderContentCard(article: article, relatedArticles: relatedArticles))
                 ]
             ))]
         }
@@ -41,7 +44,7 @@ public struct ArticleDetailView {
 
     // MARK: - Content Card
 
-    static func renderContentCard(article: Article) -> Element<AnyHTMLContext> {
+    static func renderContentCard(article: Article, relatedArticles: [Article] = []) -> Element<AnyHTMLContext> {
         var children: [AnyNode] = []
 
         // Close button
@@ -52,7 +55,7 @@ public struct ArticleDetailView {
             children.append(AnyNode(renderHeroImage(url: enclosure.url, alt: article.title)))
         }
 
-        // Header (title, author, date, category)
+        // Header (title, author, date, category, sentiment)
         children.append(AnyNode(renderHeader(article: article)))
 
         // Body (full description/content)
@@ -61,6 +64,11 @@ public struct ArticleDetailView {
         // Keywords
         if !article.keywords.isEmpty {
             children.append(AnyNode(renderKeywords(keywords: article.keywords)))
+        }
+
+        // Related articles
+        if !relatedArticles.isEmpty {
+            children.append(AnyNode(renderRelatedArticles(articles: relatedArticles)))
         }
 
         // Footer (actions)
@@ -115,15 +123,34 @@ public struct ArticleDetailView {
     private static func renderHeader(article: Article) -> Element<AnyHTMLContext> {
         var headerChildren: [AnyNode] = []
 
-        // Category badge
+        // Category badge + sentiment row
+        var badgeRow: [AnyNode] = []
         if let category = article.autoCategory {
-            headerChildren.append(AnyNode(Element<AnyHTMLContext>(
-                tag: "span",
+            badgeRow.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "button",
                 attributes: [
+                    Attribute(name: "type", value: "button"),
                     Attribute(name: "class", value: "article-detail__category"),
-                    Attribute(name: "style", value: "background-color: \(category.color)")
+                    Attribute(name: "style", value: "background-color: \(category.color)"),
+                    Attribute(name: "data-action", value: "filter-category"),
+                    Attribute(name: "data-category", value: category.rawValue)
                 ],
                 children: [AnyNode(Text(category.rawValue))]
+            )))
+        }
+        if let sentiment = article.sentimentLabel, let emoji = article.sentimentEmoji {
+            let sentimentClass = "sentiment-indicator sentiment--\(sentiment.lowercased())"
+            badgeRow.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "span",
+                attributes: [Attribute(name: "class", value: sentimentClass)],
+                children: [AnyNode(Text("\(emoji) \(sentiment)"))]
+            )))
+        }
+        if !badgeRow.isEmpty {
+            headerChildren.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "article-detail__badges")],
+                children: badgeRow
             )))
         }
 
@@ -190,6 +217,55 @@ public struct ArticleDetailView {
             tag: "div",
             attributes: [Attribute(name: "class", value: "article-detail__keywords")],
             children: keywordNodes
+        )
+    }
+
+    // MARK: - Related Articles
+
+    private static func renderRelatedArticles(articles: [Article]) -> Element<AnyHTMLContext> {
+        let header = Element<AnyHTMLContext>(
+            tag: "h3",
+            attributes: [Attribute(name: "class", value: "related-articles__title")],
+            children: [AnyNode(Text("Related Articles"))]
+        )
+
+        let items = articles.prefix(3).map { article in
+            var itemChildren: [AnyNode] = []
+
+            // Title
+            itemChildren.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "span",
+                attributes: [Attribute(name: "class", value: "related-article-item__title")],
+                children: [AnyNode(Text(article.title))]
+            )))
+
+            // Category badge (small)
+            if let category = article.autoCategory {
+                itemChildren.append(AnyNode(Element<AnyHTMLContext>(
+                    tag: "span",
+                    attributes: [
+                        Attribute(name: "class", value: "related-article-item__category"),
+                        Attribute(name: "style", value: "background-color: \(category.color)")
+                    ],
+                    children: [AnyNode(Text(category.rawValue))]
+                )))
+            }
+
+            return AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [
+                    Attribute(name: "class", value: "related-article-item"),
+                    Attribute(name: "data-action", value: "article-click"),
+                    Attribute(name: "data-article-id", value: article.id)
+                ],
+                children: itemChildren
+            ))
+        }
+
+        return Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "related-articles")],
+            children: [AnyNode(header)] + items
         )
     }
 

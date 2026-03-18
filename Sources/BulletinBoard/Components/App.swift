@@ -239,15 +239,40 @@ public struct App {
         await nlpService.buildCorpus(from: articles)
         let results = await nlpService.processArticles(unprocessed)
 
+        // Cluster all articles (not just unprocessed) for best grouping
+        let allIds = articles.map { $0.id }
+        let clusters = await nlpService.clusterArticles(allIds)
+        print("  📊 Clustering complete: \(clusters.count) articles assigned to clusters")
+
         let updates = results.map { result in
             (id: result.articleId,
              summary: result.summary,
              keywords: result.keywords,
              category: result.category,
-             sentiment: nil as Double?,
-             cluster: nil as Int?)
+             sentiment: result.sentimentScore as Double?,
+             cluster: clusters[result.articleId] as Int?)
         }
         appStore.dispatch(ArticleAction.batchUpdateNLP(updates))
+
+        // Also update cluster assignments for already-processed articles
+        let alreadyProcessed = articles.filter { $0.isNLPProcessed }
+        if !alreadyProcessed.isEmpty {
+            let clusterUpdates = alreadyProcessed.compactMap { article -> (id: String, summary: String?, keywords: [String], category: ArticleCategory?, sentiment: Double?, cluster: Int?)? in
+                guard let clusterId = clusters[article.id] else { return nil }
+                // Only update if cluster changed
+                guard article.clusterId != clusterId else { return nil }
+                return (id: article.id,
+                        summary: article.nlpSummary,
+                        keywords: article.keywords,
+                        category: article.autoCategory,
+                        sentiment: article.sentimentScore,
+                        cluster: clusterId as Int?)
+            }
+            if !clusterUpdates.isEmpty {
+                appStore.dispatch(ArticleAction.batchUpdateNLP(clusterUpdates))
+            }
+        }
+
         print("  ✓ NLP processing complete for \(results.count) articles")
     }
 
@@ -385,6 +410,29 @@ public struct App {
                     handleFeedAction(action: action, feedId: feedId)
                 }
 
+            // -- Category filter --
+            case "filter-category":
+                if let categoryStr = actionEl.dataset.object?["category"].string {
+                    var currentFilters = appStore.getState().articles.filters
+                    if categoryStr == "all" {
+                        // Clear category filter
+                        currentFilters.categories.removeAll()
+                    } else if let category = ArticleCategory(rawValue: categoryStr) {
+                        // Toggle category
+                        if currentFilters.categories.contains(category) {
+                            currentFilters.categories.remove(category)
+                        } else {
+                            currentFilters.categories.insert(category)
+                        }
+                    }
+                    appStore.dispatch(ArticleAction.setFilters(currentFilters))
+                    // If in expanded detail view, collapse it
+                    let uiState = uiSignal.get()
+                    if uiState.animationPhase == .expanded {
+                        CardExpansionController.shared.beginCollapse()
+                    }
+                }
+
             // -- Article actions (need data-article-id from parent) --
             case "toggle-favorite", "mark-read", "article-click":
                 if let articleEl = target.closest!("[data-article-id]").object,
@@ -513,6 +561,9 @@ public struct App {
         }
 
         showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds")
+        if totalArticles > 0 {
+            await processArticlesWithNLP()
+        }
     }
 
     // MARK: - Search Event Handlers
@@ -698,6 +749,7 @@ public struct App {
             children.append(AnyNode(header))
             children.append(contentsOf: searchBar)
             children.append(contentsOf: toolbar)
+            children.append(contentsOf: renderCategoryFilterBar())
             children.append(AnyNode(content))
             children.append(AnyNode(footer))
         }
@@ -1087,6 +1139,16 @@ public struct App {
         return [AnyNode(toolbar)]
     }
 
+    /// Render category filter bar
+    private static func renderCategoryFilterBar() -> [AnyNode] {
+        let articleState = articlesSignal.get()
+        let props = CategoryFilterBar.Props(
+            categoryCounts: articleState.categoryCounts,
+            activeCategories: articleState.filters.categories
+        )
+        return CategoryFilterBar.render(props: props)
+    }
+
     /// Render feed manager modal (conditionally)
     private static func renderFeedManager() -> [AnyNode] {
         let uiState = uiSignal.get()
@@ -1160,7 +1222,13 @@ public struct App {
             return []
         }
 
-        let props = ArticleDetailView.Props(article: article)
+        // Find related articles by cluster ID
+        var relatedArticles: [Article] = []
+        if let clusterId = article.clusterId {
+            relatedArticles = articles.filter { $0.clusterId == clusterId && $0.id != article.id }
+        }
+
+        let props = ArticleDetailView.Props(article: article, relatedArticles: relatedArticles)
         return ArticleDetailView.renderGPU(props: props)
     }
 
@@ -1223,6 +1291,7 @@ public struct App {
             let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
             appStore.dispatch(ArticleAction.addArticles(articles))
             showToast("Feed refreshed: \(feed.title)")
+            await processArticlesWithNLP()
         } catch {
             appStore.dispatch(UIAction.showError("Failed to refresh: \(error.localizedDescription)"))
         }
@@ -1248,6 +1317,9 @@ public struct App {
             showToast("Feed added with \(articles.count) articles")
 
             print("✅ Feed added: \(url) with \(articles.count) articles")
+
+            // Trigger NLP processing for the new articles
+            await processArticlesWithNLP()
         } catch let error as FeedService.FeedError {
             let message: String
             switch error {

@@ -67,9 +67,25 @@ public struct ArticleCard {
     private static func renderHeader(article: Article, props: Props) -> Element<AnyHTMLContext> {
         var headerChildren: [AnyNode] = []
 
-        // Category badge
+        // Category badge + sentiment indicator row
+        var badgeRow: [AnyNode] = []
         if let category = article.autoCategory {
-            headerChildren.append(AnyNode(renderCategoryBadge(category: category)))
+            badgeRow.append(AnyNode(renderCategoryBadge(category: category)))
+        }
+        if let sentiment = article.sentimentLabel, let emoji = article.sentimentEmoji {
+            let sentimentClass = "sentiment-indicator sentiment--\(sentiment.lowercased())"
+            badgeRow.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "span",
+                attributes: [Attribute(name: "class", value: sentimentClass)],
+                children: [AnyNode(Text("\(emoji) \(sentiment)"))]
+            )))
+        }
+        if !badgeRow.isEmpty {
+            headerChildren.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "article-card__badges")],
+                children: badgeRow
+            )))
         }
 
         // Title
@@ -92,10 +108,13 @@ public struct ArticleCard {
 
     private static func renderCategoryBadge(category: ArticleCategory) -> Element<AnyHTMLContext> {
         Element<AnyHTMLContext>(
-            tag: "span",
+            tag: "button",
             attributes: [
+                Attribute(name: "type", value: "button"),
                 Attribute(name: "class", value: "article-card__category"),
-                Attribute(name: "style", value: "background-color: \(category.color)")
+                Attribute(name: "style", value: "background-color: \(category.color)"),
+                Attribute(name: "data-action", value: "filter-category"),
+                Attribute(name: "data-category", value: category.rawValue)
             ],
             children: [AnyNode(Text(category.rawValue))]
         )
