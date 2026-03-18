@@ -66,6 +66,8 @@ public struct FeedManager {
 
         children.append(AnyNode(renderFeedList(feeds: props.feeds)))
 
+        children.append(AnyNode(renderOPMLActions()))
+
         let container = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
@@ -212,6 +214,45 @@ public struct FeedManager {
                             children: [AnyNode(Text("🗑️"))]
                         ))
                     ]
+                ))
+            ]
+        )
+    }
+
+    private static func renderOPMLActions() -> Element<AnyHTMLContext> {
+        Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "feed-manager__opml")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button"),
+                        Attribute(name: "data-action", value: "import-opml"),
+                        Attribute(name: "aria-label", value: "Import OPML")
+                    ],
+                    children: [AnyNode(Text("📥 Import OPML"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button"),
+                        Attribute(name: "data-action", value: "export-opml"),
+                        Attribute(name: "aria-label", value: "Export OPML")
+                    ],
+                    children: [AnyNode(Text("📤 Export OPML"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "input",
+                    attributes: [
+                        Attribute(name: "type", value: "file"),
+                        Attribute(name: "id", value: "opml-file-input"),
+                        Attribute(name: "accept", value: ".opml,.xml"),
+                        Attribute(name: "style", value: "display:none")
+                    ],
+                    children: []
                 ))
             ]
         )

@@ -65,6 +65,9 @@ public struct ArticleCard {
         if article.dominantColor != nil {
             classes.append("article-card--tinted")
         }
+        if article.id == appStore.getState().articles.selectedId {
+            classes.append("article-card--selected")
+        }
         return classes.joined(separator: " ")
     }
 

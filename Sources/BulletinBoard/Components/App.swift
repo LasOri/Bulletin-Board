@@ -130,6 +130,10 @@ public struct App {
         _ = perf("TOTAL Swift startup", since: t0)
         await Logger.shared.info(AppLogFeature.startup, "Bulletin Board ready!")
         print("✅ Bulletin Board ready!")
+
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        startAutoRefresh()
+        #endif
     }
 
     #if canImport(JavaScriptKit) && arch(wasm32)
@@ -313,6 +317,8 @@ public struct App {
         setupClickHandler(document: document)
         setupSubmitHandler(document: document)
         setupSearchHandlers(document: document)
+        setupKeyboardHandler(document: document)
+        setupFileInputHandler(document: document)
         CardExpansionController.shared.setupEscapeHandler(document: document)
         print("⚡ Event handlers registered")
     }
@@ -358,6 +364,32 @@ public struct App {
                     handleFeedAction(action: action, feedId: feedId)
                 }
 
+            case "toggle-unread-filter":
+                var currentFilters = appStore.getState().articles.filters
+                currentFilters.showOnlyUnread.toggle()
+                appStore.dispatch(ArticleAction.setFilters(currentFilters))
+
+            case "toggle-favorites-filter":
+                var currentFilters = appStore.getState().articles.filters
+                currentFilters.showOnlyFavorites.toggle()
+                appStore.dispatch(ArticleAction.setFilters(currentFilters))
+
+            case "filter-date-range":
+                if let rangeStr = actionEl.dataset.object?["range"].string {
+                    var currentFilters = appStore.getState().articles.filters
+                    switch rangeStr {
+                    case "today":
+                        currentFilters.dateRange = .today
+                    case "week":
+                        currentFilters.dateRange = .lastWeek
+                    case "month":
+                        currentFilters.dateRange = .lastMonth
+                    default:
+                        currentFilters.dateRange = nil
+                    }
+                    appStore.dispatch(ArticleAction.setFilters(currentFilters))
+                }
+
             case "filter-category":
                 if let categoryStr = actionEl.dataset.object?["category"].string {
                     var currentFilters = appStore.getState().articles.filters
@@ -399,6 +431,17 @@ public struct App {
                 if target.dataset.object?["action"].string == "collapse-article-overlay" {
                     CardExpansionController.shared.beginCollapse()
                 }
+
+            case "import-opml":
+                if let fileInput = SafeJSGlobal.global?.document.object?
+                    .getElementById!("opml-file-input").object {
+                    _ = fileInput.click!()
+                }
+
+            case "export-opml":
+                let feeds = appStore.getState().feeds.feeds
+                let opmlXML = OPMLService.generateOPML(feeds: feeds)
+                exportOPMLFile(opmlXML)
 
             default:
                 break
@@ -474,6 +517,49 @@ public struct App {
         }
     }
 
+    private static func startAutoRefresh() {
+        Task {
+            while true {
+                try? await Task.sleep(nanoseconds: 5 * 60 * 1_000_000_000)
+
+                let uiState = appStore.getState().ui
+                if uiState.animationPhase == .expanded { continue }
+
+                let feeds = appStore.getState().feeds.feeds
+                var totalNew = 0
+                var refreshedFeedTitle = ""
+
+                for feed in feeds where feed.needsUpdate() {
+                    do {
+                        let existingCount = appStore.getState().articles.articles
+                            .filter { $0.feedId == feed.id }.count
+                        let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
+                        appStore.dispatch(ArticleAction.addArticles(articles))
+                        let newCount = appStore.getState().articles.articles
+                            .filter { $0.feedId == feed.id }.count - existingCount
+                        if newCount > 0 {
+                            totalNew += newCount
+                            refreshedFeedTitle = feed.title
+                        }
+                    } catch {
+                        print("⚠️ Auto-refresh failed for \(feed.title): \(error)")
+                    }
+                }
+
+                if totalNew > 0 {
+                    let message = totalNew == 1
+                        ? "1 new article from \(refreshedFeedTitle)"
+                        : "\(totalNew) new articles"
+                    showToast(message)
+                    await processArticlesWithNLP()
+                    #if canImport(JavaScriptKit) && arch(wasm32)
+                    await extractDominantColors()
+                    #endif
+                }
+            }
+        }
+    }
+
     private static func refreshAllFeeds() async {
         let feedsState = appStore.getState().feeds
 
@@ -532,6 +618,168 @@ public struct App {
         }
 
         document.addEventListener!("input", inputHandler)
+    }
+
+    private static func setupKeyboardHandler(document: JSObject) {
+        let handler = JSClosure { args -> JSValue in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let key = event.key.string else {
+                return .undefined
+            }
+
+            if let activeTag = SafeJSGlobal.global?.document.object?
+                .activeElement.object?.tagName.string?.lowercased(),
+               activeTag == "input" || activeTag == "textarea" {
+                return .undefined
+            }
+
+            let uiState = appStore.getState().ui
+
+            switch key {
+            case "j", "k":
+                let articles = filteredArticlesSignal.get()
+                guard !articles.isEmpty else { return .undefined }
+
+                let currentId = appStore.getState().articles.selectedId
+                let currentIndex = articles.firstIndex(where: { $0.id == currentId })
+
+                let newIndex: Int
+                if key == "j" {
+                    newIndex = min((currentIndex ?? -1) + 1, articles.count - 1)
+                } else {
+                    newIndex = max((currentIndex ?? 1) - 1, 0)
+                }
+
+                let targetId = articles[newIndex].id
+                appStore.dispatch(ArticleAction.selectArticle(id: targetId))
+
+                if let el = SafeJSGlobal.global?.document.object?
+                    .querySelector!("[data-article-id=\"\(targetId)\"]").object {
+                    _ = el.scrollIntoView!(["behavior": "smooth", "block": "nearest"])
+                }
+
+            case "o", "Enter":
+                if uiState.animationPhase != .expanded,
+                   let selectedId = appStore.getState().articles.selectedId {
+                    CardExpansionController.shared.beginExpand(articleId: selectedId)
+                }
+
+            case "f":
+                if let selectedId = appStore.getState().articles.selectedId {
+                    appStore.dispatch(ArticleAction.toggleFavorite(id: selectedId))
+                }
+
+            case "m":
+                if let selectedId = appStore.getState().articles.selectedId {
+                    appStore.dispatch(ArticleAction.markAsRead(id: selectedId))
+                }
+
+            case "r":
+                Task { await refreshAllFeeds() }
+
+            case "/":
+                _ = event.preventDefault!()
+                if let searchInput = SafeJSGlobal.global?.document.object?
+                    .getElementById!("search-input").object {
+                    _ = searchInput.focus!()
+                }
+
+            default:
+                break
+            }
+
+            return .undefined
+        }
+
+        document.addEventListener!("keydown", handler)
+    }
+
+    private static func setupFileInputHandler(document: JSObject) {
+        let changeHandler = JSClosure { args -> JSValue in
+            guard args.count > 0,
+                  let event = args[0].object,
+                  let target = event.target.object else {
+                return .undefined
+            }
+
+            let targetId = target.id.string ?? ""
+            guard targetId == "opml-file-input" else { return .undefined }
+
+            guard let files = target.files.object,
+                  let file = files.item!(0).object else {
+                return .undefined
+            }
+
+            guard let fileReaderConstructor = SafeJSGlobal.global?.FileReader.function else {
+                return .undefined
+            }
+
+            let reader = fileReaderConstructor.new()
+
+            let onLoad = JSClosure { args -> JSValue in
+                guard args.count > 0,
+                      let event = args[0].object,
+                      let result = event.target.object?.result.string else {
+                    return .undefined
+                }
+
+                let feeds = OPMLService.parseOPML(xml: result)
+                guard !feeds.isEmpty else {
+                    showToast("No feeds found in OPML file")
+                    return .undefined
+                }
+
+                Task {
+                    var addedCount = 0
+                    for feedEntry in feeds {
+                        await addFeedHelper(url: feedEntry.url)
+                        addedCount += 1
+                    }
+                    showToast("Imported \(addedCount) feeds from OPML")
+                }
+
+                return .undefined
+            }
+
+            reader.onload = .object(onLoad)
+            _ = reader.readAsText!(file)
+
+            target.value = .string("")
+
+            return .undefined
+        }
+
+        document.addEventListener!("change", changeHandler)
+    }
+
+    private static func exportOPMLFile(_ xml: String) {
+        guard let blobConstructor = SafeJSGlobal.global?.Blob.function,
+              let urlObj = SafeJSGlobal.global?.URL.object else {
+            return
+        }
+
+        let array = SafeJSGlobal.global?.Array.function?.new()
+        _ = array?.push!(xml)
+        let options = SafeJSGlobal.global?.Object.function?.new()
+        options?.type = .string("application/xml")
+        let blob = blobConstructor.new(array!, options!)
+
+        guard let downloadURL = urlObj.createObjectURL!(blob).string else {
+            return
+        }
+
+        guard let document = SafeJSGlobal.global?.document.object else { return }
+
+        let a = document.createElement!("a")
+        guard let link = a.object else { return }
+        link.href = .string(downloadURL)
+        link.download = .string("bulletin-board-feeds.opml")
+        link.style.object?.display = .string("none")
+        _ = document.body.object?.appendChild!(link)
+        _ = link.click!()
+        _ = document.body.object?.removeChild!(link)
+        _ = urlObj.revokeObjectURL!(downloadURL)
     }
 
     #elseif canImport(JavaScriptKit)
@@ -704,6 +952,35 @@ public struct App {
     }
 
     private static func renderToolbar() -> [AnyNode] {
+        let filters = articlesSignal.get().filters
+
+        let unreadClass = "toolbar-button" + (filters.showOnlyUnread ? " toolbar-button--active" : "")
+        let favoritesClass = "toolbar-button" + (filters.showOnlyFavorites ? " toolbar-button--active" : "")
+
+        let currentRange: String = {
+            guard let dr = filters.dateRange else { return "all" }
+            switch dr {
+            case .today: return "today"
+            case .lastWeek: return "week"
+            case .lastMonth: return "month"
+            case .custom: return "all"
+            }
+        }()
+
+        func dateRangePill(_ label: String, _ range: String) -> AnyNode {
+            let pillClass = "date-filter-pill" + (currentRange == range ? " date-filter-pill--active" : "")
+            return AnyNode(Element<AnyHTMLContext>(
+                tag: "button",
+                attributes: [
+                    Attribute(name: "type", value: "button"),
+                    Attribute(name: "class", value: pillClass),
+                    Attribute(name: "data-action", value: "filter-date-range"),
+                    Attribute(name: "data-range", value: range)
+                ],
+                children: [AnyNode(Text(label))]
+            ))
+        }
+
         let toolbar = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [Attribute(name: "class", value: "app-toolbar")],
@@ -727,6 +1004,36 @@ public struct App {
                         Attribute(name: "aria-label", value: "Refresh all feeds")
                     ],
                     children: [AnyNode(Text("🔄 Refresh All"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: unreadClass),
+                        Attribute(name: "data-action", value: "toggle-unread-filter"),
+                        Attribute(name: "aria-label", value: "Show unread only")
+                    ],
+                    children: [AnyNode(Text("📬 Unread"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: favoritesClass),
+                        Attribute(name: "data-action", value: "toggle-favorites-filter"),
+                        Attribute(name: "aria-label", value: "Show favorites only")
+                    ],
+                    children: [AnyNode(Text("⭐ Favorites"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "date-filter-group")],
+                    children: [
+                        dateRangePill("All Time", "all"),
+                        dateRangePill("Today", "today"),
+                        dateRangePill("This Week", "week"),
+                        dateRangePill("This Month", "month")
+                    ]
                 ))
             ]
         )
