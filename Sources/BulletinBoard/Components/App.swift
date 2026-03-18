@@ -304,12 +304,34 @@ public struct App {
         let nodes = MainView()
         let tVdom = now()
         reconciler?.update(newTree: nodes)
+        applyTheme()
         renderCount += 1
         let total = now() - t0
         let vdom = tVdom - t0
         let patch = now() - tVdom
         if renderCount <= 3 || total > 50 {
             print("[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)")
+        }
+    }
+
+    private static func applyTheme() {
+        let theme = uiSignal.get().theme
+        guard let body = SafeJSGlobal.global?.document.object?.body.object else { return }
+        let isDark: Bool
+        switch theme {
+        case .dark:
+            isDark = true
+        case .light:
+            isDark = false
+        case .auto:
+            let prefersDark = SafeJSGlobal.global?.matchMedia.function?("(prefers-color-scheme: dark)")
+                .object?.matches
+            isDark = prefersDark?.boolean ?? false
+        }
+        if isDark {
+            _ = body.classList.object?.add!("theme-dark")
+        } else {
+            _ = body.classList.object?.remove!("theme-dark")
         }
     }
 
@@ -442,6 +464,98 @@ public struct App {
                 let feeds = appStore.getState().feeds.feeds
                 let opmlXML = OPMLService.generateOPML(feeds: feeds)
                 exportOPMLFile(opmlXML)
+
+            case "mark-all-read":
+                appStore.dispatch(ArticleAction.markAllAsRead)
+                showToast("All articles marked as read")
+
+            case "set-sort-order":
+                if let sortStr = actionEl.dataset.object?["sort"].string {
+                    let order: ArticleSortOrder
+                    switch sortStr {
+                    case "newest": order = .newest
+                    case "oldest": order = .oldest
+                    case "title": order = .title
+                    case "feed": order = .feed
+                    case "category": order = .category
+                    default: return JSValue.undefined
+                    }
+                    appStore.dispatch(ArticleAction.setSortOrder(order))
+                }
+
+            case "toggle-archived-filter":
+                var currentFilters = appStore.getState().articles.filters
+                currentFilters.showArchived.toggle()
+                appStore.dispatch(ArticleAction.setFilters(currentFilters))
+
+            case "archive-article":
+                if let articleEl = target.closest!("[data-article-id]").object,
+                   let articleId = articleEl.dataset.object?["articleId"].string {
+                    appStore.dispatch(ArticleAction.archiveArticle(id: articleId))
+                    showToast("Article archived")
+                }
+
+            case "unarchive-article":
+                if let articleEl = target.closest!("[data-article-id]").object,
+                   let articleId = articleEl.dataset.object?["articleId"].string {
+                    appStore.dispatch(ArticleAction.unarchiveArticle(id: articleId))
+                    showToast("Article restored")
+                }
+
+            case "bulk-archive-read":
+                let readIds = appStore.getState().articles.articles
+                    .filter { $0.isRead && !$0.isArchived }
+                    .map { $0.id }
+                if !readIds.isEmpty {
+                    appStore.dispatch(ArticleAction.archiveMultiple(readIds))
+                    showToast("Archived \(readIds.count) read articles")
+                }
+
+            case "delete-older":
+                if let daysStr = actionEl.dataset.object?["days"].string,
+                   let days = Int(daysStr) {
+                    let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
+                    appStore.dispatch(ArticleAction.deleteOlderThan(cutoff))
+                    showToast("Deleted articles older than \(days) days")
+                }
+
+            case "open-settings":
+                appStore.dispatch(UIAction.toggleSettings)
+
+            case "close-settings", "close-settings-overlay":
+                appStore.dispatch(UIAction.toggleSettings)
+
+            case "set-theme":
+                if let themeStr = actionEl.dataset.object?["theme"].string {
+                    let theme: Theme
+                    switch themeStr {
+                    case "light": theme = .light
+                    case "dark": theme = .dark
+                    default: theme = .auto
+                    }
+                    appStore.dispatch(UIAction.setTheme(theme))
+                }
+
+            case "save-feed-edit":
+                if let feedId = actionEl.dataset.object?["feedId"].string,
+                   let titleInput = SafeJSGlobal.global?.document.object?
+                    .getElementById!("edit-feed-title-\(feedId)").object,
+                   let newTitle = titleInput.value.string {
+                    if let feed = appStore.getState().feeds.feeds.first(where: { $0.id == feedId }) {
+                        let updated = Feed(
+                            id: feed.id, title: newTitle, description: feed.description,
+                            url: feed.url, siteUrl: feed.siteUrl, language: feed.language,
+                            iconUrl: feed.iconUrl, userCategory: feed.userCategory,
+                            updateFrequency: feed.updateFrequency, lastFetched: feed.lastFetched,
+                            lastSuccessfulFetch: feed.lastSuccessfulFetch, lastError: feed.lastError,
+                            articleCount: feed.articleCount, unreadCount: feed.unreadCount,
+                            subscribedAt: feed.subscribedAt, updatedAt: Date(),
+                            isEnabled: feed.isEnabled, isFetching: feed.isFetching
+                        )
+                        appStore.dispatch(FeedAction.updateFeed(id: feedId, updated))
+                        showToast("Feed updated")
+                    }
+                }
 
             default:
                 break
@@ -828,6 +942,7 @@ public struct App {
         children.append(AnyNode(footer))
 
         children.append(contentsOf: renderFeedManager())
+        children.append(contentsOf: renderSettings())
         children.append(contentsOf: renderArticleDetail())
         children.append(contentsOf: renderToast())
         children.append(contentsOf: renderErrorMessage())
@@ -952,10 +1067,13 @@ public struct App {
     }
 
     private static func renderToolbar() -> [AnyNode] {
-        let filters = articlesSignal.get().filters
+        let articlesState = articlesSignal.get()
+        let filters = articlesState.filters
+        let currentSort = articlesState.sortBy
 
         let unreadClass = "toolbar-button" + (filters.showOnlyUnread ? " toolbar-button--active" : "")
         let favoritesClass = "toolbar-button" + (filters.showOnlyFavorites ? " toolbar-button--active" : "")
+        let archivedClass = "toolbar-button" + (filters.showArchived ? " toolbar-button--active" : "")
 
         let currentRange: String = {
             guard let dr = filters.dateRange else { return "all" }
@@ -976,6 +1094,20 @@ public struct App {
                     Attribute(name: "class", value: pillClass),
                     Attribute(name: "data-action", value: "filter-date-range"),
                     Attribute(name: "data-range", value: range)
+                ],
+                children: [AnyNode(Text(label))]
+            ))
+        }
+
+        func sortPill(_ label: String, _ order: String) -> AnyNode {
+            let pillClass = "date-filter-pill" + (currentSort.rawValue == label ? " date-filter-pill--active" : "")
+            return AnyNode(Element<AnyHTMLContext>(
+                tag: "button",
+                attributes: [
+                    Attribute(name: "type", value: "button"),
+                    Attribute(name: "class", value: pillClass),
+                    Attribute(name: "data-action", value: "set-sort-order"),
+                    Attribute(name: "data-sort", value: order)
                 ],
                 children: [AnyNode(Text(label))]
             ))
@@ -1009,6 +1141,16 @@ public struct App {
                     tag: "button",
                     attributes: [
                         Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button"),
+                        Attribute(name: "data-action", value: "mark-all-read"),
+                        Attribute(name: "aria-label", value: "Mark all as read")
+                    ],
+                    children: [AnyNode(Text("✓ Mark All Read"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
                         Attribute(name: "class", value: unreadClass),
                         Attribute(name: "data-action", value: "toggle-unread-filter"),
                         Attribute(name: "aria-label", value: "Show unread only")
@@ -1026,6 +1168,26 @@ public struct App {
                     children: [AnyNode(Text("⭐ Favorites"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: archivedClass),
+                        Attribute(name: "data-action", value: "toggle-archived-filter"),
+                        Attribute(name: "aria-label", value: "Show archived articles")
+                    ],
+                    children: [AnyNode(Text("📦 Archived"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button"),
+                        Attribute(name: "data-action", value: "open-settings"),
+                        Attribute(name: "aria-label", value: "Settings")
+                    ],
+                    children: [AnyNode(Text("⚙️ Settings"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
                     tag: "div",
                     attributes: [Attribute(name: "class", value: "date-filter-group")],
                     children: [
@@ -1033,6 +1195,22 @@ public struct App {
                         dateRangePill("Today", "today"),
                         dateRangePill("This Week", "week"),
                         dateRangePill("This Month", "month")
+                    ]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "sort-group")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "span",
+                            attributes: [Attribute(name: "class", value: "sort-group__label")],
+                            children: [AnyNode(Text("Sort:"))]
+                        )),
+                        sortPill("Newest First", "newest"),
+                        sortPill("Oldest First", "oldest"),
+                        sortPill("Title (A-Z)", "title"),
+                        sortPill("By Feed", "feed"),
+                        sortPill("By Category", "category")
                     ]
                 ))
             ]
@@ -1098,6 +1276,151 @@ public struct App {
                 Attribute(name: "data-action", value: "close-feed-manager-overlay")
             ],
             children: FeedManager.renderGPU(props: props)
+        )
+
+        return [AnyNode(modal)]
+    }
+
+    private static func renderSettings() -> [AnyNode] {
+        let uiState = uiSignal.get()
+        guard uiState.isSettingsOpen else { return [] }
+
+        let currentTheme = uiState.theme
+
+        func themePill(_ label: String, _ value: String) -> AnyNode {
+            let isActive = currentTheme.rawValue == label
+            let pillClass = "date-filter-pill" + (isActive ? " date-filter-pill--active" : "")
+            return AnyNode(Element<AnyHTMLContext>(
+                tag: "button",
+                attributes: [
+                    Attribute(name: "type", value: "button"),
+                    Attribute(name: "class", value: pillClass),
+                    Attribute(name: "data-action", value: "set-theme"),
+                    Attribute(name: "data-theme", value: value)
+                ],
+                children: [AnyNode(Text(label))]
+            ))
+        }
+
+        let unreadCount = unreadCountSignal.get()
+        let readCount = articlesSignal.get().articles.filter { $0.isRead && !$0.isArchived }.count
+        let archivedCount = articlesSignal.get().articles.filter { $0.isArchived }.count
+
+        let content = Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "settings-panel")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "header",
+                    attributes: [Attribute(name: "class", value: "settings-panel__header")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "h2",
+                            attributes: [Attribute(name: "class", value: "settings-panel__title")],
+                            children: [AnyNode(Text("Settings"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "feed-manager__close"),
+                                Attribute(name: "data-action", value: "close-settings"),
+                                Attribute(name: "aria-label", value: "Close")
+                            ],
+                            children: [AnyNode(Text("✕"))]
+                        ))
+                    ]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "settings-panel__section")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "h3",
+                            attributes: [Attribute(name: "class", value: "settings-panel__section-title")],
+                            children: [AnyNode(Text("Theme"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "div",
+                            attributes: [Attribute(name: "class", value: "settings-panel__pills")],
+                            children: [
+                                themePill("Light", "light"),
+                                themePill("Dark", "dark"),
+                                themePill("Auto", "auto")
+                            ]
+                        ))
+                    ]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "settings-panel__section")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "h3",
+                            attributes: [Attribute(name: "class", value: "settings-panel__section-title")],
+                            children: [AnyNode(Text("Bulk Actions"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "p",
+                            attributes: [Attribute(name: "class", value: "settings-panel__info")],
+                            children: [AnyNode(Text("\(unreadCount) unread, \(readCount) read, \(archivedCount) archived"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "div",
+                            attributes: [Attribute(name: "class", value: "settings-panel__actions")],
+                            children: [
+                                AnyNode(Element<AnyHTMLContext>(
+                                    tag: "button",
+                                    attributes: [
+                                        Attribute(name: "type", value: "button"),
+                                        Attribute(name: "class", value: "toolbar-button"),
+                                        Attribute(name: "data-action", value: "mark-all-read")
+                                    ],
+                                    children: [AnyNode(Text("✓ Mark All Read"))]
+                                )),
+                                AnyNode(Element<AnyHTMLContext>(
+                                    tag: "button",
+                                    attributes: [
+                                        Attribute(name: "type", value: "button"),
+                                        Attribute(name: "class", value: "toolbar-button"),
+                                        Attribute(name: "data-action", value: "bulk-archive-read")
+                                    ],
+                                    children: [AnyNode(Text("📦 Archive All Read"))]
+                                )),
+                                AnyNode(Element<AnyHTMLContext>(
+                                    tag: "button",
+                                    attributes: [
+                                        Attribute(name: "type", value: "button"),
+                                        Attribute(name: "class", value: "toolbar-button"),
+                                        Attribute(name: "data-action", value: "delete-older"),
+                                        Attribute(name: "data-days", value: "30")
+                                    ],
+                                    children: [AnyNode(Text("🗑️ Delete Older Than 30 Days"))]
+                                )),
+                                AnyNode(Element<AnyHTMLContext>(
+                                    tag: "button",
+                                    attributes: [
+                                        Attribute(name: "type", value: "button"),
+                                        Attribute(name: "class", value: "toolbar-button"),
+                                        Attribute(name: "data-action", value: "delete-older"),
+                                        Attribute(name: "data-days", value: "7")
+                                    ],
+                                    children: [AnyNode(Text("🗑️ Delete Older Than 7 Days"))]
+                                ))
+                            ]
+                        ))
+                    ]
+                ))
+            ]
+        )
+
+        let modal = Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [
+                Attribute(name: "class", value: "modal-overlay"),
+                Attribute(name: "data-action", value: "close-settings-overlay")
+            ],
+            children: [AnyNode(content)]
         )
 
         return [AnyNode(modal)]

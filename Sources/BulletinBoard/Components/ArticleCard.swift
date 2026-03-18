@@ -216,6 +216,20 @@ public struct ArticleCard {
             children: [AnyNode(Text(article.isRead ? "✓" : "•"))]
         )
 
+        let archiveAction = article.isArchived ? "unarchive-article" : "archive-article"
+        let archiveLabel = article.isArchived ? "Restore" : "Archive"
+        let archiveIcon = article.isArchived ? "📤" : "📦"
+        let archiveButton = Element<AnyHTMLContext>(
+            tag: "button",
+            attributes: [
+                Attribute(name: "class", value: "article-card__action"),
+                Attribute(name: "aria-label", value: archiveLabel),
+                Attribute(name: "data-article-id", value: article.id),
+                Attribute(name: "data-action", value: archiveAction)
+            ],
+            children: [AnyNode(Text(archiveIcon))]
+        )
+
         let readMore = Element<AnyHTMLContext>(
             tag: "a",
             attributes: [
@@ -234,6 +248,7 @@ public struct ArticleCard {
             attributes: [Attribute(name: "class", value: "article-card__footer")],
             children: [
                 AnyNode(favoriteButton),
+                AnyNode(archiveButton),
                 AnyNode(readIndicator),
                 AnyNode(readMore)
             ]

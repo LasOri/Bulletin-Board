@@ -164,6 +164,48 @@ public struct FeedManager {
         let statusIcon = feed.isEnabled ? "" : " (paused)"
         let title = feed.title.isEmpty ? feed.url : feed.title
 
+        var infoChildren: [AnyNode] = [
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "span",
+                attributes: [Attribute(name: "class", value: "feed-item__title")],
+                children: [AnyNode(Text("\(title)\(statusIcon)"))]
+            )),
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "span",
+                attributes: [Attribute(name: "class", value: "feed-item__url")],
+                children: [AnyNode(Text(feed.url))]
+            ))
+        ]
+
+        let editForm = Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "feed-item__edit-form")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "input",
+                    attributes: [
+                        Attribute(name: "type", value: "text"),
+                        Attribute(name: "id", value: "edit-feed-title-\(feed.id)"),
+                        Attribute(name: "class", value: "feed-item__edit-input"),
+                        Attribute(name: "value", value: feed.title),
+                        Attribute(name: "placeholder", value: "Feed title")
+                    ],
+                    children: []
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "feed-item__edit-save"),
+                        Attribute(name: "data-action", value: "save-feed-edit"),
+                        Attribute(name: "data-feed-id", value: feed.id)
+                    ],
+                    children: [AnyNode(Text("Save"))]
+                ))
+            ]
+        )
+        infoChildren.append(AnyNode(editForm))
+
         return Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
@@ -174,18 +216,7 @@ public struct FeedManager {
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "div",
                     attributes: [Attribute(name: "class", value: "feed-item__info")],
-                    children: [
-                        AnyNode(Element<AnyHTMLContext>(
-                            tag: "span",
-                            attributes: [Attribute(name: "class", value: "feed-item__title")],
-                            children: [AnyNode(Text("\(title)\(statusIcon)"))]
-                        )),
-                        AnyNode(Element<AnyHTMLContext>(
-                            tag: "span",
-                            attributes: [Attribute(name: "class", value: "feed-item__url")],
-                            children: [AnyNode(Text(feed.url))]
-                        ))
-                    ]
+                    children: infoChildren
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "div",

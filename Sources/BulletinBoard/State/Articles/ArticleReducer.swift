@@ -111,6 +111,12 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
 
     case .setFilters(let filters):
         newState.filters = filters
+        if let selectedId = newState.selectedId {
+            let stillVisible = newState.filteredArticles.contains { $0.id == selectedId }
+            if !stillVisible {
+                newState.selectedId = nil
+            }
+        }
 
     case .setSortOrder(let sortBy):
         newState.sortBy = sortBy

@@ -239,6 +239,10 @@ public struct ArticleDetailView {
         let favoriteIcon = article.isFavorite ? "\u{2605}" : "\u{2606}"
         let favoriteLabel = article.isFavorite ? "Remove from favorites" : "Add to favorites"
 
+        let archiveAction = article.isArchived ? "unarchive-article" : "archive-article"
+        let archiveLabel = article.isArchived ? "Restore from archive" : "Archive article"
+        let archiveText = article.isArchived ? "\u{1F4E4} Restore" : "\u{1F4E6} Archive"
+
         return Element<AnyHTMLContext>(
             tag: "footer",
             attributes: [Attribute(name: "class", value: "article-detail__footer")],
@@ -264,6 +268,17 @@ public struct ArticleDetailView {
                         Attribute(name: "aria-label", value: article.isRead ? "Already read" : "Mark as read")
                     ],
                     children: [AnyNode(Text(article.isRead ? "\u{2713} Read" : "\u{25CF} Mark Read"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "article-detail__action"),
+                        Attribute(name: "data-action", value: archiveAction),
+                        Attribute(name: "data-article-id", value: article.id),
+                        Attribute(name: "aria-label", value: archiveLabel)
+                    ],
+                    children: [AnyNode(Text(archiveText))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "a",
