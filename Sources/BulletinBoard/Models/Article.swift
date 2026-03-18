@@ -1,6 +1,18 @@
 import Foundation
 import LINKER
 
+public struct ArticleColor: Codable, Equatable, Sendable {
+    public let r: Float
+    public let g: Float
+    public let b: Float
+
+    public init(r: Float, g: Float, b: Float) {
+        self.r = r
+        self.g = g
+        self.b = b
+    }
+}
+
 public struct Article: Codable, Equatable, Identifiable, Sendable {
     public let id: String
 
@@ -38,6 +50,8 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
 
     public var clusterId: Int?
 
+    public var dominantColor: ArticleColor?
+
     public let addedAt: Date
 
     public var updatedAt: Date
@@ -61,6 +75,7 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
         autoCategory: ArticleCategory? = nil,
         sentimentScore: Double? = nil,
         clusterId: Int? = nil,
+        dominantColor: ArticleColor? = nil,
         addedAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -82,6 +97,7 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
         self.autoCategory = autoCategory
         self.sentimentScore = sentimentScore
         self.clusterId = clusterId
+        self.dominantColor = dominantColor
         self.addedAt = addedAt
         self.updatedAt = updatedAt
     }
@@ -200,6 +216,11 @@ extension Article {
         self.autoCategory = category
         self.sentimentScore = sentiment
         self.clusterId = cluster
+        self.updatedAt = Date()
+    }
+
+    public mutating func updateDominantColor(_ color: ArticleColor) {
+        self.dominantColor = color
         self.updatedAt = Date()
     }
 }

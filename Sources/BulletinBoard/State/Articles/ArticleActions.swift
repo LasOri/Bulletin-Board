@@ -16,6 +16,8 @@ public enum ArticleAction: Action {
     case updateNLP(id: String, summary: String?, keywords: [String], category: ArticleCategory?, sentiment: Double?, cluster: Int?)
     case batchUpdateNLP([(id: String, summary: String?, keywords: [String], category: ArticleCategory?, sentiment: Double?, cluster: Int?)])
 
+    case batchUpdateDominantColors([(id: String, color: ArticleColor)])
+
     case selectArticle(id: String?)
 
     case setSearchQuery(String)

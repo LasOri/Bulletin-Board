@@ -9,8 +9,6 @@ extension ArticleDetailView {
             return render(props: props)
         }
 
-        GPUComponentConfig.log("ArticleDetail: Rendering with GPU shadow (elevation8)")
-
         let shadowStyle: ShadowStyle
         if let custom = GPUComponentConfig.shadowStyle(for: "ArticleDetail") {
             shadowStyle = .custom(elevation: custom.elevation, intensity: custom.intensity)
@@ -21,7 +19,14 @@ extension ArticleDetailView {
         let article = props.article
         let relatedArticles = props.relatedArticles
 
-        let backdrop = BlurView(id: "article-detail-backdrop", style: .frostedGlass, intensity: 1.0) {
+        let blurStyle: BlurStyle
+        if let dc = article.dominantColor {
+            blurStyle = .tinted(r: dc.r, g: dc.g, b: dc.b, a: 0.22, radius: 12, saturation: 2.2)
+        } else {
+            blurStyle = .frostedGlass
+        }
+
+        let backdrop = BlurView(id: "article-detail-backdrop", style: blurStyle, intensity: 1.0) {
             return [AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [
@@ -38,4 +43,3 @@ extension ArticleDetailView {
         return backdrop
     }
 }
-

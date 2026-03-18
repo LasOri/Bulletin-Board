@@ -95,6 +95,14 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
             }
         }
 
+    case .batchUpdateDominantColors(let updates):
+        for (id, color) in updates {
+            if var article = newState.byId[id] {
+                article.updateDominantColor(color)
+                newState.byId[id] = article
+            }
+        }
+
     case .selectArticle(let id):
         newState.selectedId = id
 

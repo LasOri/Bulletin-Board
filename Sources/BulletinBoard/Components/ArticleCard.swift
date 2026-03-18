@@ -25,13 +25,25 @@ public struct ArticleCard {
     public static func render(props: Props) -> [AnyNode] {
         let article = props.article
 
+        var attrs: [Attribute] = [
+            Attribute(name: "class", value: cardClasses(article: article)),
+            Attribute(name: "data-article-id", value: article.id),
+            Attribute(name: "data-action", value: "article-click")
+        ]
+
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        if let dc = article.dominantColor {
+            let comp = ColorExtractor.mutedComplement(of: (r: dc.r, g: dc.g, b: dc.b))
+            let r = Int(comp.r * 255)
+            let g = Int(comp.g * 255)
+            let b = Int(comp.b * 255)
+            attrs.append(Attribute(name: "style", value: "color: rgb(\(r), \(g), \(b))"))
+        }
+        #endif
+
         let card = Element<AnyHTMLContext>(
             tag: "article",
-            attributes: [
-                Attribute(name: "class", value: cardClasses(article: article)),
-                Attribute(name: "data-article-id", value: article.id),
-                Attribute(name: "data-action", value: "article-click")
-            ],
+            attributes: attrs,
             children: [
                 AnyNode(renderHeader(article: article, props: props)),
                 AnyNode(renderContent(article: article)),
@@ -49,6 +61,9 @@ public struct ArticleCard {
         }
         if article.isFavorite {
             classes.append("article-card--favorite")
+        }
+        if article.dominantColor != nil {
+            classes.append("article-card--tinted")
         }
         return classes.joined(separator: " ")
     }

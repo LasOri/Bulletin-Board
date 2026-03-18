@@ -111,6 +111,11 @@ public struct App {
         await processArticlesWithNLP()
         t = perf("NLP processing", since: t)
 
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        await extractDominantColors()
+        t = perf("Color extraction", since: t)
+        #endif
+
         setupReactiveEffects()
         t = perf("Reactive effects setup", since: t)
 
@@ -222,6 +227,33 @@ public struct App {
 
         print("  ✓ NLP processing complete for \(results.count) articles")
     }
+
+    #if canImport(JavaScriptKit) && arch(wasm32)
+    private static func extractDominantColors() async {
+        let articles = appStore.getState().articles.articles
+        let needsColor = articles.filter { article in
+            article.dominantColor == nil &&
+            article.enclosure?.type.hasPrefix("image/") == true
+        }
+        guard !needsColor.isEmpty else { return }
+
+        print("🎨 Extracting dominant colors from \(needsColor.count) article images...")
+
+        var updates: [(id: String, color: ArticleColor)] = []
+
+        for article in needsColor {
+            guard let imageURL = article.enclosure?.url else { continue }
+            if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
+                updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+            }
+        }
+
+        if !updates.isEmpty {
+            appStore.dispatch(ArticleAction.batchUpdateDominantColors(updates))
+            print("  ✓ Extracted colors for \(updates.count) articles")
+        }
+    }
+    #endif
 
     #if canImport(JavaScriptKit) && arch(wasm32)
     private static func mountUI() {
@@ -462,6 +494,9 @@ public struct App {
         showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds")
         if totalArticles > 0 {
             await processArticlesWithNLP()
+            #if canImport(JavaScriptKit) && arch(wasm32)
+            await extractDominantColors()
+            #endif
         }
     }
 
@@ -840,6 +875,9 @@ public struct App {
             appStore.dispatch(ArticleAction.addArticles(articles))
             showToast("Feed refreshed: \(feed.title)")
             await processArticlesWithNLP()
+            #if canImport(JavaScriptKit) && arch(wasm32)
+            await extractDominantColors()
+            #endif
         } catch {
             appStore.dispatch(UIAction.showError("Failed to refresh: \(error.localizedDescription)"))
         }
@@ -863,6 +901,9 @@ public struct App {
             print("✅ Feed added: \(url) with \(articles.count) articles")
 
             await processArticlesWithNLP()
+            #if canImport(JavaScriptKit) && arch(wasm32)
+            await extractDominantColors()
+            #endif
         } catch let error as FeedService.FeedError {
             let message: String
             switch error {
@@ -949,6 +990,16 @@ public struct App {
                 Task { await processArticlesWithNLP() }
             }
         })
+
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        _ = Effect(execute: {
+            let articles = articlesSignal.get().articles
+            let needsColor = articles.filter { $0.dominantColor == nil && $0.enclosure?.type.hasPrefix("image/") == true }
+            if !needsColor.isEmpty {
+                Task { await extractDominantColors() }
+            }
+        })
+        #endif
 
         print("⚡ Reactive effects initialized")
     }

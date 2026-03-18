@@ -9,20 +9,40 @@ extension ArticleCard {
             return render(props: props)
         }
 
-        GPUComponentConfig.log("ArticleCard: Rendering with GPU shadow (elevation2)")
-
-        let shadowStyle: ShadowStyle
-        if let custom = GPUComponentConfig.shadowStyle(for: "ArticleCard") {
-            shadowStyle = .custom(elevation: custom.elevation, intensity: custom.intensity)
-        } else {
-            shadowStyle = .elevation2
-        }
-
+        let article = props.article
         let cardContent = render(props: props)
 
-        return ShadowView(id: "article-shadow-\(props.article.id)", style: shadowStyle) {
+        if let dc = article.dominantColor {
+            let tintedStyle = BlurStyle.tinted(
+                r: dc.r,
+                g: dc.g,
+                b: dc.b,
+                a: 0.15,
+                radius: 6,
+                saturation: 1.8
+            )
+
+            return ShadowView(
+                id: "article-shadow-\(article.id)",
+                style: .elevation2,
+                mouseReactive: true
+            ) {
+                return BlurView(
+                    id: "article-blur-\(article.id)",
+                    style: tintedStyle,
+                    intensity: 1.0
+                ) {
+                    return cardContent
+                }
+            }
+        }
+
+        return ShadowView(
+            id: "article-shadow-\(article.id)",
+            style: .elevation2,
+            mouseReactive: true
+        ) {
             return cardContent
         }
     }
 }
-
