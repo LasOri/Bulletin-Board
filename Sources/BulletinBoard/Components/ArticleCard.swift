@@ -144,24 +144,22 @@ public struct ArticleCard {
     private static func renderContent(article: Article) -> Element<AnyHTMLContext> {
         var contentChildren: [AnyNode] = []
 
-        if let enclosure = article.enclosure, enclosure.type.starts(with: "image/") {
-            let img = Element<AnyHTMLContext>(
-                tag: "img",
-                attributes: [
-                    Attribute(name: "src", value: enclosure.url),
-                    Attribute(name: "alt", value: article.title),
-                    Attribute(name: "class", value: "article-card__image")
-                ],
-                children: []
-            )
-            contentChildren.append(AnyNode(img))
-        }
-
         if let displayText = article.displayContent.isEmpty ? nil : article.displayContent {
+            let truncated: String
+            if displayText.count > 150 {
+                let prefix = displayText.prefix(150)
+                if let lastSpace = prefix.lastIndex(of: " ") {
+                    truncated = String(prefix[prefix.startIndex..<lastSpace]) + "…"
+                } else {
+                    truncated = String(prefix) + "…"
+                }
+            } else {
+                truncated = displayText
+            }
             let description = Element<AnyHTMLContext>(
                 tag: "p",
                 attributes: [Attribute(name: "class", value: "article-card__description")],
-                children: [AnyNode(Text(displayText))]
+                children: [AnyNode(Text(truncated))]
             )
             contentChildren.append(AnyNode(description))
         }
@@ -178,7 +176,7 @@ public struct ArticleCard {
     }
 
     private static func renderKeywords(keywords: [String]) -> Element<AnyHTMLContext> {
-        let keywordElements = keywords.map { keyword in
+        let keywordElements = keywords.prefix(5).map { keyword in
             AnyNode(Element<AnyHTMLContext>(
                 tag: "span",
                 attributes: [Attribute(name: "class", value: "article-card__keyword")],
