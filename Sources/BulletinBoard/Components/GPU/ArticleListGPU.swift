@@ -9,20 +9,7 @@ extension ArticleList {
             return render(props: props)
         }
 
-        GPUComponentConfig.log("ArticleList: Rendering with GPU shadow (elevation1)")
-
-        let shadowStyle: ShadowStyle
-        if let custom = GPUComponentConfig.shadowStyle(for: "ArticleList") {
-            shadowStyle = .custom(elevation: custom.elevation, intensity: custom.intensity)
-        } else {
-            shadowStyle = .elevation1
-        }
-
-        let listContent = render(props: props)
-
-        return ShadowView(id: "article-list-shadow", style: shadowStyle) {
-            return listContent
-        }
+        return render(props: props)
     }
 
     public static func renderVirtualGPU(
@@ -35,20 +22,6 @@ extension ArticleList {
             return renderVirtual(props: props, scrollTop: scrollTop, config: config)
         }
 
-        GPUComponentConfig.log("ArticleList: Rendering virtual scroll with GPU shadow (elevation1)")
-
-        let shadowStyle: ShadowStyle
-        if let custom = GPUComponentConfig.shadowStyle(for: "ArticleList") {
-            shadowStyle = .custom(elevation: custom.elevation, intensity: custom.intensity)
-        } else {
-            shadowStyle = .elevation1
-        }
-
-        let listContent = renderVirtual(props: props, scrollTop: scrollTop, config: config)
-
-        return ShadowView(id: "article-list-virtual-shadow", style: shadowStyle) {
-            return listContent
-        }
+        return renderVirtual(props: props, scrollTop: scrollTop, config: config)
     }
 }
-

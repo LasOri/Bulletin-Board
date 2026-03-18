@@ -17,7 +17,7 @@ extension ArticleCard {
                 r: dc.r,
                 g: dc.g,
                 b: dc.b,
-                a: 0.15,
+                a: 0.35,
                 radius: 6,
                 saturation: 1.8
             )

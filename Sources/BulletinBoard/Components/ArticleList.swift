@@ -95,7 +95,7 @@ public struct ArticleList {
                 onClick: props.onArticleClick
             )
 
-            let cardNodes = ArticleCard.render(props: cardProps)
+            let cardNodes = ArticleCard.renderGPU(props: cardProps)
             children.append(contentsOf: cardNodes)
         }
 
@@ -204,7 +204,7 @@ extension ArticleList {
                 onClick: props.onArticleClick
             )
 
-            let cardNodes = ArticleCard.render(props: cardProps)
+            let cardNodes = ArticleCard.renderGPU(props: cardProps)
             children.append(contentsOf: cardNodes)
         }
 
