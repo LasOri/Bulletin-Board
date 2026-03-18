@@ -1,60 +1,41 @@
 import Foundation
 import LINKER
 
-/// Represents an RSS/Atom feed subscription
 public struct Feed: Codable, Equatable, Identifiable, Sendable {
-    /// Unique identifier (generated UUID)
     public let id: String
 
-    /// Feed title
     public let title: String
 
-    /// Feed description
     public let description: String
 
-    /// Feed URL (RSS/Atom endpoint)
     public let url: String
 
-    /// Website URL
     public let siteUrl: String?
 
-    /// Feed language
     public let language: String?
 
-    /// Feed icon/favicon URL
     public var iconUrl: String?
 
-    /// User-defined category
     public var userCategory: String?
 
-    /// Feed update frequency (minutes)
     public var updateFrequency: Int
 
-    /// Last fetch date
     public var lastFetched: Date?
 
-    /// Last successful fetch date
     public var lastSuccessfulFetch: Date?
 
-    /// Last error message (if any)
     public var lastError: String?
 
-    /// Number of articles fetched
     public var articleCount: Int
 
-    /// Number of unread articles
     public var unreadCount: Int
 
-    /// Subscription date
     public let subscribedAt: Date
 
-    /// Last modified date
     public var updatedAt: Date
 
-    /// Is feed enabled (fetching active)
     public var isEnabled: Bool
 
-    /// Is feed currently fetching
     public var isFetching: Bool
 
     public init(
@@ -97,7 +78,6 @@ public struct Feed: Codable, Equatable, Identifiable, Sendable {
         self.isFetching = isFetching
     }
 
-    /// Create Feed from RSSFeed
     public static func from(rssFeed: RSSFeed, url: String) -> Feed {
         Feed(
             title: rssFeed.title,
@@ -109,29 +89,24 @@ public struct Feed: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-// MARK: - Feed Extensions
-
 extension Feed {
-    /// Check if feed needs update
     public func needsUpdate() -> Bool {
         guard isEnabled else { return false }
 
         guard let lastFetch = lastFetched else {
-            return true // Never fetched
+            return true
         }
 
         let interval = TimeInterval(updateFrequency * 60)
         return Date().timeIntervalSince(lastFetch) >= interval
     }
 
-    /// Mark fetch started
     public mutating func startFetching() {
         isFetching = true
         lastFetched = Date()
         updatedAt = Date()
     }
 
-    /// Mark fetch completed successfully
     public mutating func completeFetch(articleCount: Int) {
         isFetching = false
         lastSuccessfulFetch = Date()
@@ -140,22 +115,20 @@ extension Feed {
         updatedAt = Date()
     }
 
-    /// Mark fetch failed
     public mutating func failFetch(error: String) {
         isFetching = false
         lastError = error
         updatedAt = Date()
     }
 
-    /// Update unread count
     public mutating func updateUnreadCount(_ count: Int) {
         unreadCount = count
         updatedAt = Date()
     }
 
-    /// Toggle enabled status
     public mutating func toggleEnabled() {
         isEnabled.toggle()
         updatedAt = Date()
     }
 }
+

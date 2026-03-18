@@ -1,16 +1,11 @@
 import Foundation
 
-/// Detects near-duplicate articles using TF-IDF cosine similarity.
 public struct RedundancyDetector: Sendable {
 
-    /// Similarity threshold above which articles are considered duplicates.
     public let similarityThreshold: Double
 
-    /// A group of duplicate articles.
     public struct DuplicateGroup: Equatable, Sendable {
-        /// The original (first-seen) article ID.
         public let originalId: String
-        /// IDs of articles that are near-duplicates of the original.
         public let duplicateIds: [String]
 
         public init(originalId: String, duplicateIds: [String]) {
@@ -23,11 +18,6 @@ public struct RedundancyDetector: Sendable {
         self.similarityThreshold = similarityThreshold
     }
 
-    /// Find duplicate groups among a set of articles.
-    /// - Parameters:
-    ///   - engine: TF-IDF engine with indexed documents
-    ///   - articleIds: Article IDs to check
-    /// - Returns: Array of duplicate groups
     public func findDuplicates(using engine: TFIDFEngine, articleIds: [String]) async -> [DuplicateGroup] {
         var assigned: Set<String> = []
         var groups: [DuplicateGroup] = []
@@ -55,3 +45,4 @@ public struct RedundancyDetector: Sendable {
         return groups
     }
 }
+

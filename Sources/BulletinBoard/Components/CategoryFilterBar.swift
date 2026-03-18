@@ -1,7 +1,6 @@
 import Foundation
 import LINKER
 
-/// Horizontal scrollable category filter bar with pill buttons.
 public struct CategoryFilterBar {
 
     public struct Props {
@@ -22,7 +21,6 @@ public struct CategoryFilterBar {
 
         var pills: [AnyNode] = []
 
-        // "All" pill — active when no category filter is set
         let allActive = props.activeCategories.isEmpty
         let allClass = allActive ? "category-pill category-pill--all-active" : "category-pill category-pill--inactive"
         let allPill = Element<AnyHTMLContext>(
@@ -37,7 +35,6 @@ public struct CategoryFilterBar {
         )
         pills.append(AnyNode(allPill))
 
-        // Category pills
         for item in props.categoryCounts {
             let isActive = props.activeCategories.contains(item.category)
             let pillClass = isActive ? "category-pill category-pill--active" : "category-pill category-pill--inactive"
@@ -68,3 +65,4 @@ public struct CategoryFilterBar {
         return [AnyNode(container)]
     }
 }
+

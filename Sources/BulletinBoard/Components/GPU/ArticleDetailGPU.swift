@@ -1,14 +1,8 @@
 import Foundation
 import LINKER
 
-/// GPU-enhanced ArticleDetailView extension.
-///
-/// Wraps the detail content card in a ShadowView (elevation8)
-/// for WebGPU-powered shadow depth. The blur backdrop is already
-/// GPU-powered via BlurView inside ArticleDetailView.render().
 extension ArticleDetailView {
 
-    /// Renders article detail overlay with GPU-accelerated shadow on the content card.
     public static func renderGPU(props: Props) -> [AnyNode] {
         guard GPUComponentConfig.isEnabled(for: "ArticleDetail") else {
             GPUComponentConfig.log("ArticleDetail: GPU disabled, using standard render")
@@ -27,7 +21,6 @@ extension ArticleDetailView {
         let article = props.article
         let relatedArticles = props.relatedArticles
 
-        // Backdrop with BlurView (GPU frosted glass)
         let backdrop = BlurView(id: "article-detail-backdrop", style: .frostedGlass, intensity: 1.0) {
             return [AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
@@ -36,7 +29,6 @@ extension ArticleDetailView {
                     Attribute(name: "data-action", value: "collapse-article-overlay")
                 ],
                 children:
-                    // Wrap content card in ShadowView
                     ShadowView(id: "article-detail-shadow-\(article.id)", style: shadowStyle) {
                         return [AnyNode(renderContentCard(article: article, relatedArticles: relatedArticles))]
                     }
@@ -46,3 +38,4 @@ extension ArticleDetailView {
         return backdrop
     }
 }
+

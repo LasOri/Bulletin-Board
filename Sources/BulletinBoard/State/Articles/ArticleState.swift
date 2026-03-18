@@ -1,24 +1,17 @@
 import Foundation
 import LINKER
 
-/// State for articles
 public struct ArticleState: Codable, Equatable, Sendable {
-    /// All articles by ID
     public var byId: [String: Article]
 
-    /// Article IDs in chronological order (newest first)
     public var allIds: [String]
 
-    /// Currently selected article ID
     public var selectedId: String?
 
-    /// Search query
     public var searchQuery: String
 
-    /// Active filters
     public var filters: ArticleFilters
 
-    /// Sort order
     public var sortBy: ArticleSortOrder
 
     public init(
@@ -38,24 +31,17 @@ public struct ArticleState: Codable, Equatable, Sendable {
     }
 }
 
-/// Article filtering options
 public struct ArticleFilters: Codable, Equatable, Sendable {
-    /// Filter by feed IDs (empty = all feeds)
     public var feedIds: Set<String>
 
-    /// Filter by categories
     public var categories: Set<ArticleCategory>
 
-    /// Show only unread
     public var showOnlyUnread: Bool
 
-    /// Show only favorites
     public var showOnlyFavorites: Bool
 
-    /// Show archived
     public var showArchived: Bool
 
-    /// Date range
     public var dateRange: DateRange?
 
     public init(
@@ -74,7 +60,6 @@ public struct ArticleFilters: Codable, Equatable, Sendable {
         self.dateRange = dateRange
     }
 
-    /// Check if filters are active
     public var isActive: Bool {
         !feedIds.isEmpty ||
         !categories.isEmpty ||
@@ -83,7 +68,6 @@ public struct ArticleFilters: Codable, Equatable, Sendable {
         dateRange != nil
     }
 
-    /// Reset all filters
     public mutating func reset() {
         feedIds.removeAll()
         categories.removeAll()
@@ -94,7 +78,6 @@ public struct ArticleFilters: Codable, Equatable, Sendable {
     }
 }
 
-/// Date range filter
 public enum DateRange: Codable, Equatable, Sendable {
     case today
     case lastWeek
@@ -124,7 +107,6 @@ public enum DateRange: Codable, Equatable, Sendable {
     }
 }
 
-/// Article sort order
 public enum ArticleSortOrder: String, Codable, CaseIterable, Sendable {
     case newest = "Newest First"
     case oldest = "Oldest First"
@@ -133,25 +115,19 @@ public enum ArticleSortOrder: String, Codable, CaseIterable, Sendable {
     case category = "By Category"
 }
 
-// MARK: - ArticleState Extensions
-
 extension ArticleState {
-    /// Get all articles as array
     public var articles: [Article] {
         allIds.compactMap { byId[$0] }
     }
 
-    /// Get selected article
     public var selectedArticle: Article? {
         guard let id = selectedId else { return nil }
         return byId[id]
     }
 
-    /// Get filtered and sorted articles
     public var filteredArticles: [Article] {
         var result = articles
 
-        // Apply search
         if !searchQuery.isEmpty {
             result = result.filter { article in
                 article.title.localizedCaseInsensitiveContains(searchQuery) ||
@@ -160,15 +136,12 @@ extension ArticleState {
             }
         }
 
-        // Apply filters
         if filters.isActive {
             result = result.filter { article in
-                // Feed filter
                 if !filters.feedIds.isEmpty && !filters.feedIds.contains(article.feedId) {
                     return false
                 }
 
-                // Category filter
                 if !filters.categories.isEmpty {
                     guard let category = article.autoCategory,
                           filters.categories.contains(category) else {
@@ -176,22 +149,18 @@ extension ArticleState {
                     }
                 }
 
-                // Unread filter
                 if filters.showOnlyUnread && article.isRead {
                     return false
                 }
 
-                // Favorites filter
                 if filters.showOnlyFavorites && !article.isFavorite {
                     return false
                 }
 
-                // Archived filter
                 if !filters.showArchived && article.isArchived {
                     return false
                 }
 
-                // Date range filter
                 if let dateRange = filters.dateRange,
                    let publishedAt = article.publishedAt,
                    !dateRange.dateInterval.contains(publishedAt) {
@@ -201,11 +170,9 @@ extension ArticleState {
                 return true
             }
         } else {
-            // Default: hide archived
             result = result.filter { !$0.isArchived }
         }
 
-        // Apply sort
         switch sortBy {
         case .newest:
             result.sort { ($0.publishedAt ?? $0.addedAt) > ($1.publishedAt ?? $1.addedAt) }
@@ -222,17 +189,14 @@ extension ArticleState {
         return result
     }
 
-    /// Get unread count
     public var unreadCount: Int {
         articles.filter { !$0.isRead && !$0.isArchived }.count
     }
 
-    /// Get favorite count
     public var favoriteCount: Int {
         articles.filter { $0.isFavorite }.count
     }
 
-    /// Get article counts per category (non-archived only)
     public var categoryCounts: [(category: ArticleCategory, count: Int)] {
         var counts: [ArticleCategory: Int] = [:]
         for article in articles where !article.isArchived {
@@ -246,3 +210,4 @@ extension ArticleState {
         }
     }
 }
+

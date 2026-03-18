@@ -1,10 +1,7 @@
 import Foundation
 
-/// Classifies articles into categories using TF-IDF cosine similarity
-/// against pre-defined category seed word profiles.
 public struct ArticleCategorizer: Sendable {
 
-    /// Seed word lists per category.
     public static let categorySeeds: [ArticleCategory: [String]] = [
         .technology: [
             "software", "app", "startup", "cloud", "api", "data", "algorithm",
@@ -76,19 +73,12 @@ public struct ArticleCategorizer: Sendable {
         ]
     ]
 
-    /// Minimum similarity threshold for classification.
     public let threshold: Double
 
     public init(threshold: Double = 0.05) {
         self.threshold = threshold
     }
 
-    /// Classify text into the best-matching category.
-    /// Returns `.other` if no category exceeds the minimum threshold.
-    /// - Parameters:
-    ///   - text: Text to classify
-    ///   - engine: TF-IDF engine with indexed corpus
-    /// - Returns: Best matching category
     public func classify(text: String, using engine: TFIDFEngine) async -> ArticleCategory {
         let textVector = await engine.vectorize(text: text)
 
@@ -109,3 +99,4 @@ public struct ArticleCategorizer: Sendable {
         return bestScore >= threshold ? bestCategory : .other
     }
 }
+

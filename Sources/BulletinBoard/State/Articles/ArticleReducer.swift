@@ -1,7 +1,6 @@
 import Foundation
 import LINKER
 
-/// Reducer for article state
 public func articleReducer(state: ArticleState, action: any Action) -> ArticleState {
     guard let action = action as? ArticleAction else {
         return state
@@ -10,10 +9,8 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
     var newState = state
 
     switch action {
-    // MARK: - Article CRUD
     case .addArticles(let articles):
         for article in articles {
-            // Avoid duplicates
             if newState.byId[article.id] == nil {
                 newState.byId[article.id] = article
                 newState.allIds.append(article.id)
@@ -39,7 +36,6 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
             newState.selectedId = nil
         }
 
-    // MARK: - Article Operations
     case .markAsRead(let id):
         if var article = newState.byId[id] {
             article.markAsRead()
@@ -73,7 +69,6 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
             newState.byId[id] = article
         }
 
-    // MARK: - NLP Updates
     case .updateNLP(let id, let summary, let keywords, let category, let sentiment, let cluster):
         if var article = newState.byId[id] {
             article.updateNLP(
@@ -100,11 +95,9 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
             }
         }
 
-    // MARK: - Selection
     case .selectArticle(let id):
         newState.selectedId = id
 
-    // MARK: - Search & Filter
     case .setSearchQuery(let query):
         newState.searchQuery = query
 
@@ -118,7 +111,6 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
         newState.filters.reset()
         newState.searchQuery = ""
 
-    // MARK: - Bulk Operations
     case .markMultipleAsRead(let ids):
         for id in ids {
             if var article = newState.byId[id], !article.isRead {
@@ -152,3 +144,4 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
 
     return newState
 }
+

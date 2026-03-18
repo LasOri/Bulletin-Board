@@ -1,13 +1,7 @@
 import Foundation
 import LINKER
 
-/// Full-screen article detail overlay.
-///
-/// Rendered by the DOMReconciler when `animationPhase == .expanded`.
-/// Uses BlurView for the backdrop and shows full article content.
 public struct ArticleDetailView {
-
-    // MARK: - Props
 
     public struct Props {
         public let article: Article
@@ -19,13 +13,10 @@ public struct ArticleDetailView {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         let article = props.article
         let relatedArticles = props.relatedArticles
 
-        // Backdrop — BlurView provides WebGPU frosted glass
         let backdrop = BlurView(id: "article-detail-backdrop", style: .frostedGlass, intensity: 1.0) {
             return [AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
@@ -42,36 +33,27 @@ public struct ArticleDetailView {
         return backdrop
     }
 
-    // MARK: - Content Card
-
     static func renderContentCard(article: Article, relatedArticles: [Article] = []) -> Element<AnyHTMLContext> {
         var children: [AnyNode] = []
 
-        // Close button
         children.append(AnyNode(renderCloseButton()))
 
-        // Hero image
         if let enclosure = article.enclosure, enclosure.type.starts(with: "image/") {
             children.append(AnyNode(renderHeroImage(url: enclosure.url, alt: article.title)))
         }
 
-        // Header (title, author, date, category, sentiment)
         children.append(AnyNode(renderHeader(article: article)))
 
-        // Body (full description/content)
         children.append(AnyNode(renderBody(article: article)))
 
-        // Keywords
         if !article.keywords.isEmpty {
             children.append(AnyNode(renderKeywords(keywords: article.keywords)))
         }
 
-        // Related articles
         if !relatedArticles.isEmpty {
             children.append(AnyNode(renderRelatedArticles(articles: relatedArticles)))
         }
 
-        // Footer (actions)
         children.append(AnyNode(renderFooter(article: article)))
 
         return Element<AnyHTMLContext>(
@@ -84,8 +66,6 @@ public struct ArticleDetailView {
         )
     }
 
-    // MARK: - Close Button
-
     private static func renderCloseButton() -> Element<AnyHTMLContext> {
         Element<AnyHTMLContext>(
             tag: "button",
@@ -95,11 +75,9 @@ public struct ArticleDetailView {
                 Attribute(name: "data-action", value: "collapse-article"),
                 Attribute(name: "aria-label", value: "Close article")
             ],
-            children: [AnyNode(Text("\u{2715}"))]  // ✕
+            children: [AnyNode(Text("\u{2715}"))]
         )
     }
-
-    // MARK: - Hero Image
 
     private static func renderHeroImage(url: String, alt: String) -> Element<AnyHTMLContext> {
         Element<AnyHTMLContext>(
@@ -118,12 +96,9 @@ public struct ArticleDetailView {
         )
     }
 
-    // MARK: - Header
-
     private static func renderHeader(article: Article) -> Element<AnyHTMLContext> {
         var headerChildren: [AnyNode] = []
 
-        // Category badge + sentiment row
         var badgeRow: [AnyNode] = []
         if let category = article.autoCategory {
             badgeRow.append(AnyNode(Element<AnyHTMLContext>(
@@ -154,14 +129,12 @@ public struct ArticleDetailView {
             )))
         }
 
-        // Title
         headerChildren.append(AnyNode(Element<AnyHTMLContext>(
             tag: "h1",
             attributes: [Attribute(name: "class", value: "article-detail__title")],
             children: [AnyNode(Text(article.title))]
         )))
 
-        // Metadata line
         var metaParts: [String] = []
         if let author = article.author {
             metaParts.append(author)
@@ -184,10 +157,7 @@ public struct ArticleDetailView {
         )
     }
 
-    // MARK: - Body
-
     private static func renderBody(article: Article) -> Element<AnyHTMLContext> {
-        // Use full content if available, otherwise description, otherwise NLP summary
         let text = article.content ?? article.description ?? article.nlpSummary ?? ""
 
         return Element<AnyHTMLContext>(
@@ -201,8 +171,6 @@ public struct ArticleDetailView {
             ]
         )
     }
-
-    // MARK: - Keywords
 
     private static func renderKeywords(keywords: [String]) -> Element<AnyHTMLContext> {
         let keywordNodes = keywords.map { keyword in
@@ -220,8 +188,6 @@ public struct ArticleDetailView {
         )
     }
 
-    // MARK: - Related Articles
-
     private static func renderRelatedArticles(articles: [Article]) -> Element<AnyHTMLContext> {
         let header = Element<AnyHTMLContext>(
             tag: "h3",
@@ -232,14 +198,12 @@ public struct ArticleDetailView {
         let items = articles.prefix(3).map { article in
             var itemChildren: [AnyNode] = []
 
-            // Title
             itemChildren.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "span",
                 attributes: [Attribute(name: "class", value: "related-article-item__title")],
                 children: [AnyNode(Text(article.title))]
             )))
 
-            // Category badge (small)
             if let category = article.autoCategory {
                 itemChildren.append(AnyNode(Element<AnyHTMLContext>(
                     tag: "span",
@@ -269,17 +233,14 @@ public struct ArticleDetailView {
         )
     }
 
-    // MARK: - Footer
-
     private static func renderFooter(article: Article) -> Element<AnyHTMLContext> {
-        let favoriteIcon = article.isFavorite ? "\u{2605}" : "\u{2606}"  // ★ / ☆
+        let favoriteIcon = article.isFavorite ? "\u{2605}" : "\u{2606}"
         let favoriteLabel = article.isFavorite ? "Remove from favorites" : "Add to favorites"
 
         return Element<AnyHTMLContext>(
             tag: "footer",
             attributes: [Attribute(name: "class", value: "article-detail__footer")],
             children: [
-                // Favorite button
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
                     attributes: [
@@ -291,7 +252,6 @@ public struct ArticleDetailView {
                     ],
                     children: [AnyNode(Text("\(favoriteIcon) Favorite"))]
                 )),
-                // Mark as read button
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
                     attributes: [
@@ -303,7 +263,6 @@ public struct ArticleDetailView {
                     ],
                     children: [AnyNode(Text(article.isRead ? "\u{2713} Read" : "\u{25CF} Mark Read"))]
                 )),
-                // Open original link
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "a",
                     attributes: [
@@ -317,8 +276,6 @@ public struct ArticleDetailView {
             ]
         )
     }
-
-    // MARK: - Helpers
 
     private static func formatDate(_ date: Date) -> String {
         #if !arch(wasm32)
@@ -342,3 +299,4 @@ public struct ArticleDetailView {
         #endif
     }
 }
+

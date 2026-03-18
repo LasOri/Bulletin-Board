@@ -4,9 +4,6 @@ import LINKER
 import JavaScriptKit
 #endif
 
-// MARK: - App Log Features
-
-/// Application-specific log features for structured LINKER logging.
 public enum AppLogFeature: LogFeature {
     case startup
     case security
@@ -26,26 +23,15 @@ public enum AppLogFeature: LogFeature {
     public var parent: LogFeature? { nil }
 }
 
-/// Root application component.
-///
-/// Initializes the Redux store, connects services, loads persisted data,
-/// and mounts the main UI to the DOM.
 public struct App {
-
-    // MARK: - Services
 
     private static let feedService = FeedService()
     private static let storageService = StorageService()
     private static let searchService = SearchService()
     private static let nlpService = NLPService()
 
-    // MARK: - Main Entry Point
-
-    /// Returns milliseconds since epoch (for performance timing).
     private static func now() -> Double {
         #if canImport(JavaScriptKit) && arch(wasm32)
-        // Use JS performance.now() for sub-ms precision
-        // Must call via performance object to preserve `this` binding
         if let perf = SafeJSGlobal.global?.performance.object {
             return perf.now!().number ?? (Date().timeIntervalSince1970 * 1000)
         }
@@ -55,7 +41,6 @@ public struct App {
         #endif
     }
 
-    /// Logs elapsed time for a phase.
     private static func perf(_ phase: String, since start: Double) -> Double {
         let elapsed = now() - start
         print("[PERF] \(phase): \(String(format: "%.1f", elapsed))ms")
@@ -66,32 +51,26 @@ public struct App {
         let t0 = now()
         var t = t0
 
-        // Configure LINKER logging
         await Logger.shared.configureForDevelopment()
         t = perf("Logger setup", since: t)
         await Logger.shared.info(AppLogFeature.startup, "Bulletin Board starting...")
 
-        // ============================================
-        // SECURITY: Enable ALL LINKER security features
-        // ============================================
         await Logger.shared.info(AppLogFeature.security, "Enabling security features...")
         do {
             try await LINKERSecurity.enableAllSecurity(
-                htmlPolicy: .moderate,              // Allow some HTML formatting in feeds
-                csrfTokenLifetime: 3600,            // 1 hour CSRF token lifetime
-                rateLimitCapacity: 100,             // 100 requests burst capacity
-                rateLimitRefillRate: 10,            // 10 requests/second sustained rate
-                enforceHTTPS: true,                 // Only HTTPS for external RSS feeds
-                allowedHosts: nil,                  // Allow all hosts (RSS feeds are external)
-                enableWebAuthn: true,               // Hardware-backed encryption (TouchID/YubiKey)
-                webAuthnRpId: "bulletin-board.app"  // Relying party ID
+                htmlPolicy: .moderate,
+                csrfTokenLifetime: 3600,
+                rateLimitCapacity: 100,
+                rateLimitRefillRate: 10,
+                enforceHTTPS: true,
+                allowedHosts: nil,
+                enableWebAuthn: true,
+                webAuthnRpId: "bulletin-board.app"
             )
 
-            // Print security status
             let status = LINKERSecurity.getSecurityStatus()
             status.printStatus()
 
-            // Apply Content Security Policy
             #if canImport(JavaScriptKit) && arch(wasm32)
             CSPConfiguration.apply()
             #endif
@@ -111,7 +90,6 @@ public struct App {
         }
         t = perf("Security init", since: t)
 
-        // Detect GPU support
         #if canImport(JavaScriptKit)
         await detectGPUSupport()
         #else
@@ -119,29 +97,23 @@ public struct App {
         #endif
         t = perf("GPU detection + WebGPU init", since: t)
 
-        // Configure CORS proxy for cross-origin RSS feed fetching
         FeedService.corsProxy = "https://api.codetabs.com/v1/proxy?quest="
 
-        // Load persisted data
         await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
         await loadPersistedData()
         t = perf("Load persisted data", since: t)
 
-        // Index articles for search
         await Logger.shared.info(AppLogFeature.data, "Indexing articles for search...")
         await indexArticlesForSearch()
         t = perf("Search indexing", since: t)
 
-        // Process articles with NLP
         await Logger.shared.info(AppLogFeature.nlp, "Processing articles with NLP...")
         await processArticlesWithNLP()
         t = perf("NLP processing", since: t)
 
-        // Setup reactive effects
         setupReactiveEffects()
         t = perf("Reactive effects setup", since: t)
 
-        // Mount UI
         await Logger.shared.info(AppLogFeature.ui, "Mounting UI...")
         #if canImport(JavaScriptKit)
         mountUI()
@@ -155,15 +127,11 @@ public struct App {
         print("✅ Bulletin Board ready!")
     }
 
-    // MARK: - GPU Detection
-
     #if canImport(JavaScriptKit) && arch(wasm32)
-    /// Detects WebGPU support and configures GPU effects accordingly.
     private static func detectGPUSupport() async {
         let supported = WebGPUBridge.isSupported()
         GPUComponentConfig.enabled = supported
         if supported {
-            // Pre-initialize the GPU bridge so it's ready when onMount fires
             await GPUEffectManager.shared.ensureInitialized()
             print("✅ WebGPU supported — GPU effects enabled")
         } else {
@@ -171,21 +139,16 @@ public struct App {
         }
     }
     #elseif canImport(JavaScriptKit)
-    /// Detects WebGPU support (stub for non-WASM JavaScript environments).
     private static func detectGPUSupport() async {
         print("ℹ️ Non-WASM environment - disabling GPU effects")
         GPUComponentConfig.enabled = false
     }
     #endif
 
-    // MARK: - Data Loading
-
-    /// Loads persisted feeds and articles from storage.
     private static func loadPersistedData() async {
         print("📦 Loading persisted data...")
 
         do {
-            // Load feeds
             let feeds = try await storageService.loadFeeds()
             print("  ✓ Loaded \(feeds.count) feeds")
 
@@ -193,7 +156,6 @@ public struct App {
                 appStore.dispatch(FeedAction.addFeed(feed))
             }
 
-            // Load articles
             let articles = try await storageService.loadArticles()
             print("  ✓ Loaded \(articles.count) articles")
 
@@ -201,22 +163,11 @@ public struct App {
 
         } catch StorageService.StorageError.notFound {
             print("  ℹ️ No persisted data found (first run)")
-
-            // Add sample feed for first run
-            let sampleFeed = Feed(
-                id: "sample-feed",
-                title: "Sample RSS Feed",
-                description: "Example feed for testing",
-                url: "https://example.com/feed.xml"
-            )
-            appStore.dispatch(FeedAction.addFeed(sampleFeed))
-
         } catch {
             print("  ⚠️ Error loading data: \(error)")
         }
     }
 
-    /// Indexes all articles in the search service.
     private static func indexArticlesForSearch() async {
         let articles = appStore.getState().articles.articles
 
@@ -228,7 +179,6 @@ public struct App {
         }
     }
 
-    /// Processes unprocessed articles through the NLP pipeline.
     private static func processArticlesWithNLP() async {
         let articles = appStore.getState().articles.articles
         let unprocessed = articles.filter { !$0.isNLPProcessed }
@@ -239,7 +189,6 @@ public struct App {
         await nlpService.buildCorpus(from: articles)
         let results = await nlpService.processArticles(unprocessed)
 
-        // Cluster all articles (not just unprocessed) for best grouping
         let allIds = articles.map { $0.id }
         let clusters = await nlpService.clusterArticles(allIds)
         print("  📊 Clustering complete: \(clusters.count) articles assigned to clusters")
@@ -254,12 +203,10 @@ public struct App {
         }
         appStore.dispatch(ArticleAction.batchUpdateNLP(updates))
 
-        // Also update cluster assignments for already-processed articles
         let alreadyProcessed = articles.filter { $0.isNLPProcessed }
         if !alreadyProcessed.isEmpty {
             let clusterUpdates = alreadyProcessed.compactMap { article -> (id: String, summary: String?, keywords: [String], category: ArticleCategory?, sentiment: Double?, cluster: Int?)? in
                 guard let clusterId = clusters[article.id] else { return nil }
-                // Only update if cluster changed
                 guard article.clusterId != clusterId else { return nil }
                 return (id: article.id,
                         summary: article.nlpSummary,
@@ -276,10 +223,7 @@ public struct App {
         print("  ✓ NLP processing complete for \(results.count) articles")
     }
 
-    // MARK: - UI Mounting
-
     #if canImport(JavaScriptKit) && arch(wasm32)
-    /// Mounts the UI to the DOM.
     private static func mountUI() {
         print("🎨 Mounting UI...")
 
@@ -288,27 +232,21 @@ public struct App {
             return
         }
 
-        // Get root element
         guard let rootElement = document.getElementById!("app").object else {
             print("❌ Root element #app not found")
             return
         }
 
-        // Initialize DOM reconciler
         let bridge = DOMBridge()
         reconciler = DOMReconciler(bridge: bridge)
         reconciler?.mount(rootElement: rootElement)
 
-        // Initial render
         renderToDOM()
 
-        // Set up reactive rendering - re-render on state changes
-        // Debounced to avoid excessive patching
         var renderScheduled = false
         _ = appStore.subscribe { _ in
             guard !renderScheduled else { return }
             renderScheduled = true
-            // Batch updates in next microtask
             _ = SafeJSGlobal.global?.queueMicrotask.function?(JSClosure { _ in
                 renderScheduled = false
                 renderToDOM()
@@ -316,18 +254,15 @@ public struct App {
             })
         }
 
-        // Set up event handlers after initial render
         setupEventHandlers(document: document)
 
         print("✅ UI mounted successfully")
     }
 
-    /// The DOM reconciler instance
     private nonisolated(unsafe) static var reconciler: DOMReconciler?
 
     private nonisolated(unsafe) static var renderCount = 0
 
-    /// Renders the main view to the DOM using reconciliation
     private static func renderToDOM() {
         let t0 = now()
         let nodes = MainView()
@@ -337,25 +272,19 @@ public struct App {
         let total = now() - t0
         let vdom = tVdom - t0
         let patch = now() - tVdom
-        // Log first 3 renders and any that take >50ms
         if renderCount <= 3 || total > 50 {
             print("[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)")
         }
     }
 
-    /// Sets up all event listeners for user interactions
     private static func setupEventHandlers(document: JSObject) {
         setupClickHandler(document: document)
         setupSubmitHandler(document: document)
         setupSearchHandlers(document: document)
-        setupDragHandler(document: document)
         CardExpansionController.shared.setupEscapeHandler(document: document)
         print("⚡ Event handlers registered")
     }
 
-    // MARK: - Unified Click Handler
-
-    /// Single click handler for ALL actions (avoids competing listeners)
     private static func setupClickHandler(document: JSObject) {
         let clickHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
@@ -364,27 +293,16 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Walk up the DOM tree to find the nearest element with data-action
             guard let actionEl = target.closest!("[data-action]").object,
                   let action = actionEl.dataset.object?["action"].string else {
                 return JSValue.undefined
             }
 
             switch action {
-            // -- Tab navigation --
-            case "switch-tab":
-                if let tab = actionEl.dataset.object?["tab"].string {
-                    appStore.dispatch(UIAction.switchTab(tab))
-                }
-
-            // -- Toolbar / global actions --
             case "open-feed-manager":
                 appStore.dispatch(UIAction.openFeedManager)
 
             case "close-feed-manager-overlay":
-                // Only close if clicking directly on the overlay background,
-                // not on content that bubbled up to the overlay.
-                // Check: target's own data-action must be "close-feed-manager-overlay"
                 if target.dataset.object?["action"].string == "close-feed-manager-overlay" {
                     appStore.dispatch(UIAction.closeFeedManager)
                 }
@@ -401,24 +319,19 @@ public struct App {
             case "clear-search":
                 appStore.dispatch(ArticleAction.setSearchQuery(""))
 
-            // -- Feed-specific actions (need data-feed-id from item or button) --
             case "toggle", "refresh", "edit", "delete":
-                // data-feed-id may be on the button itself or on a parent feed-item wrapper
                 let feedId = actionEl.dataset.object?["feedId"].string
                     ?? target.closest!("[data-feed-id]").object?.dataset.object?["feedId"].string
                 if let feedId = feedId {
                     handleFeedAction(action: action, feedId: feedId)
                 }
 
-            // -- Category filter --
             case "filter-category":
                 if let categoryStr = actionEl.dataset.object?["category"].string {
                     var currentFilters = appStore.getState().articles.filters
                     if categoryStr == "all" {
-                        // Clear category filter
                         currentFilters.categories.removeAll()
                     } else if let category = ArticleCategory(rawValue: categoryStr) {
-                        // Toggle category
                         if currentFilters.categories.contains(category) {
                             currentFilters.categories.remove(category)
                         } else {
@@ -426,14 +339,12 @@ public struct App {
                         }
                     }
                     appStore.dispatch(ArticleAction.setFilters(currentFilters))
-                    // If in expanded detail view, collapse it
                     let uiState = uiSignal.get()
                     if uiState.animationPhase == .expanded {
                         CardExpansionController.shared.beginCollapse()
                     }
                 }
 
-            // -- Article actions (need data-article-id from parent) --
             case "toggle-favorite", "mark-read", "article-click":
                 if let articleEl = target.closest!("[data-article-id]").object,
                    let articleId = articleEl.dataset.object?["articleId"].string {
@@ -449,12 +360,10 @@ public struct App {
                     }
                 }
 
-            // -- Article detail dismiss --
             case "collapse-article":
                 CardExpansionController.shared.beginCollapse()
 
             case "collapse-article-overlay":
-                // Only close if clicking directly on the overlay background
                 if target.dataset.object?["action"].string == "collapse-article-overlay" {
                     CardExpansionController.shared.beginCollapse()
                 }
@@ -469,8 +378,6 @@ public struct App {
         document.addEventListener!("click", clickHandler)
     }
 
-    // MARK: - Form Submit Handler
-
     private static func setupSubmitHandler(document: JSObject) {
         let submitHandler = JSClosure { args -> JSValue in
             guard args.count > 0,
@@ -479,16 +386,13 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Prevent default form submission
             _ = event.preventDefault!()
 
-            // Check if this is the add feed form
             guard let formAction = form.dataset.object?["form"].string,
                   formAction == "add-feed" else {
                 return JSValue.undefined
             }
 
-            // Get feed URL
             guard let urlInput = document.getElementById!("feed-url").object,
                   let url = urlInput.value.string,
                   !url.isEmpty else {
@@ -496,10 +400,8 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Clear input
             urlInput.value = .string("")
 
-            // Dispatch add feed action
             Task {
                 await addFeedHelper(url: url)
             }
@@ -510,7 +412,6 @@ public struct App {
         document.addEventListener!("submit", submitHandler)
     }
 
-    /// Handle feed-specific actions
     private static func handleFeedAction(action: String, feedId: String) {
         let feedsState = appStore.getState().feeds
 
@@ -531,7 +432,6 @@ public struct App {
 
         case "edit":
             print("Edit feed: \(feedId)")
-            // Future: Switch to edit mode
 
         case "delete":
             appStore.dispatch(FeedAction.removeFeed(id: feedId))
@@ -542,7 +442,6 @@ public struct App {
         }
     }
 
-    /// Refresh all feeds
     private static func refreshAllFeeds() async {
         let feedsState = appStore.getState().feeds
 
@@ -566,11 +465,7 @@ public struct App {
         }
     }
 
-    // MARK: - Search Event Handlers
-
-    /// Set up search bar event listeners
     private static func setupSearchHandlers(document: JSObject) {
-        // Debounced search input
         var searchTask: Task<Void, Never>?
 
         let inputHandler = JSClosure { args -> JSValue in
@@ -580,7 +475,6 @@ public struct App {
                 return JSValue.undefined
             }
 
-            // Check if this is the search input by id
             let targetId = target.id.string ?? ""
             let isSearch = targetId == "search-input"
 
@@ -590,10 +484,8 @@ public struct App {
 
             let query = target.value.string ?? ""
 
-            // Cancel previous search task
             searchTask?.cancel()
 
-            // Debounce search (300ms)
             searchTask = Task {
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 if !Task.isCancelled {
@@ -607,154 +499,51 @@ public struct App {
         document.addEventListener!("input", inputHandler)
     }
 
-    // MARK: - Drag Handler
-
-    /// Set up draggable image handler
-    private static func setupDragHandler(document: JSObject) {
-        let global = JSObject.global
-
-        // Drag state (mutable across closures via UnsafeSendableBox)
-        var isDragging = false
-        var startX = 0.0
-        var startY = 0.0
-        var initialLeft = 0.0
-        var initialTop = 0.0
-
-        let mouseDownHandler = JSClosure { args -> JSValue in
-            guard args.count > 0,
-                  let event = args[0].object,
-                  let target = event.target.object else {
-                return JSValue.undefined
-            }
-
-            // Check if this is the draggable image container
-            let targetId = target.id.string ?? ""
-            let container = targetId == "draggable-image-container"
-                ? target
-                : target.closest!("#draggable-image-container").object
-
-            guard let container = container else {
-                return JSValue.undefined
-            }
-
-            isDragging = true
-            startX = event.clientX.number ?? 0.0
-            startY = event.clientY.number ?? 0.0
-
-            let computedStyle = global.getComputedStyle!(container)
-            initialLeft = Double(computedStyle.left.string?.replacingOccurrences(of: "px", with: "") ?? "0") ?? 0.0
-            initialTop = Double(computedStyle.top.string?.replacingOccurrences(of: "px", with: "") ?? "0") ?? 0.0
-
-            event.preventDefault!()
-            return JSValue.undefined
-        }
-
-        let mouseMoveHandler = JSClosure { args -> JSValue in
-            guard isDragging,
-                  args.count > 0,
-                  let event = args[0].object else {
-                return JSValue.undefined
-            }
-
-            let currentX = event.clientX.number ?? 0.0
-            let currentY = event.clientY.number ?? 0.0
-
-            let deltaX = currentX - startX
-            let deltaY = currentY - startY
-
-            let newLeft = initialLeft + deltaX
-            let newTop = initialTop + deltaY
-
-            if let container = document.getElementById!("draggable-image-container").object {
-                container.style.object?.setProperty!("left", "\(newLeft)px")
-                container.style.object?.setProperty!("top", "\(newTop)px")
-            }
-
-            return JSValue.undefined
-        }
-
-        let mouseUpHandler = JSClosure { _ -> JSValue in
-            isDragging = false
-            return JSValue.undefined
-        }
-
-        document.addEventListener!("mousedown", mouseDownHandler)
-        document.addEventListener!("mousemove", mouseMoveHandler)
-        document.addEventListener!("mouseup", mouseUpHandler)
-    }
-
     #elseif canImport(JavaScriptKit)
-    /// Mounts the UI to the DOM (stub for non-WASM JavaScriptKit environments).
     private static func mountUI() {
         print("🎨 Mounting UI...")
         print("  ℹ️ DOM mounting only available in WASM environment")
     }
     #endif
 
-    // MARK: - Reactive State
-
-    /// Signal for article state
     private nonisolated(unsafe) static let articlesSignal = appStore.selectArticles()
 
-    /// Signal for feed state
     private nonisolated(unsafe) static let feedsSignal = appStore.selectFeeds()
 
-    /// Signal for UI state
     private nonisolated(unsafe) static let uiSignal = appStore.selectUI()
 
-    /// Computed signal for filtered articles
     private nonisolated(unsafe) static let filteredArticlesSignal = Computed {
         articlesSignal.get().filteredArticles
     }
 
-    /// Computed signal for article count
     private nonisolated(unsafe) static let articleCountSignal = Computed {
         filteredArticlesSignal.get().count
     }
 
-    /// Computed signal for unread count
     private nonisolated(unsafe) static let unreadCountSignal = Computed {
         articlesSignal.get().unreadCount
     }
 
-    /// Computed signal for feed list
     private nonisolated(unsafe) static let feedListSignal = Computed {
         feedsSignal.get().feeds
     }
 
-    // MARK: - Main View Component
-
-    /// The main application view with reactive effects.
     private static func MainView() -> [AnyNode] {
-        // Create reactive view that updates when state changes
-        // Effects will automatically re-run when dependencies change
-
         var children: [AnyNode] = []
 
-        // Tab navigation
-        children.append(contentsOf: renderTabNav())
+        let header = renderHeader()
+        let searchBar = renderSearchBar()
+        let toolbar = renderToolbar()
+        let content = renderContent()
+        let footer = renderFooter()
 
-        // Active tab content
-        let activeTab = uiSignal.get().activeTab
-        if activeTab == "webgpu-test" {
-            children.append(contentsOf: renderWebGPUTestTab())
-        } else {
-            // Original news feed UI
-            let header = renderHeader()
-            let searchBar = renderSearchBar()
-            let toolbar = renderToolbar()
-            let content = renderContent()
-            let footer = renderFooter()
+        children.append(AnyNode(header))
+        children.append(contentsOf: searchBar)
+        children.append(contentsOf: toolbar)
+        children.append(contentsOf: renderCategoryFilterBar())
+        children.append(AnyNode(content))
+        children.append(AnyNode(footer))
 
-            children.append(AnyNode(header))
-            children.append(contentsOf: searchBar)
-            children.append(contentsOf: toolbar)
-            children.append(contentsOf: renderCategoryFilterBar())
-            children.append(AnyNode(content))
-            children.append(AnyNode(footer))
-        }
-
-        // Overlays (conditionally rendered)
         children.append(contentsOf: renderFeedManager())
         children.append(contentsOf: renderArticleDetail())
         children.append(contentsOf: renderToast())
@@ -765,224 +554,6 @@ public struct App {
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "bulletin-board-app")],
                 children: children
-            ))
-        ]
-    }
-
-    // MARK: - Tab Navigation
-
-    private static func renderTabNav() -> [AnyNode] {
-        let activeTab = uiSignal.get().activeTab
-
-        let webgpuTabClass = activeTab == "webgpu-test" ? "tab-button tab-button--active" : "tab-button"
-        let newsFeedTabClass = activeTab == "news-feed" ? "tab-button tab-button--active" : "tab-button"
-
-        return [
-            AnyNode(Element<AnyHTMLContext>(
-                tag: "nav",
-                attributes: [Attribute(name: "class", value: "tab-nav")],
-                children: [
-                    AnyNode(Element<AnyHTMLContext>(
-                        tag: "button",
-                        attributes: [
-                            Attribute(name: "type", value: "button"),
-                            Attribute(name: "class", value: webgpuTabClass),
-                            Attribute(name: "data-action", value: "switch-tab"),
-                            Attribute(name: "data-tab", value: "webgpu-test")
-                        ],
-                        children: [AnyNode(Text("WebGPU Test Grid"))]
-                    )),
-                    AnyNode(Element<AnyHTMLContext>(
-                        tag: "button",
-                        attributes: [
-                            Attribute(name: "type", value: "button"),
-                            Attribute(name: "class", value: newsFeedTabClass),
-                            Attribute(name: "data-action", value: "switch-tab"),
-                            Attribute(name: "data-tab", value: "news-feed")
-                        ],
-                        children: [AnyNode(Text("News Feed"))]
-                    ))
-                ]
-            ))
-        ]
-    }
-
-    // MARK: - WebGPU Test Tab
-
-    private static func renderWebGPUTestTab() -> [AnyNode] {
-        var children: [AnyNode] = []
-
-        // Shadow test view above grid
-        children.append(contentsOf: renderShadowTestView())
-
-        // 5x5 grid of random WebGPU effects
-        children.append(AnyNode(renderWebGPUGrid()))
-
-        // Draggable image for testing
-        children.append(contentsOf: renderDraggableImage())
-
-        return children
-    }
-
-    private static func renderShadowTestView() -> [AnyNode] {
-        // High elevation shadow view to test shadow effects - MOUSE REACTIVE
-        // Note: ShadowView sizes its canvas to its container, so the container
-        // must be the same size as the visible content for proper shadow alignment.
-        return [AnyNode(Element<AnyHTMLContext>(
-            tag: "div",
-            attributes: [
-                Attribute(name: "style", value: "padding: 2rem; max-width: 600px; margin: 2rem auto;")
-            ],
-            children: ShadowView(style: .elevation16, mouseReactive: true) {
-                return [AnyNode(Element<AnyHTMLContext>(
-                    tag: "div",
-                    attributes: [
-                        Attribute(name: "class", value: "shadow-test-box"),
-                        Attribute(name: "style", value: "padding: 2rem; background: white; border-radius: 8px;")
-                    ],
-                    children: [
-                        AnyNode(Element<AnyHTMLContext>(
-                            tag: "h2",
-                            children: [AnyNode(Text("Shadow Test - Elevation 16 🖱️"))]
-                        )),
-                        AnyNode(Element<AnyHTMLContext>(
-                            tag: "p",
-                            children: [AnyNode(Text("This box has a mouse-reactive shadow rendered by WebGPU. Move your mouse around the page and watch the shadow direction change based on your cursor position!"))]
-                        ))
-                    ]
-                ))]
-            }
-        ))]
-    }
-
-    private static func renderWebGPUGrid() -> Element<AnyHTMLContext> {
-        var gridCells: [AnyNode] = []
-
-        // Create 5x5 grid (25 cells) with random WebGPU effects
-        for row in 0..<5 {
-            for col in 0..<5 {
-                let cellIndex = row * 5 + col
-                gridCells.append(AnyNode(renderGridCell(index: cellIndex, row: row, col: col)))
-            }
-        }
-
-        return Element<AnyHTMLContext>(
-            tag: "div",
-            attributes: [
-                Attribute(name: "class", value: "webgpu-grid"),
-                Attribute(name: "style", value: "display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; padding: 2rem; max-width: 1200px; margin: 0 auto;")
-            ],
-            children: gridCells
-        )
-    }
-
-    private static func renderGridCell(index: Int, row: Int, col: Int) -> Element<AnyHTMLContext> {
-        // Randomly select effect type based on cell index
-        let effectType = index % 4
-
-        let cellContent: [AnyNode]
-        let cellLabel: String
-        let cellBackground: String
-
-        // Diverse gradients for blur testing
-        let gradients = [
-            "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-            "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-            "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-            "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-            "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
-            "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-            "linear-gradient(135deg, #ff9a56 0%, #ff6a88 100%)"
-        ]
-
-        let gradientIndex = (row * 5 + col) % gradients.count
-        let background = gradients[gradientIndex]
-
-        switch effectType {
-        case 0:
-            // BlurView with systemMaterial — transparent cell so backdrop-filter blurs page content behind
-            cellLabel = "Blur: System"
-            cellBackground = "transparent"
-            cellContent = BlurView(style: .systemMaterial, intensity: 1.0) {
-                return [AnyNode(Element<AnyHTMLContext>(
-                    tag: "div",
-                    attributes: [Attribute(name: "style", value: "padding: 1rem; color: white; font-weight: bold; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); min-height: 100px; display: flex; align-items: center; justify-content: center;")],
-                    children: [AnyNode(Text("Cell \(index)\n\(cellLabel)"))]
-                ))]
-            }
-        case 1:
-            // BlurView with frostedGlass — transparent cell so backdrop-filter blurs page content behind
-            cellLabel = "Blur: Frosted"
-            cellBackground = "transparent"
-            cellContent = BlurView(style: .frostedGlass, intensity: 1.0) {
-                return [AnyNode(Element<AnyHTMLContext>(
-                    tag: "div",
-                    attributes: [Attribute(name: "style", value: "padding: 1rem; color: white; font-weight: bold; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); min-height: 100px; display: flex; align-items: center; justify-content: center;")],
-                    children: [AnyNode(Text("Cell \(index)\n\(cellLabel)"))]
-                ))]
-            }
-        case 2:
-            // ShadowView with varying elevations — transparent cell, colorful card inside
-            let elevation: ShadowStyle = [.elevation1, .elevation2, .elevation4, .elevation8].randomElement()!
-            cellLabel = "Shadow: \(elevation)"
-            cellBackground = "transparent"
-            cellContent = ShadowView(style: elevation, mouseReactive: true) {
-                return [AnyNode(Element<AnyHTMLContext>(
-                    tag: "div",
-                    attributes: [Attribute(name: "style", value: "padding: 1rem; background: \(background); border-radius: 8px; text-align: center; min-height: 80px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.3);")],
-                    children: [AnyNode(Text("Cell \(index)\n\(cellLabel)\n🖱️ REACTIVE"))]
-                ))]
-            }
-        default:
-            // Combined BlurView + ShadowView — transparent cell for blur, shadow inside
-            cellLabel = "Blur+Shadow"
-            cellBackground = "transparent"
-            cellContent = BlurView(style: .frostedGlass, intensity: 1.0) {
-                return ShadowView(style: .elevation4, mouseReactive: true) {
-                    return [AnyNode(Element<AnyHTMLContext>(
-                        tag: "div",
-                        attributes: [Attribute(name: "style", value: "padding: 1rem; color: white; font-weight: bold; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.3); min-height: 100px; display: flex; align-items: center; justify-content: center;")],
-                        children: [AnyNode(Text("Cell \(index)\n\(cellLabel)\n🖱️ REACTIVE"))]
-                    ))]
-                }
-            }
-        }
-
-        return Element<AnyHTMLContext>(
-            tag: "div",
-            attributes: [
-                Attribute(name: "class", value: "grid-cell"),
-                Attribute(name: "style", value: "min-height: 120px; background: \(cellBackground); border-radius: 8px; position: relative; overflow: visible;")
-            ],
-            children: cellContent
-        )
-    }
-
-    private static func renderDraggableImage() -> [AnyNode] {
-        // Real photo from picsum.photos (CORS-safe, no auth needed)
-        let imageUrl = "https://picsum.photos/id/29/400/300"
-
-        return [
-            AnyNode(Element<AnyHTMLContext>(
-                tag: "div",
-                attributes: [
-                    Attribute(name: "id", value: "draggable-image-container"),
-                    Attribute(name: "style", value: "position: fixed; left: 50px; top: 300px; cursor: move; z-index: 0; pointer-events: auto;")
-                ],
-                children: [
-                    AnyNode(Element<AnyHTMLContext>(
-                        tag: "img",
-                        attributes: [
-                            Attribute(name: "id", value: "draggable-image"),
-                            Attribute(name: "src", value: imageUrl),
-                            Attribute(name: "alt", value: "Draggable test image"),
-                            Attribute(name: "crossorigin", value: "anonymous"),
-                            Attribute(name: "draggable", value: "false"),
-                            Attribute(name: "style", value: "width: 400px; height: 300px; border: 3px solid white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); user-select: none; object-fit: cover;")
-                        ]
-                    ))
-                ]
             ))
         ]
     }
@@ -1006,7 +577,6 @@ public struct App {
     }
 
     private static func renderStats() -> Element<AnyHTMLContext> {
-        // Get reactive values
         let articleCount = articleCountSignal.get()
         let unreadCount = unreadCountSignal.get()
         let feedCount = feedListSignal.get().count
@@ -1026,13 +596,11 @@ public struct App {
     }
 
     private static func renderContent() -> Element<AnyHTMLContext> {
-        // Get current articles from signal
         let articles = filteredArticlesSignal.get()
 
         var children: [AnyNode] = []
 
         if articles.isEmpty {
-            // Show empty state
             let emptyState = Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "app-empty")],
@@ -1045,7 +613,6 @@ public struct App {
             )
             children.append(AnyNode(emptyState))
         } else {
-            // Render article list with GPU effects
             let listProps = ArticleList.Props(
                 articles: articles,
                 onToggleFavorite: { articleId in
@@ -1058,7 +625,6 @@ public struct App {
                     appStore.dispatch(ArticleAction.selectArticle(id: articleId))
                 }
             )
-            // Use GPU-enhanced variant if enabled
             children.append(contentsOf: ArticleList.renderGPU(props: listProps))
         }
 
@@ -1082,9 +648,6 @@ public struct App {
         )
     }
 
-    // MARK: - New UI Components
-
-    /// Render search bar
     private static func renderSearchBar() -> [AnyNode] {
         let articlesState = articlesSignal.get()
         let searchQuery = articlesState.searchQuery
@@ -1105,13 +668,11 @@ public struct App {
         return SearchBar.render(props: props)
     }
 
-    /// Render toolbar with action buttons
     private static func renderToolbar() -> [AnyNode] {
         let toolbar = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [Attribute(name: "class", value: "app-toolbar")],
             children: [
-                // Add Feed button
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
                     attributes: [
@@ -1122,7 +683,6 @@ public struct App {
                     ],
                     children: [AnyNode(Text("➕ Add Feed"))]
                 )),
-                // Refresh All button
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
                     attributes: [
@@ -1139,7 +699,6 @@ public struct App {
         return [AnyNode(toolbar)]
     }
 
-    /// Render category filter bar
     private static func renderCategoryFilterBar() -> [AnyNode] {
         let articleState = articlesSignal.get()
         let props = CategoryFilterBar.Props(
@@ -1149,11 +708,9 @@ public struct App {
         return CategoryFilterBar.render(props: props)
     }
 
-    /// Render feed manager modal (conditionally)
     private static func renderFeedManager() -> [AnyNode] {
         let uiState = uiSignal.get()
 
-        // Only render if feed manager is open
         guard uiState.isFeedManagerOpen else {
             return []
         }
@@ -1192,7 +749,6 @@ public struct App {
             }
         )
 
-        // Wrap in modal overlay
         let modal = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
@@ -1205,24 +761,19 @@ public struct App {
         return [AnyNode(modal)]
     }
 
-    /// Render article detail overlay (when expanded)
     private static func renderArticleDetail() -> [AnyNode] {
         let uiState = uiSignal.get()
 
-        // Only render at rest (expanded) — during expanding/collapsing,
-        // CardExpansionController handles the clone animation outside the reconciler.
         guard uiState.animationPhase == .expanded,
               let articleId = uiState.expandedArticleId else {
             return []
         }
 
-        // Look up the article
         let articles = articlesSignal.get().articles
         guard let article = articles.first(where: { $0.id == articleId }) else {
             return []
         }
 
-        // Find related articles by cluster ID
         var relatedArticles: [Article] = []
         if let clusterId = article.clusterId {
             relatedArticles = articles.filter { $0.clusterId == clusterId && $0.id != article.id }
@@ -1232,7 +783,6 @@ public struct App {
         return ArticleDetailView.renderGPU(props: props)
     }
 
-    /// Render toast notification (conditionally)
     private static func renderToast() -> [AnyNode] {
         let uiState = uiSignal.get()
 
@@ -1269,7 +819,6 @@ public struct App {
         return [AnyNode(toast)]
     }
 
-    /// Render error message (conditionally)
     private static func renderErrorMessage() -> [AnyNode] {
         let uiState = uiSignal.get()
 
@@ -1285,7 +834,6 @@ public struct App {
         )
     }
 
-    /// Helper: Refresh a specific feed
     private static func refreshFeed(feed: Feed) async {
         do {
             let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
@@ -1297,7 +845,6 @@ public struct App {
         }
     }
 
-    /// Helper: Add feed from URL
     private static func addFeedHelper(url: String) async {
         showToast("Fetching feed...")
 
@@ -1305,20 +852,16 @@ public struct App {
             let feedId = UUID().uuidString
             let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
 
-            // Add feed to state
             let feed = Feed(id: feedId, title: "New Feed", description: "", url: url)
             appStore.dispatch(FeedAction.addFeed(feed))
 
-            // Add articles
             appStore.dispatch(ArticleAction.addArticles(articles))
 
-            // Success
             appStore.dispatch(UIAction.closeFeedManager)
             showToast("Feed added with \(articles.count) articles")
 
             print("✅ Feed added: \(url) with \(articles.count) articles")
 
-            // Trigger NLP processing for the new articles
             await processArticlesWithNLP()
         } catch let error as FeedService.FeedError {
             let message: String
@@ -1344,24 +887,17 @@ public struct App {
         }
     }
 
-    /// Shows a toast that auto-dismisses after a delay
     private static func showToast(_ message: String, duration: UInt64 = 3_000_000_000) {
         appStore.dispatch(UIAction.showToast(message))
         Task {
             try? await Task.sleep(nanoseconds: duration)
-            // Only dismiss if the toast message hasn't changed
             if appStore.getState().ui.toastMessage == message {
                 appStore.dispatch(UIAction.clearToast)
             }
         }
     }
 
-    // MARK: - Reactive Effects
-
-    /// Sets up reactive effects for the application.
-    /// Effects automatically re-run when their dependencies change.
     public static func setupReactiveEffects() {
-        // Effect: Auto-index articles when they change
         _ = Effect(execute: {
             let articles = articlesSignal.get().articles
             if !articles.isEmpty {
@@ -1372,7 +908,6 @@ public struct App {
             }
         })
 
-        // Effect: Auto-save articles to storage when they change
         _ = Effect(execute: {
             let articles = articlesSignal.get().articles
             if !articles.isEmpty {
@@ -1387,7 +922,6 @@ public struct App {
             }
         })
 
-        // Effect: Auto-save feeds to storage when they change
         _ = Effect(execute: {
             let feeds = feedsSignal.get().feeds
             if !feeds.isEmpty {
@@ -1402,14 +936,12 @@ public struct App {
             }
         })
 
-        // Effect: Log state changes (for debugging)
         _ = Effect(execute: {
             let articleCount = articleCountSignal.get()
             let unreadCount = unreadCountSignal.get()
             print("📊 State updated: \(articleCount) articles, \(unreadCount) unread")
         })
 
-        // Effect: Auto-process new articles with NLP
         _ = Effect(execute: {
             let articles = articlesSignal.get().articles
             let unprocessed = articles.filter { !$0.isNLPProcessed }
@@ -1421,9 +953,6 @@ public struct App {
         print("⚡ Reactive effects initialized")
     }
 
-    // MARK: - Public API
-
-    /// Provides access to services for components.
     public static var services: Services {
         Services(
             feed: feedService,
@@ -1433,7 +962,6 @@ public struct App {
         )
     }
 
-    /// Container for app services.
     public struct Services {
         public let feed: FeedService
         public let storage: StorageService
@@ -1441,3 +969,4 @@ public struct App {
         public let nlp: NLPService
     }
 }
+

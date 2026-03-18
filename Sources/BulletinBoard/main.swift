@@ -5,8 +5,6 @@ import LINKER
 import JavaScriptKit
 import JavaScriptEventLoop
 
-// Install the global executor.
-// Swift 6.3+: Uses ExecutorFactory API (no GOT hook issues)
 JavaScriptEventLoop.installGlobalExecutor()
 
 print("[swift] Bulletin Board - News Feed Reader")
@@ -17,6 +15,6 @@ Task {
 }
 
 #else
-// Non-WASM: no event loop or JS runtime available
 print("Bulletin Board - Native mode (no WASM)")
 #endif
+

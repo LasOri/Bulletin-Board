@@ -1,9 +1,7 @@
 import Foundation
 
-/// Extracts named entities using dictionary lookup and regex patterns.
 public enum EntityExtractor {
 
-    /// Entity type classification.
     public enum EntityType: String, Sendable, Equatable {
         case person
         case organization
@@ -14,7 +12,6 @@ public enum EntityExtractor {
         case url
     }
 
-    /// An extracted named entity.
     public struct Entity: Equatable, Sendable {
         public let text: String
         public let type: EntityType
@@ -25,14 +22,12 @@ public enum EntityExtractor {
         }
     }
 
-    /// Organization suffixes for dictionary-based detection.
     private static let orgSuffixes = [
         "Inc", "Inc.", "Corp", "Corp.", "LLC", "Ltd", "Ltd.",
         "Co", "Co.", "Group", "Holdings", "Foundation",
         "Association", "Institute", "University", "Bank"
     ]
 
-    /// Person title prefixes for dictionary-based detection.
     private static let personPrefixes = [
         "Mr", "Mr.", "Mrs", "Mrs.", "Ms", "Ms.", "Dr", "Dr.",
         "Prof", "Prof.", "Sen", "Sen.", "Rep", "Rep.",
@@ -40,24 +35,18 @@ public enum EntityExtractor {
         "Sgt", "Sgt.", "Cpl", "Cpl.", "Rev", "Rev."
     ]
 
-    /// Extract named entities from text.
-    /// - Parameter text: Input text
-    /// - Returns: Array of extracted entities
     public static func extract(from text: String) -> [Entity] {
         let cleaned = TextProcessor.stripHTML(text)
         var entities: [Entity] = []
 
-        // Regex-based extraction
         entities.append(contentsOf: extractEmails(from: cleaned))
         entities.append(contentsOf: extractURLs(from: cleaned))
         entities.append(contentsOf: extractMoney(from: cleaned))
         entities.append(contentsOf: extractDates(from: cleaned))
 
-        // Dictionary-based extraction
         entities.append(contentsOf: extractOrganizations(from: cleaned))
         entities.append(contentsOf: extractPersons(from: cleaned))
 
-        // Deduplicate
         var seen: Set<String> = []
         return entities.filter { entity in
             let key = "\(entity.type.rawValue):\(entity.text)"
@@ -66,8 +55,6 @@ public enum EntityExtractor {
             return true
         }
     }
-
-    // MARK: - Regex-based extraction
 
     private static func extractEmails(from text: String) -> [Entity] {
         let pattern = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
@@ -93,13 +80,11 @@ public enum EntityExtractor {
     private static func extractDates(from text: String) -> [Entity] {
         var entities: [Entity] = []
 
-        // Month DD, YYYY
         let pattern1 = /(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}/
         for match in text.matches(of: pattern1) {
             entities.append(Entity(text: String(match.output), type: .date))
         }
 
-        // MM/DD/YYYY or MM-DD-YYYY
         let pattern2 = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/
         for match in text.matches(of: pattern2) {
             entities.append(Entity(text: String(match.output), type: .date))
@@ -108,8 +93,6 @@ public enum EntityExtractor {
         return entities
     }
 
-    // MARK: - Dictionary-based extraction
-
     private static func extractOrganizations(from text: String) -> [Entity] {
         var entities: [Entity] = []
         let words = text.components(separatedBy: .whitespacesAndNewlines)
@@ -117,7 +100,6 @@ public enum EntityExtractor {
         for (i, word) in words.enumerated() {
             let cleanWord = word.trimmingCharacters(in: .punctuationCharacters)
             if orgSuffixes.contains(cleanWord) && i > 0 {
-                // Collect preceding capitalized words as org name
                 var orgWords: [String] = [cleanWord]
                 var j = i - 1
                 while j >= 0 {
@@ -145,7 +127,6 @@ public enum EntityExtractor {
         for (i, word) in words.enumerated() {
             let cleanWord = word.trimmingCharacters(in: .punctuationCharacters)
             if personPrefixes.contains(cleanWord) || personPrefixes.contains(word) {
-                // Collect following capitalized words as person name
                 var nameWords: [String] = [cleanWord]
                 var j = i + 1
                 while j < words.count {
@@ -166,3 +147,4 @@ public enum EntityExtractor {
         return entities
     }
 }
+

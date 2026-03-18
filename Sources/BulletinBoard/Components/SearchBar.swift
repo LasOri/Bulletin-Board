@@ -1,13 +1,7 @@
 import Foundation
 import LINKER
 
-/// Search bar component with live search capabilities.
-///
-/// Provides text input for searching articles with optional filters
-/// and search suggestions.
 public struct SearchBar {
-
-    // MARK: - Props
 
     public struct Props {
         public let query: String
@@ -34,8 +28,6 @@ public struct SearchBar {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         let container = Element<AnyHTMLContext>(
             tag: "div",
@@ -51,8 +43,6 @@ public struct SearchBar {
 
         return [AnyNode(container)]
     }
-
-    // MARK: - Private Helpers
 
     private static func containerClasses(props: Props) -> String {
         var classes = ["search-bar"]
@@ -84,7 +74,6 @@ public struct SearchBar {
     private static func renderSearchActions(props: Props) -> Element<AnyHTMLContext> {
         var children: [AnyNode] = []
 
-        // Search icon (magnifying glass)
         let searchIcon = Element<AnyHTMLContext>(
             tag: "span",
             attributes: [
@@ -95,7 +84,6 @@ public struct SearchBar {
         )
         children.append(AnyNode(searchIcon))
 
-        // Clear button (only show when query is not empty)
         if !props.query.isEmpty {
             let clearButton = Element<AnyHTMLContext>(
                 tag: "button",
@@ -121,7 +109,6 @@ public struct SearchBar {
         var children: [AnyNode] = []
 
         if props.isSearching {
-            // Show searching indicator
             let searching = Element<AnyHTMLContext>(
                 tag: "span",
                 attributes: [Attribute(name: "class", value: "search-bar__status search-bar__status--searching")],
@@ -129,7 +116,6 @@ public struct SearchBar {
             )
             children.append(AnyNode(searching))
         } else if let count = props.resultCount, !props.query.isEmpty {
-            // Show result count
             let resultText = count == 1 ? "1 result" : "\(count) results"
             let status = Element<AnyHTMLContext>(
                 tag: "span",
@@ -147,11 +133,8 @@ public struct SearchBar {
     }
 }
 
-// MARK: - Search Suggestions
-
 extension SearchBar {
 
-    /// Search suggestion item
     public struct Suggestion: Equatable {
         public let id: String
         public let text: String
@@ -171,7 +154,6 @@ extension SearchBar {
         }
     }
 
-    /// Type of search suggestion
     public enum SuggestionType: String, Equatable {
         case keyword = "keyword"
         case category = "category"
@@ -179,7 +161,6 @@ extension SearchBar {
         case recent = "recent"
     }
 
-    /// Props for search bar with suggestions
     public struct SuggestionsProps {
         public let query: String
         public let placeholder: String
@@ -214,7 +195,6 @@ extension SearchBar {
         }
     }
 
-    /// Render search bar with suggestions
     public static func renderWithSuggestions(props: SuggestionsProps) -> [AnyNode] {
         let baseProps = Props(
             query: props.query,
@@ -227,7 +207,6 @@ extension SearchBar {
 
         var children = render(props: baseProps)
 
-        // Add suggestions dropdown if visible
         if props.showSuggestions && !props.suggestions.isEmpty {
             let suggestionsDropdown = renderSuggestionsDropdown(
                 suggestions: props.suggestions
@@ -260,7 +239,6 @@ extension SearchBar {
     ) -> Element<AnyHTMLContext> {
         var children: [AnyNode] = []
 
-        // Type icon
         let icon = suggestionIcon(for: suggestion.type)
         let iconElement = Element<AnyHTMLContext>(
             tag: "span",
@@ -272,7 +250,6 @@ extension SearchBar {
         )
         children.append(AnyNode(iconElement))
 
-        // Suggestion text
         let textElement = Element<AnyHTMLContext>(
             tag: "span",
             attributes: [Attribute(name: "class", value: "search-bar__suggestion-text")],
@@ -280,7 +257,6 @@ extension SearchBar {
         )
         children.append(AnyNode(textElement))
 
-        // Match count (if available)
         if let count = suggestion.matchCount {
             let countText = "(\(count))"
             let countElement = Element<AnyHTMLContext>(
@@ -313,3 +289,4 @@ extension SearchBar {
         }
     }
 }
+

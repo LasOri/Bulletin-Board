@@ -1,22 +1,13 @@
 import Foundation
 import LINKER
 
-/// Error message component for displaying errors with actions.
-///
-/// Provides a consistent way to display error messages with optional
-/// retry actions and dismissal functionality.
 public struct ErrorMessage {
 
-    // MARK: - Types
-
-    /// Error severity level
     public enum Severity: String {
         case error = "error"
         case warning = "warning"
         case info = "info"
     }
-
-    // MARK: - Props
 
     public struct Props {
         public let message: String
@@ -49,8 +40,6 @@ public struct ErrorMessage {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         let container = Element<AnyHTMLContext>(
             tag: "div",
@@ -68,8 +57,6 @@ public struct ErrorMessage {
 
         return [AnyNode(container)]
     }
-
-    // MARK: - Private Helpers
 
     private static func containerClasses(severity: Severity) -> String {
         return "error-message error-message--\(severity.rawValue)"
@@ -99,7 +86,6 @@ public struct ErrorMessage {
     private static func renderContent(props: Props) -> Element<AnyHTMLContext> {
         var children: [AnyNode] = []
 
-        // Title (if provided)
         if let title = props.title {
             let titleElement = Element<AnyHTMLContext>(
                 tag: "h3",
@@ -109,7 +95,6 @@ public struct ErrorMessage {
             children.append(AnyNode(titleElement))
         }
 
-        // Main message
         let messageElement = Element<AnyHTMLContext>(
             tag: "p",
             attributes: [Attribute(name: "class", value: "error-message__message")],
@@ -117,7 +102,6 @@ public struct ErrorMessage {
         )
         children.append(AnyNode(messageElement))
 
-        // Details (if provided)
         if let details = props.details {
             let detailsElement = Element<AnyHTMLContext>(
                 tag: "p",
@@ -137,7 +121,6 @@ public struct ErrorMessage {
     private static func renderActions(props: Props) -> Element<AnyHTMLContext> {
         var children: [AnyNode] = []
 
-        // Retry button
         if props.showRetry {
             let retryButton = Element<AnyHTMLContext>(
                 tag: "button",
@@ -151,7 +134,6 @@ public struct ErrorMessage {
             children.append(AnyNode(retryButton))
         }
 
-        // Dismiss button
         if props.showDismiss {
             let dismissButton = Element<AnyHTMLContext>(
                 tag: "button",
@@ -174,11 +156,8 @@ public struct ErrorMessage {
     }
 }
 
-// MARK: - Convenience Constructors
-
 extension ErrorMessage {
 
-    /// Create an error message (red, critical)
     public static func error(
         message: String,
         title: String? = nil,
@@ -198,7 +177,6 @@ extension ErrorMessage {
         ))
     }
 
-    /// Create a warning message (yellow/amber)
     public static func warning(
         message: String,
         title: String? = nil,
@@ -212,7 +190,6 @@ extension ErrorMessage {
         ))
     }
 
-    /// Create an info message (blue)
     public static func info(
         message: String,
         title: String? = nil,
@@ -227,11 +204,8 @@ extension ErrorMessage {
     }
 }
 
-// MARK: - Common Error Messages
-
 extension ErrorMessage {
 
-    /// Network error with retry
     public static func networkError(
         message: String = "Failed to load data. Please check your connection.",
         onRetry: @escaping () -> Void,
@@ -246,7 +220,6 @@ extension ErrorMessage {
         )
     }
 
-    /// Not found error
     public static func notFound(
         message: String = "The requested item could not be found.",
         onDismiss: (() -> Void)? = nil
@@ -258,7 +231,6 @@ extension ErrorMessage {
         )
     }
 
-    /// Permission denied error
     public static func permissionDenied(
         message: String = "You don't have permission to perform this action.",
         onDismiss: (() -> Void)? = nil
@@ -270,7 +242,6 @@ extension ErrorMessage {
         )
     }
 
-    /// Validation error
     public static func validationError(
         message: String,
         details: String? = nil,
@@ -284,7 +255,6 @@ extension ErrorMessage {
         )
     }
 
-    /// Generic error with technical details
     public static func genericError(
         message: String = "An unexpected error occurred.",
         details: String? = nil,
@@ -302,3 +272,4 @@ extension ErrorMessage {
         )
     }
 }
+

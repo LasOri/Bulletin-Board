@@ -1,7 +1,6 @@
 import Foundation
 import LINKER
 
-/// Reducer for UI state
 public func uiReducer(state: UIState, action: any Action) -> UIState {
     guard let action = action as? UIAction else {
         return state
@@ -10,7 +9,6 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
     var newState = state
 
     switch action {
-    // MARK: - Article Expansion
     case .beginExpanding(let id):
         newState.beginExpanding(id)
 
@@ -23,7 +21,6 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
     case .collapseComplete:
         newState.collapseComplete()
 
-    // MARK: - Modals
     case .openFeedManager:
         newState.openFeedManager()
 
@@ -33,7 +30,6 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
     case .toggleSettings:
         newState.toggleSettings()
 
-    // MARK: - Sidebar
     case .toggleSidebar:
         newState.toggleSidebar()
 
@@ -43,11 +39,9 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
     case .hideSidebar:
         newState.isSidebarVisible = false
 
-    // MARK: - Theme
     case .setTheme(let theme):
         newState.theme = theme
 
-    // MARK: - Notifications
     case .showError(let message):
         newState.showError(message)
 
@@ -60,10 +54,10 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
     case .clearToast:
         newState.clearToast()
 
-    // MARK: - Tabs
     case .switchTab(let tab):
         newState.switchToTab(tab)
     }
 
     return newState
 }
+

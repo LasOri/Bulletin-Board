@@ -1,13 +1,7 @@
 import Foundation
 import LINKER
 
-/// Article list component with virtual scrolling support.
-///
-/// Efficiently renders large lists of articles by only rendering visible items.
-/// Provides empty states and loading indicators.
 public struct ArticleList {
-
-    // MARK: - Props
 
     public struct Props {
         public let articles: [Article]
@@ -34,8 +28,6 @@ public struct ArticleList {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         let container = Element<AnyHTMLContext>(
             tag: "div",
@@ -45,8 +37,6 @@ public struct ArticleList {
 
         return [AnyNode(container)]
     }
-
-    // MARK: - Private Helpers
 
     private static func renderContent(props: Props) -> [AnyNode] {
         if props.isLoading {
@@ -95,10 +85,8 @@ public struct ArticleList {
     private static func renderArticles(props: Props) -> [AnyNode] {
         var children: [AnyNode] = []
 
-        // Add article count header
         children.append(AnyNode(renderListHeader(count: props.articles.count)))
 
-        // Render each article card
         for article in props.articles {
             let cardProps = ArticleCard.Props(
                 article: article,
@@ -131,11 +119,8 @@ public struct ArticleList {
     }
 }
 
-// MARK: - Virtual Scrolling Support
-
 extension ArticleList {
 
-    /// Configuration for virtual scrolling
     public struct VirtualScrollConfig {
         public let itemHeight: Int
         public let bufferSize: Int
@@ -152,7 +137,6 @@ extension ArticleList {
         }
     }
 
-    /// Calculate visible range for virtual scrolling
     public static func calculateVisibleRange(
         scrollTop: Int,
         config: VirtualScrollConfig,
@@ -167,7 +151,6 @@ extension ArticleList {
         return startIndex..<endIndex
     }
 
-    /// Render only visible articles with virtual scrolling
     public static func renderVirtual(
         props: Props,
         scrollTop: Int,
@@ -184,11 +167,9 @@ extension ArticleList {
             totalItems: totalItems
         )
 
-        // Calculate total height and offset
         let totalHeight = totalItems * config.itemHeight
         let offsetTop = visibleRange.lowerBound * config.itemHeight
 
-        // Create spacer elements for virtual scrolling
         let topSpacer = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
@@ -208,7 +189,6 @@ extension ArticleList {
             children: []
         )
 
-        // Render visible articles
         var children: [AnyNode] = [AnyNode(topSpacer)]
 
         children.append(AnyNode(renderListHeader(count: totalItems)))
@@ -244,3 +224,4 @@ extension ArticleList {
         return [AnyNode(container)]
     }
 }
+

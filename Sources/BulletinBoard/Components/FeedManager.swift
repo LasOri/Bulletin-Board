@@ -1,21 +1,13 @@
 import Foundation
 import LINKER
 
-/// Feed manager component for managing RSS/Atom feed subscriptions.
-///
-/// Simplified UI: URL input at top, feed list below. One-step add flow.
 public struct FeedManager {
 
-    // MARK: - Types
-
-    /// Feed manager view mode
     public enum ViewMode {
         case list
         case add
         case edit(feedId: String)
     }
-
-    // MARK: - Props
 
     public struct Props {
         public let feeds: [Feed]
@@ -57,18 +49,13 @@ public struct FeedManager {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         var children: [AnyNode] = []
 
-        // Header with title and close button
         children.append(AnyNode(renderHeader()))
 
-        // Always show URL input at top for quick add
         children.append(AnyNode(renderAddInput()))
 
-        // Error message (if any)
         if let error = props.error {
             children.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
@@ -77,7 +64,6 @@ public struct FeedManager {
             )))
         }
 
-        // Feed list
         children.append(AnyNode(renderFeedList(feeds: props.feeds)))
 
         let container = Element<AnyHTMLContext>(
@@ -92,8 +78,6 @@ public struct FeedManager {
 
         return [AnyNode(container)]
     }
-
-    // MARK: - Private Helpers
 
     private static func renderHeader() -> Element<AnyHTMLContext> {
         Element<AnyHTMLContext>(
@@ -119,7 +103,6 @@ public struct FeedManager {
         )
     }
 
-    /// Simple URL input + Add button — always visible at the top.
     private static func renderAddInput() -> Element<AnyHTMLContext> {
         Element<AnyHTMLContext>(
             tag: "form",
@@ -186,7 +169,6 @@ public struct FeedManager {
                 Attribute(name: "data-feed-id", value: feed.id)
             ],
             children: [
-                // Feed info
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "div",
                     attributes: [Attribute(name: "class", value: "feed-item__info")],
@@ -203,7 +185,6 @@ public struct FeedManager {
                         ))
                     ]
                 )),
-                // Actions: refresh + delete
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "div",
                     attributes: [Attribute(name: "class", value: "feed-item__actions")],
@@ -236,3 +217,4 @@ public struct FeedManager {
         )
     }
 }
+

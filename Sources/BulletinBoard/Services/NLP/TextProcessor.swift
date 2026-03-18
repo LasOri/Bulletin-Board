@@ -1,12 +1,7 @@
 import Foundation
 
-/// Shared text processing utilities for NLP algorithms.
-///
-/// Provides tokenization, stop word filtering, sentence splitting,
-/// and HTML stripping used across all NLP components.
 public enum TextProcessor {
 
-    /// Common English stop words (expanded set)
     public static let stopWords: Set<String> = [
         "a", "about", "above", "after", "again", "against", "all", "am", "an",
         "and", "any", "are", "aren't", "as", "at", "be", "because", "been",
@@ -27,11 +22,6 @@ public enum TextProcessor {
         "would", "you", "your", "yours", "yourself", "yourselves"
     ]
 
-    /// Tokenize text into lowercase terms, removing punctuation and stop words.
-    /// - Parameters:
-    ///   - text: Input text to tokenize
-    ///   - minLength: Minimum term length (default: 3)
-    /// - Returns: Array of filtered terms
     public static func extractTerms(from text: String, minLength: Int = 3) -> [String] {
         let cleaned = stripHTML(text)
         return cleaned
@@ -41,9 +31,6 @@ public enum TextProcessor {
             .filter { !$0.isEmpty && $0.count >= minLength && !stopWords.contains($0) }
     }
 
-    /// Extract terms preserving frequency counts (for TF-IDF).
-    /// - Parameter text: Input text
-    /// - Returns: Dictionary of term → count
     public static func termFrequencies(from text: String) -> [String: Int] {
         let terms = extractTerms(from: text)
         var frequencies: [String: Int] = [:]
@@ -53,12 +40,8 @@ public enum TextProcessor {
         return frequencies
     }
 
-    /// Split text into sentences.
-    /// - Parameter text: Input text
-    /// - Returns: Array of sentence strings
     public static func sentences(from text: String) -> [String] {
         let cleaned = stripHTML(text)
-        // Split on sentence-ending punctuation followed by whitespace or end of string
         var results: [String] = []
         var current = ""
 
@@ -73,7 +56,6 @@ public enum TextProcessor {
             }
         }
 
-        // Add remaining text if any
         let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             results.append(trimmed)
@@ -82,17 +64,12 @@ public enum TextProcessor {
         return results
     }
 
-    /// Strip HTML tags from text.
-    /// - Parameter text: HTML string
-    /// - Returns: Plain text with tags removed
     public static func stripHTML(_ text: String) -> String {
         var result = text
-        // Remove HTML tags
         while let openRange = result.range(of: "<"),
               let closeRange = result.range(of: ">", range: openRange.upperBound..<result.endIndex) {
             result.removeSubrange(openRange.lowerBound...closeRange.lowerBound)
         }
-        // Decode common HTML entities
         result = result.replacingOccurrences(of: "&amp;", with: "&")
         result = result.replacingOccurrences(of: "&lt;", with: "<")
         result = result.replacingOccurrences(of: "&gt;", with: ">")
@@ -102,3 +79,4 @@ public enum TextProcessor {
         return result
     }
 }
+

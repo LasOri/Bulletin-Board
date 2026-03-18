@@ -1,13 +1,7 @@
 import Foundation
 import LINKER
 
-/// Article card component for displaying individual articles.
-///
-/// Displays article metadata, content preview, and interactive elements
-/// (favorite, read status, category badge).
 public struct ArticleCard {
-
-    // MARK: - Props
 
     public struct Props {
         public let article: Article
@@ -28,12 +22,9 @@ public struct ArticleCard {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         let article = props.article
 
-        // Build card container with click action
         let card = Element<AnyHTMLContext>(
             tag: "article",
             attributes: [
@@ -51,8 +42,6 @@ public struct ArticleCard {
         return [AnyNode(card)]
     }
 
-    // MARK: - Private Helpers
-
     private static func cardClasses(article: Article) -> String {
         var classes = ["article-card"]
         if article.isRead {
@@ -67,7 +56,6 @@ public struct ArticleCard {
     private static func renderHeader(article: Article, props: Props) -> Element<AnyHTMLContext> {
         var headerChildren: [AnyNode] = []
 
-        // Category badge + sentiment indicator row
         var badgeRow: [AnyNode] = []
         if let category = article.autoCategory {
             badgeRow.append(AnyNode(renderCategoryBadge(category: category)))
@@ -88,7 +76,6 @@ public struct ArticleCard {
             )))
         }
 
-        // Title
         let title = Element<AnyHTMLContext>(
             tag: "h3",
             attributes: [Attribute(name: "class", value: "article-card__title")],
@@ -96,7 +83,6 @@ public struct ArticleCard {
         )
         headerChildren.append(AnyNode(title))
 
-        // Metadata (author, date, source)
         headerChildren.append(AnyNode(renderMetadata(article: article)))
 
         return Element<AnyHTMLContext>(
@@ -143,7 +129,6 @@ public struct ArticleCard {
     private static func renderContent(article: Article) -> Element<AnyHTMLContext> {
         var contentChildren: [AnyNode] = []
 
-        // Enclosure (image preview)
         if let enclosure = article.enclosure, enclosure.type.starts(with: "image/") {
             let img = Element<AnyHTMLContext>(
                 tag: "img",
@@ -157,7 +142,6 @@ public struct ArticleCard {
             contentChildren.append(AnyNode(img))
         }
 
-        // Description/summary
         if let displayText = article.displayContent.isEmpty ? nil : article.displayContent {
             let description = Element<AnyHTMLContext>(
                 tag: "p",
@@ -167,7 +151,6 @@ public struct ArticleCard {
             contentChildren.append(AnyNode(description))
         }
 
-        // Keywords
         if !article.keywords.isEmpty {
             contentChildren.append(AnyNode(renderKeywords(keywords: article.keywords)))
         }
@@ -196,7 +179,6 @@ public struct ArticleCard {
     }
 
     private static func renderFooter(article: Article, props: Props) -> Element<AnyHTMLContext> {
-        // Favorite button
         let favoriteIcon = article.isFavorite ? "★" : "☆"
         let favoriteButton = Element<AnyHTMLContext>(
             tag: "button",
@@ -209,7 +191,6 @@ public struct ArticleCard {
             children: [AnyNode(Text(favoriteIcon))]
         )
 
-        // Read indicator
         let readIndicator = Element<AnyHTMLContext>(
             tag: "span",
             attributes: [
@@ -219,7 +200,6 @@ public struct ArticleCard {
             children: [AnyNode(Text(article.isRead ? "✓" : "•"))]
         )
 
-        // Read more link
         let readMore = Element<AnyHTMLContext>(
             tag: "a",
             attributes: [
@@ -250,7 +230,6 @@ public struct ArticleCard {
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
         #else
-        // WASM: Simple time ago calculation
         let seconds = Date().timeIntervalSince(date)
         if seconds < 60 {
             return "just now"
@@ -267,3 +246,4 @@ public struct ArticleCard {
         #endif
     }
 }
+

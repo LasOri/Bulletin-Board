@@ -1,15 +1,8 @@
 import Foundation
 import LINKER
 
-/// Loading spinner component for indicating loading states.
-///
-/// Provides a visual indicator that content is being loaded,
-/// with customizable size and styling options.
 public struct LoadingSpinner {
 
-    // MARK: - Types
-
-    /// Spinner size variants
     public enum Size: String {
         case small = "small"
         case medium = "medium"
@@ -24,14 +17,11 @@ public struct LoadingSpinner {
         }
     }
 
-    /// Spinner style variants
     public enum Style: String {
         case `default` = "default"
         case primary = "primary"
         case light = "light"
     }
-
-    // MARK: - Props
 
     public struct Props {
         public let size: Size
@@ -52,8 +42,6 @@ public struct LoadingSpinner {
         }
     }
 
-    // MARK: - Render
-
     public static func render(props: Props) -> [AnyNode] {
         let container = Element<AnyHTMLContext>(
             tag: "div",
@@ -68,8 +56,6 @@ public struct LoadingSpinner {
         return [AnyNode(container)]
     }
 
-    // MARK: - Private Helpers
-
     private static func containerClasses(props: Props) -> String {
         var classes = ["loading-spinner"]
         classes.append("loading-spinner--\(props.size.rawValue)")
@@ -83,7 +69,6 @@ public struct LoadingSpinner {
     private static func renderContent(props: Props) -> [AnyNode] {
         var children: [AnyNode] = []
 
-        // Spinner element
         let spinner = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
@@ -95,7 +80,6 @@ public struct LoadingSpinner {
         )
         children.append(AnyNode(spinner))
 
-        // Optional message
         if let message = props.message {
             let messageElement = Element<AnyHTMLContext>(
                 tag: "span",
@@ -108,7 +92,6 @@ public struct LoadingSpinner {
             children.append(AnyNode(messageElement))
         }
 
-        // Accessibility text
         let srText = Element<AnyHTMLContext>(
             tag: "span",
             attributes: [Attribute(name: "class", value: "sr-only")],
@@ -125,7 +108,6 @@ public struct LoadingSpinner {
     }
 
     private static func renderSpinnerParts() -> [AnyNode] {
-        // Create 8 spinner bars for animation
         return (1...8).map { i in
             AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
@@ -139,41 +121,31 @@ public struct LoadingSpinner {
     }
 }
 
-// MARK: - Convenience Constructors
-
 extension LoadingSpinner {
 
-    /// Render a small spinner
     public static func small(message: String? = nil) -> [AnyNode] {
         render(props: Props(size: .small, message: message))
     }
 
-    /// Render a medium spinner (default)
     public static func medium(message: String? = nil) -> [AnyNode] {
         render(props: Props(size: .medium, message: message))
     }
 
-    /// Render a large spinner
     public static func large(message: String? = nil) -> [AnyNode] {
         render(props: Props(size: .large, message: message))
     }
 
-    /// Render a light-styled spinner (for dark backgrounds)
     public static func light(size: Size = .medium, message: String? = nil) -> [AnyNode] {
         render(props: Props(size: size, style: .light, message: message))
     }
 
-    /// Render a primary-styled spinner
     public static func primary(size: Size = .medium, message: String? = nil) -> [AnyNode] {
         render(props: Props(size: size, style: .primary, message: message))
     }
 }
 
-// MARK: - Inline Spinner
-
 extension LoadingSpinner {
 
-    /// Props for inline spinner (not centered, no message)
     public struct InlineProps {
         public let size: Size
         public let style: Style
@@ -184,7 +156,6 @@ extension LoadingSpinner {
         }
     }
 
-    /// Render an inline spinner (for use within text or buttons)
     public static func inline(props: InlineProps) -> [AnyNode] {
         render(props: Props(
             size: props.size,
@@ -194,8 +165,8 @@ extension LoadingSpinner {
         ))
     }
 
-    /// Render a small inline spinner
     public static func inlineSmall() -> [AnyNode] {
         inline(props: InlineProps(size: .small))
     }
 }
+
