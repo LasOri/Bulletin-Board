@@ -66,7 +66,7 @@ public actor NLPService {
         print("📊 NLP corpus built: \(articles.count) documents indexed")
     }
 
-    public func clusterArticles(_ articleIds: [String], threshold: Double = 0.3) async -> [String: Int] {
+    public func clusterArticles(_ articleIds: [String], threshold: Double = 0.15) async -> [String: Int] {
         var pairs: [TextClusterer.SimilarityPair] = []
 
         for id in articleIds {

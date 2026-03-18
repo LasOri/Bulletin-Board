@@ -177,15 +177,15 @@ extension Article {
 
     public var sentimentLabel: String? {
         guard let score = sentimentScore else { return nil }
-        if score > 0.2 { return "Positive" }
-        if score < -0.2 { return "Negative" }
+        if score > 0.1 { return "Positive" }
+        if score < -0.1 { return "Negative" }
         return "Neutral"
     }
 
     public var sentimentEmoji: String? {
         guard let score = sentimentScore else { return nil }
-        if score > 0.2 { return "\u{1F60A}" }
-        if score < -0.2 { return "\u{1F61F}" }
+        if score > 0.1 { return "\u{1F60A}" }
+        if score < -0.1 { return "\u{1F61F}" }
         return "\u{1F610}"
     }
 
