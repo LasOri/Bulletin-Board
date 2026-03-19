@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="boardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a90e2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#357abd;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="pinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5a623;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f88d1f;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Bulletin Board -->
+  <rect x="8" y="10" width="48" height="44" rx="4" fill="url(#boardGrad)" />
+  <rect x="10" y="12" width="44" height="40" rx="2" fill="#fff" opacity="0.15" />
+
+  <!-- RSS Wave Symbol -->
+  <circle cx="16" cy="42" r="3" fill="#fff" />
+  <path d="M 16 42 Q 16 32, 26 32" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.8" />
+  <path d="M 16 42 Q 16 26, 32 26 Q 42 26, 42 36" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6" />
+
+  <!-- Paper Sheet Lines -->
+  <line x1="20" y1="18" x2="44" y2="18" stroke="#fff" stroke-width="1.5" opacity="0.4" stroke-linecap="round" />
+  <line x1="20" y1="23" x2="40" y2="23" stroke="#fff" stroke-width="1.5" opacity="0.4" stroke-linecap="round" />
+  <line x1="20" y1="28" x2="42" y2="28" stroke="#fff" stroke-width="1.5" opacity="0.4" stroke-linecap="round" />
+
+  <!-- Push Pin -->
+  <circle cx="50" cy="14" r="5" fill="url(#pinGrad)" />
+  <ellipse cx="50" cy="14" rx="2.5" ry="2" fill="#fff" opacity="0.3" />
+  <path d="M 50 19 L 50 24" stroke="#f5a623" stroke-width="2" stroke-linecap="round" />
+</svg>
