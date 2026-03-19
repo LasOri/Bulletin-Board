@@ -1473,7 +1473,7 @@ public struct App {
 
         var suggestionCards: [AnyNode] = []
         for feed in suggestions {
-            suggestionCards.append(AnyNode(Element<AnyHTMLContext>(
+            let card = Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "suggested-feed-card")],
                 children: [
@@ -1510,7 +1510,30 @@ public struct App {
                         children: [AnyNode(Text("Add Feed"))]
                     ))
                 ]
-            )))
+            )
+
+            #if canImport(JavaScriptKit) && arch(wasm32)
+            if GPUComponentConfig.isEnabled(for: "SuggestedFeedCard") {
+                let blurredCard = ShadowView(
+                    id: "suggestion-shadow-\(feed.url.hashValue)",
+                    style: .elevation2,
+                    mouseReactive: true
+                ) {
+                    return BlurView(
+                        id: "suggestion-blur-\(feed.url.hashValue)",
+                        style: .tinted(r: 0.3, g: 0.3, b: 0.3, a: 0.4, radius: 6, saturation: 1.2),
+                        intensity: 0.8
+                    ) {
+                        return [AnyNode(card)]
+                    }
+                }
+                suggestionCards.append(contentsOf: blurredCard)
+            } else {
+                suggestionCards.append(AnyNode(card))
+            }
+            #else
+            suggestionCards.append(AnyNode(card))
+            #endif
         }
 
         children.append(AnyNode(Element<AnyHTMLContext>(
@@ -2061,6 +2084,27 @@ public struct App {
                 ))
             ]
         )
+
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        if GPUComponentConfig.isEnabled(for: "SettingsPanel") {
+            let blurredContent = BlurView(
+                id: "settings-blur",
+                style: .tinted(r: 0.2, g: 0.2, b: 0.2, a: 0.45, radius: 8, saturation: 1.0),
+                intensity: 1.0
+            ) {
+                return [AnyNode(content)]
+            }
+            let modal = Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [
+                    Attribute(name: "class", value: "modal-overlay"),
+                    Attribute(name: "data-action", value: "close-settings-overlay")
+                ],
+                children: blurredContent
+            )
+            return [AnyNode(modal)]
+        }
+        #endif
 
         let modal = Element<AnyHTMLContext>(
             tag: "div",
