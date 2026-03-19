@@ -10,6 +10,8 @@ public struct ArticleState: Codable, Equatable, Sendable {
 
     public var searchQuery: String
 
+    public var searchResults: [SearchResult]?
+
     public var filters: ArticleFilters
 
     public var sortBy: ArticleSortOrder
@@ -19,6 +21,7 @@ public struct ArticleState: Codable, Equatable, Sendable {
         allIds: [String] = [],
         selectedId: String? = nil,
         searchQuery: String = "",
+        searchResults: [SearchResult]? = nil,
         filters: ArticleFilters = ArticleFilters(),
         sortBy: ArticleSortOrder = .newest
     ) {
@@ -26,8 +29,21 @@ public struct ArticleState: Codable, Equatable, Sendable {
         self.allIds = allIds
         self.selectedId = selectedId
         self.searchQuery = searchQuery
+        self.searchResults = searchResults
         self.filters = filters
         self.sortBy = sortBy
+    }
+}
+
+public struct SearchResult: Codable, Equatable, Sendable {
+    public let articleId: String
+    public let score: Double
+    public let matchedFields: Set<String>
+
+    public init(articleId: String, score: Double, matchedFields: Set<String>) {
+        self.articleId = articleId
+        self.score = score
+        self.matchedFields = matchedFields
     }
 }
 
@@ -128,7 +144,11 @@ extension ArticleState {
     public var filteredArticles: [Article] {
         var result = articles
 
-        if !searchQuery.isEmpty {
+        if !searchQuery.isEmpty, let searchResults = searchResults {
+            let rankedIds = searchResults.map { $0.articleId }
+            let rankedArticles = rankedIds.compactMap { byId[$0] }
+            result = rankedArticles
+        } else if !searchQuery.isEmpty {
             result = result.filter { article in
                 article.title.localizedCaseInsensitiveContains(searchQuery) ||
                 article.description?.localizedCaseInsensitiveContains(searchQuery) == true ||

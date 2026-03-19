@@ -21,6 +21,7 @@ public enum ArticleAction: Action {
     case selectArticle(id: String?)
 
     case setSearchQuery(String)
+    case setSearchResults([SearchResult]?)
     case setFilters(ArticleFilters)
     case setSortOrder(ArticleSortOrder)
     case resetFilters

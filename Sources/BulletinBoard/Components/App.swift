@@ -936,6 +936,20 @@ public struct App {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     if !Task.isCancelled {
                         appStore.dispatch(ArticleAction.setSearchQuery(query))
+
+                        if !query.isEmpty {
+                            let results = await searchService.search(query: query)
+                            let searchResults = results.map { result in
+                                SearchResult(
+                                    articleId: result.articleId,
+                                    score: result.score,
+                                    matchedFields: result.matchedFields
+                                )
+                            }
+                            appStore.dispatch(ArticleAction.setSearchResults(searchResults))
+                        } else {
+                            appStore.dispatch(ArticleAction.setSearchResults(nil))
+                        }
                     }
                 }
             } else if targetId == "feed-url" {
@@ -1491,11 +1505,13 @@ public struct App {
             children: suggestionCards
         )))
 
-        return [AnyNode(Element<AnyHTMLContext>(
+        let emptyContainer = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [Attribute(name: "class", value: "app-empty")],
             children: children
-        )))]
+        )
+
+        return [AnyNode(emptyContainer)]
     }
 
     private static func renderFooter() -> Element<AnyHTMLContext> {

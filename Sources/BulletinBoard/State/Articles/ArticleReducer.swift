@@ -108,6 +108,12 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
 
     case .setSearchQuery(let query):
         newState.searchQuery = query
+        if query.isEmpty {
+            newState.searchResults = nil
+        }
+
+    case .setSearchResults(let results):
+        newState.searchResults = results
 
     case .setFilters(let filters):
         newState.filters = filters
