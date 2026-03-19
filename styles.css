@@ -1362,3 +1362,12 @@ body.theme-dark .article-detail {
         width: 95%;
     }
 }
+
+.article-list__spacer {
+    flex-shrink: 0;
+}
+
+.article-list--virtual {
+    display: flex;
+    flex-direction: column;
+}
