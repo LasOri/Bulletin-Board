@@ -532,6 +532,8 @@ public struct App {
                         appStore.dispatch(ArticleAction.toggleFavorite(id: articleId))
                     case "mark-read":
                         appStore.dispatch(ArticleAction.markAsRead(id: articleId))
+                    case "share-article":
+                        handleShareArticle(actionEl: actionEl)
                     case "article-click":
                         CardExpansionController.shared.beginExpand(articleId: articleId)
                     default:
@@ -581,6 +583,15 @@ public struct App {
             case "add-discovered-feed":
                 if let feedURL = actionEl.dataset.object?["feedUrl"].string {
                     discoveredFeeds.removeAll { $0.url == feedURL }
+                    Task {
+                        await addFeedHelper(url: feedURL)
+                    }
+                }
+
+            case "add-suggested-feed":
+                if let feedURL = actionEl.dataset.object?["feedUrl"].string,
+                   let feedName = actionEl.dataset.object?["feedName"].string {
+                    showToast("Adding \(feedName)...")
                     Task {
                         await addFeedHelper(url: feedURL)
                     }
@@ -724,10 +735,20 @@ public struct App {
                 return JSValue.undefined
             }
 
+            let feedURL: String
+            if let preview = feedPreview,
+               case .success(let feeds, _) = preview.state,
+               let firstFeed = feeds.first {
+                feedURL = firstFeed.url
+            } else {
+                feedURL = url
+            }
+
             urlInput.value = .string("")
+            feedPreview = nil
 
             Task {
-                await addFeedHelper(url: url)
+                await addFeedHelper(url: feedURL)
             }
 
             return JSValue.undefined
@@ -765,6 +786,37 @@ public struct App {
             break
         }
     }
+
+    #if canImport(JavaScriptKit) && arch(wasm32)
+    private static func handleShareArticle(actionEl: JSObject) {
+        guard let url = actionEl.dataset.object?["articleUrl"].string,
+              let title = actionEl.dataset.object?["articleTitle"].string else {
+            return
+        }
+
+        if let navigator = SafeJSGlobal.global?.navigator.object,
+           let share = navigator.share.function {
+            let shareData = JSObject.global.Object.function!.new()
+            shareData.title = .string(title)
+            shareData.url = .string(url)
+
+            _ = share(shareData)
+
+            Task { await Logger.shared.info(AppLogFeature.ui, "Shared article via Web Share API: \(title)") }
+        } else {
+            if let navigator = SafeJSGlobal.global?.navigator.object,
+               let clipboard = navigator.clipboard.object {
+                _ = clipboard.writeText!(url)
+                showToast("Link copied to clipboard!")
+                Task { await Logger.shared.info(AppLogFeature.ui, "Copied article URL to clipboard: \(url)") }
+            } else {
+                showToast("Share not supported")
+            }
+        }
+    }
+    #else
+    private static func handleShareArticle(actionEl: JSObject) {}
+    #endif
 
     private static func startAutoRefresh() {
         Task {
@@ -846,20 +898,57 @@ public struct App {
             }
 
             let targetId = target.id.string ?? ""
-            let isSearch = targetId == "search-input"
 
-            guard isSearch else {
-                return JSValue.undefined
-            }
+            if targetId == "search-input" {
+                let query = target.value.string ?? ""
+                searchTask?.cancel()
+                searchTask = Task {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    if !Task.isCancelled {
+                        appStore.dispatch(ArticleAction.setSearchQuery(query))
+                    }
+                }
+            } else if targetId == "feed-url" {
+                let url = target.value.string ?? ""
+                feedDiscoveryTask?.cancel()
 
-            let query = target.value.string ?? ""
+                if url.isEmpty {
+                    feedPreview = nil
+                    renderToDOM()
+                } else if url.hasPrefix("http://") || url.hasPrefix("https://") {
+                    feedPreview = FeedPreview(inputURL: url, state: .discovering)
+                    renderToDOM()
 
-            searchTask?.cancel()
+                    feedDiscoveryTask = Task {
+                        try? await Task.sleep(nanoseconds: 800_000_000)
+                        if Task.isCancelled { return }
 
-            searchTask = Task {
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                if !Task.isCancelled {
-                    appStore.dispatch(ArticleAction.setSearchQuery(query))
+                        do {
+                            let discovered = try await feedService.discoverFeeds(from: url)
+                            if Task.isCancelled { return }
+
+                            if discovered.isEmpty {
+                                let articles = try await feedService.fetchFeed(from: url, feedId: "preview")
+                                let samples = articles.prefix(3).map {
+                                    FeedPreview.PreviewArticle(title: $0.title, publishedAt: $0.publishedAt)
+                                }
+                                let directFeed = DiscoveredFeed(url: url, title: "Direct Feed", type: .unknown)
+                                feedPreview = FeedPreview(inputURL: url, state: .success([directFeed], sampleArticles: samples))
+                            } else {
+                                let firstFeed = discovered.first?.url ?? url
+                                let articles = try await feedService.fetchFeed(from: firstFeed, feedId: "preview")
+                                let samples = articles.prefix(3).map {
+                                    FeedPreview.PreviewArticle(title: $0.title, publishedAt: $0.publishedAt)
+                                }
+                                feedPreview = FeedPreview(inputURL: url, state: .success(discovered, sampleArticles: samples))
+                            }
+                            renderToDOM()
+                        } catch {
+                            if Task.isCancelled { return }
+                            feedPreview = FeedPreview(inputURL: url, state: .error(error.localizedDescription))
+                            renderToDOM()
+                        }
+                    }
                 }
             }
 
@@ -1047,6 +1136,8 @@ public struct App {
     private nonisolated(unsafe) static var lastScrollUpdateY: Int = -1000
     private nonisolated(unsafe) static var discoveredFeeds: [DiscoveredFeed] = []
     private nonisolated(unsafe) static var isDiscovering: Bool = false
+    private nonisolated(unsafe) static var feedPreview: FeedPreview? = nil
+    private nonisolated(unsafe) static var feedDiscoveryTask: Task<Void, Never>? = nil
     private nonisolated(unsafe) static var scrollSaveTimerId: JSValue? = nil
     private nonisolated(unsafe) static var viewMode: ViewMode = .list
 
@@ -1187,17 +1278,7 @@ public struct App {
         var children: [AnyNode] = []
 
         if articles.isEmpty {
-            let emptyState = Element<AnyHTMLContext>(
-                tag: "div",
-                attributes: [Attribute(name: "class", value: "app-empty")],
-                children: [
-                    AnyNode(Element<AnyHTMLContext>(
-                        tag: "p",
-                        children: [AnyNode(Text("No articles yet. Add a feed to get started!"))]
-                    ))
-                ]
-            )
-            children.append(AnyNode(emptyState))
+            children.append(contentsOf: renderEmptyState())
         } else {
             let listProps = ArticleList.Props(
                 articles: articles,
@@ -1239,6 +1320,141 @@ public struct App {
             attributes: [Attribute(name: "class", value: "app-content")],
             children: children
         )
+    }
+
+    private static func renderEmptyState() -> [AnyNode] {
+        struct SuggestedFeed {
+            let name: String
+            let url: String
+            let description: String
+            let category: String
+        }
+
+        let suggestions = [
+            SuggestedFeed(
+                name: "Hacker News",
+                url: "https://hnrss.org/frontpage",
+                description: "Tech news and discussion",
+                category: "Tech"
+            ),
+            SuggestedFeed(
+                name: "TechCrunch",
+                url: "https://techcrunch.com/feed/",
+                description: "Startup and technology news",
+                category: "Tech"
+            ),
+            SuggestedFeed(
+                name: "Ars Technica",
+                url: "https://feeds.arstechnica.com/arstechnica/index",
+                description: "Technology news and analysis",
+                category: "Tech"
+            ),
+            SuggestedFeed(
+                name: "The Verge",
+                url: "https://www.theverge.com/rss/index.xml",
+                description: "Technology, science, art, and culture",
+                category: "Tech"
+            ),
+            SuggestedFeed(
+                name: "MIT Technology Review",
+                url: "https://www.technologyreview.com/feed/",
+                description: "Emerging technology and innovation",
+                category: "Science"
+            ),
+            SuggestedFeed(
+                name: "Wired",
+                url: "https://www.wired.com/feed/rss",
+                description: "Technology, business, and culture",
+                category: "Tech"
+            )
+        ]
+
+        var children: [AnyNode] = []
+
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "empty-state__header")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "h2",
+                    children: [AnyNode(Text("Welcome to Bulletin Board!"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "p",
+                    children: [AnyNode(Text("Get started by adding your first RSS feed"))]
+                ))
+            ]
+        )))
+
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "button",
+            attributes: [
+                Attribute(name: "type", value: "button"),
+                Attribute(name: "class", value: "empty-state__cta"),
+                Attribute(name: "data-action", value: "open-feed-manager")
+            ],
+            children: [AnyNode(Text("➕ Add Your First Feed"))]
+        )))
+
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "empty-state__divider")],
+            children: [AnyNode(Text("or try one of these popular feeds"))]
+        )))
+
+        var suggestionCards: [AnyNode] = []
+        for feed in suggestions {
+            suggestionCards.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "suggested-feed-card")],
+                children: [
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "div",
+                        attributes: [Attribute(name: "class", value: "suggested-feed-card__header")],
+                        children: [
+                            AnyNode(Element<AnyHTMLContext>(
+                                tag: "span",
+                                attributes: [Attribute(name: "class", value: "suggested-feed-card__name")],
+                                children: [AnyNode(Text(feed.name))]
+                            )),
+                            AnyNode(Element<AnyHTMLContext>(
+                                tag: "span",
+                                attributes: [Attribute(name: "class", value: "suggested-feed-card__category")],
+                                children: [AnyNode(Text(feed.category))]
+                            ))
+                        ]
+                    )),
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "p",
+                        attributes: [Attribute(name: "class", value: "suggested-feed-card__description")],
+                        children: [AnyNode(Text(feed.description))]
+                    )),
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "button",
+                        attributes: [
+                            Attribute(name: "type", value: "button"),
+                            Attribute(name: "class", value: "suggested-feed-card__button"),
+                            Attribute(name: "data-action", value: "add-suggested-feed"),
+                            Attribute(name: "data-feed-url", value: feed.url),
+                            Attribute(name: "data-feed-name", value: feed.name)
+                        ],
+                        children: [AnyNode(Text("Add Feed"))]
+                    ))
+                ]
+            )))
+        }
+
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "suggested-feeds-grid")],
+            children: suggestionCards
+        )))
+
+        return [AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "app-empty")],
+            children: children
+        )))]
     }
 
     private static func renderFooter() -> Element<AnyHTMLContext> {
@@ -1489,6 +1705,10 @@ public struct App {
 
         var modalChildren = FeedManager.renderGPU(props: props)
 
+        if let preview = feedPreview {
+            modalChildren.append(contentsOf: renderFeedPreview(preview: preview))
+        }
+
         var discoverSection: [AnyNode] = []
 
         discoverSection.append(AnyNode(Element<AnyHTMLContext>(
@@ -1572,6 +1792,70 @@ public struct App {
         )
 
         return [AnyNode(modal)]
+    }
+
+    private static func renderFeedPreview(preview: FeedPreview) -> [AnyNode] {
+        var children: [AnyNode] = []
+
+        switch preview.state {
+        case .idle:
+            break
+
+        case .discovering:
+            children.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "feed-preview feed-preview--loading")],
+                children: [AnyNode(Text("🔍 Discovering feeds..."))]
+            )))
+
+        case .success(let feeds, let samples):
+            var previewChildren: [AnyNode] = []
+
+            if feeds.count == 1 {
+                previewChildren.append(AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "feed-preview__title")],
+                    children: [AnyNode(Text("✓ Feed found: \(feeds[0].title ?? "Untitled")"))]
+                )))
+            } else {
+                previewChildren.append(AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "feed-preview__title")],
+                    children: [AnyNode(Text("✓ Found \(feeds.count) feeds"))]
+                )))
+            }
+
+            if !samples.isEmpty {
+                previewChildren.append(AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "feed-preview__subtitle")],
+                    children: [AnyNode(Text("Sample articles:"))]
+                )))
+
+                for sample in samples {
+                    previewChildren.append(AnyNode(Element<AnyHTMLContext>(
+                        tag: "div",
+                        attributes: [Attribute(name: "class", value: "feed-preview__article")],
+                        children: [AnyNode(Text("• \(sample.title)"))]
+                    )))
+                }
+            }
+
+            children.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "feed-preview feed-preview--success")],
+                children: previewChildren
+            )))
+
+        case .error(let message):
+            children.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "feed-preview feed-preview--error")],
+                children: [AnyNode(Text("⚠️ \(message)"))]
+            )))
+        }
+
+        return children
     }
 
     private static func renderSettings() -> [AnyNode] {

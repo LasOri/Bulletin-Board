@@ -281,6 +281,19 @@ public struct ArticleDetailView {
                     children: [AnyNode(Text(archiveText))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "article-detail__action"),
+                        Attribute(name: "data-action", value: "share-article"),
+                        Attribute(name: "data-article-id", value: article.id),
+                        Attribute(name: "data-article-url", value: article.url),
+                        Attribute(name: "data-article-title", value: article.title),
+                        Attribute(name: "aria-label", value: "Share article")
+                    ],
+                    children: [AnyNode(Text("\u{1F517} Share"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
                     tag: "a",
                     attributes: [
                         Attribute(name: "href", value: article.url),
