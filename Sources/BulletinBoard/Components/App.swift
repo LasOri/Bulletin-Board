@@ -381,6 +381,7 @@ public struct App {
         setupSearchHandlers(document: document)
         setupKeyboardHandler(document: document)
         setupFileInputHandler(document: document)
+        setupOnlineOfflineHandlers()
         setupScrollListener()
         CardExpansionController.shared.setupEscapeHandler(document: document)
         Task { await Logger.shared.info(AppLogFeature.ui, "Event handlers registered") }
@@ -818,6 +819,35 @@ public struct App {
     private static func handleShareArticle(actionEl: JSObject) {}
     #endif
 
+    #if canImport(JavaScriptKit) && arch(wasm32)
+    private static func setupOnlineOfflineHandlers() {
+        guard let window = SafeJSGlobal.global else { return }
+
+        isOffline = !(window.navigator.object?.onLine.boolean ?? true)
+
+        let onlineHandler = JSClosure { _ -> JSValue in
+            isOffline = false
+            renderToDOM()
+            showToast("✅ Back online")
+            Task { await Logger.shared.info(AppLogFeature.ui, "Network: online") }
+            return .undefined
+        }
+
+        let offlineHandler = JSClosure { _ -> JSValue in
+            isOffline = true
+            renderToDOM()
+            showToast("⚠️ You're offline - using cached data")
+            Task { await Logger.shared.warn(AppLogFeature.ui, "Network: offline") }
+            return .undefined
+        }
+
+        _ = window.addEventListener!("online", onlineHandler)
+        _ = window.addEventListener!("offline", offlineHandler)
+    }
+    #else
+    private static func setupOnlineOfflineHandlers() {}
+    #endif
+
     private static func startAutoRefresh() {
         Task {
             while true {
@@ -1140,6 +1170,7 @@ public struct App {
     private nonisolated(unsafe) static var feedDiscoveryTask: Task<Void, Never>? = nil
     private nonisolated(unsafe) static var scrollSaveTimerId: JSValue? = nil
     private nonisolated(unsafe) static var viewMode: ViewMode = .list
+    private nonisolated(unsafe) static var isOffline: Bool = false
 
     private static func scrollContextKey() -> String {
         let state = appStore.getState().articles
@@ -1236,20 +1267,30 @@ public struct App {
     }
 
     private static func renderHeader() -> Element<AnyHTMLContext> {
-        Element<AnyHTMLContext>(
+        var children: [AnyNode] = [
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "h1",
+                children: [AnyNode(Text("🗞️ Bulletin Board"))]
+            )),
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "p",
+                children: [AnyNode(Text("Your Personal News Feed Reader"))]
+            )),
+            AnyNode(renderStats())
+        ]
+
+        if isOffline {
+            children.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "offline-indicator")],
+                children: [AnyNode(Text("⚠️ Offline Mode"))]
+            )))
+        }
+
+        return Element<AnyHTMLContext>(
             tag: "header",
             attributes: [Attribute(name: "class", value: "app-header")],
-            children: [
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "h1",
-                    children: [AnyNode(Text("🗞️ Bulletin Board"))]
-                )),
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "p",
-                    children: [AnyNode(Text("Your Personal News Feed Reader"))]
-                )),
-                AnyNode(renderStats())
-            ]
+            children: children
         )
     }
 

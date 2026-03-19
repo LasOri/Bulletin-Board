@@ -1788,3 +1788,21 @@ body.theme-dark .suggested-feed-card__name {
         font-size: 1.5rem;
     }
 }
+
+.offline-indicator {
+    background: rgba(255, 152, 0, 0.15);
+    color: #f57c00;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm, 6px);
+    font-size: var(--font-size-sm, 0.875rem);
+    font-weight: 600;
+    display: inline-block;
+    margin-top: 8px;
+}
+
+body.theme-dark .offline-indicator {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ffb74d;
+    border-color: rgba(255, 152, 0, 0.4);
+}
