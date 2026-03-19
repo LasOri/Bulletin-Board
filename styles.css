@@ -1346,6 +1346,18 @@ body.theme-dark .article-detail {
     background: var(--color-surface);
 }
 
+body.theme-dark .category-column {
+    background: rgba(40, 40, 40, 0.5);
+}
+
+body.theme-dark .category-column__header {
+    background: #1a1a1a;
+}
+
+body.theme-dark .grid-card--tinted {
+    background: rgba(40, 40, 40, 0.6);
+}
+
 @media (max-width: 768px) {
     .app-toolbar {
         gap: var(--spacing-sm);
@@ -1370,4 +1382,188 @@ body.theme-dark .article-detail {
 .article-list--virtual {
     display: flex;
     flex-direction: column;
+}
+
+.lazy-image {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    background: var(--color-bg-tertiary, #f0f0f0);
+    min-height: 60px;
+}
+
+.lazy-image--loaded {
+    opacity: 1;
+}
+
+.discover-section {
+    padding: 0 16px 16px;
+}
+
+.discovered-feeds-list {
+    background: var(--color-bg-secondary, #f8f8f8);
+    border-radius: var(--radius-md, 8px);
+    padding: 12px;
+    margin-top: 8px;
+}
+
+.discovered-feed-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border, #e0e0e0);
+}
+
+.discovered-feed-item:last-of-type {
+    border-bottom: none;
+}
+
+.discovered-feed-item__title {
+    font-size: var(--font-size-sm, 0.875rem);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+}
+
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    padding: 16px;
+}
+
+.category-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 80vh;
+    overflow-y: auto;
+    border-radius: var(--radius-lg, 12px);
+    background: var(--color-bg-secondary, rgba(255, 255, 255, 0.5));
+    padding: 0 8px 8px;
+}
+
+.category-column__header {
+    position: sticky;
+    top: 0;
+    background: var(--color-bg, #fff);
+    padding: 12px 8px 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 2px solid var(--color-accent, #4a90d9);
+    z-index: 1;
+}
+
+.category-column__name {
+    font-size: var(--font-size-base, 1rem);
+}
+
+.category-column__count {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+.grid-card {
+    padding: 12px;
+    border-radius: var(--radius-md, 8px);
+    cursor: pointer;
+    transition: var(--transition-fast, 0.15s ease);
+}
+
+.grid-card:hover {
+    transform: translateY(-1px);
+}
+
+.grid-card--tinted {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.grid-card--read {
+    opacity: 0.7;
+}
+
+.grid-card--favorite {
+    border-left: 3px solid var(--color-warning, #f0ad4e);
+}
+
+.grid-card--selected {
+    outline: 2px solid var(--color-accent, #4a90d9);
+}
+
+.grid-card__title {
+    font-size: var(--font-size-sm, 0.875rem);
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.grid-card__description {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--color-text-secondary, #666);
+    margin: 0 0 6px 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.grid-card__keywords {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.grid-card__keyword {
+    font-size: 0.65rem;
+    background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.06));
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.grid-card__meta {
+    font-size: 0.65rem;
+    color: var(--color-text-tertiary, #999);
+    margin-bottom: 4px;
+}
+
+.grid-card__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.grid-card__action {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: 2px;
+}
+
+.grid-card__read-indicator {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary, #999);
+}
+
+@media (max-width: 768px) {
+    .category-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .category-column {
+        max-height: none;
+    }
 }
