@@ -1999,3 +1999,26 @@ body.theme-dark .search-match-badge--keywords {
     color: #c58af9;
     border-color: rgba(142, 68, 173, 0.3);
 }
+
+.app-header__title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+}
+
+.app-header__logo {
+    display: inline-block;
+    vertical-align: middle;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    transition: transform var(--transition-base);
+}
+
+.app-header__logo:hover {
+    transform: scale(1.05) rotate(2deg);
+}
+
+body.theme-dark .app-header__logo {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.3));
+}

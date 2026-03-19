@@ -1284,7 +1284,21 @@ public struct App {
         var children: [AnyNode] = [
             AnyNode(Element<AnyHTMLContext>(
                 tag: "h1",
-                children: [AnyNode(Text("🗞️ Bulletin Board"))]
+                attributes: [Attribute(name: "class", value: "app-header__title")],
+                children: [
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "img",
+                        attributes: [
+                            Attribute(name: "src", value: "logo.svg"),
+                            Attribute(name: "alt", value: "Bulletin Board"),
+                            Attribute(name: "class", value: "app-header__logo"),
+                            Attribute(name: "width", value: "32"),
+                            Attribute(name: "height", value: "32")
+                        ],
+                        children: []
+                    )),
+                    AnyNode(Text("Bulletin Board"))
+                ]
             )),
             AnyNode(Element<AnyHTMLContext>(
                 tag: "p",
