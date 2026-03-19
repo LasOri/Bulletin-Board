@@ -85,6 +85,118 @@ public actor FeedService {
         }
     }
 
+    public func discoverFeeds(from websiteURL: String) async throws -> [DiscoveredFeed] {
+        guard let baseURL = URL(string: websiteURL),
+              let scheme = baseURL.scheme,
+              let host = baseURL.host else {
+            throw FeedError.invalidURL
+        }
+
+        let origin = "\(scheme)://\(host)"
+        var discovered: [DiscoveredFeed] = []
+        var seenURLs: Set<String> = []
+
+        let fetchURL: String
+        if let proxy = FeedService.corsProxy {
+            guard let encoded = websiteURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+                throw FeedError.invalidURL
+            }
+            fetchURL = proxy + encoded
+        } else {
+            fetchURL = websiteURL
+        }
+
+        do {
+            let response = try await httpClient.get(fetchURL)
+            if let html = response.body.stringValue {
+                let linkFeeds = parseFeedLinks(from: html, baseOrigin: origin)
+                for feed in linkFeeds where !seenURLs.contains(feed.url) {
+                    seenURLs.insert(feed.url)
+                    discovered.append(feed)
+                }
+            }
+        } catch {}
+
+        let commonPaths = ["/feed", "/rss", "/atom.xml", "/feed.xml", "/rss.xml", "/index.xml", "/feeds/posts/default"]
+        for path in commonPaths {
+            let probeURL = origin + path
+            guard !seenURLs.contains(probeURL) else { continue }
+
+            let probeFetchURL: String
+            if let proxy = FeedService.corsProxy {
+                guard let encoded = probeURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { continue }
+                probeFetchURL = proxy + encoded
+            } else {
+                probeFetchURL = probeURL
+            }
+
+            do {
+                let response = try await httpClient.get(probeFetchURL)
+                if let body = response.body.stringValue {
+                    let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.hasPrefix("<?xml") || trimmed.hasPrefix("<rss") || trimmed.hasPrefix("<feed") {
+                        let feedType: FeedType = trimmed.contains("<feed") ? .atom : .rss
+                        seenURLs.insert(probeURL)
+                        discovered.append(DiscoveredFeed(url: probeURL, title: path, type: feedType))
+                    }
+                }
+            } catch {}
+        }
+
+        return discovered
+    }
+
+    private func parseFeedLinks(from html: String, baseOrigin: String) -> [DiscoveredFeed] {
+        var feeds: [DiscoveredFeed] = []
+
+        var searchRange = html.startIndex..<html.endIndex
+        while let linkStart = html.range(of: "<link ", options: .caseInsensitive, range: searchRange) {
+            guard let linkEnd = html.range(of: ">", range: linkStart.upperBound..<html.endIndex) else { break }
+            let linkTag = String(html[linkStart.lowerBound..<linkEnd.upperBound])
+            searchRange = linkEnd.upperBound..<html.endIndex
+
+            let isAlternate = linkTag.range(of: "rel=\"alternate\"", options: .caseInsensitive) != nil
+                || linkTag.range(of: "rel='alternate'", options: .caseInsensitive) != nil
+            guard isAlternate else { continue }
+
+            let isRSS = linkTag.range(of: "application/rss+xml", options: .caseInsensitive) != nil
+            let isAtom = linkTag.range(of: "application/atom+xml", options: .caseInsensitive) != nil
+            guard isRSS || isAtom else { continue }
+
+            guard let href = extractAttribute("href", from: linkTag) else { continue }
+            let title = extractAttribute("title", from: linkTag)
+
+            let resolvedURL: String
+            if href.hasPrefix("http://") || href.hasPrefix("https://") {
+                resolvedURL = href
+            } else if href.hasPrefix("/") {
+                resolvedURL = baseOrigin + href
+            } else {
+                resolvedURL = baseOrigin + "/" + href
+            }
+
+            feeds.append(DiscoveredFeed(
+                url: resolvedURL,
+                title: title,
+                type: isAtom ? .atom : .rss
+            ))
+        }
+
+        return feeds
+    }
+
+    private func extractAttribute(_ name: String, from tag: String) -> String? {
+        let patterns = ["\(name)=\"", "\(name)='"]
+        for pattern in patterns {
+            guard let start = tag.range(of: pattern, options: .caseInsensitive) else { continue }
+            let valueStart = start.upperBound
+            let quote = pattern.last!
+            guard let end = tag.range(of: String(quote), range: valueStart..<tag.endIndex) else { continue }
+            return String(tag[valueStart..<end.lowerBound])
+        }
+        return nil
+    }
+
     private func convertToArticle(_ item: RSSItem, feedId: String) async -> Article {
         let articleId = item.link
             .data(using: .utf8)

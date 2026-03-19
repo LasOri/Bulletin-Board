@@ -255,6 +255,10 @@ public struct ArticleCard {
         )
     }
 
+    static func formatRelativeDate(_ date: Date) -> String {
+        formatDate(date)
+    }
+
     private static func formatDate(_ date: Date) -> String {
         #if !arch(wasm32)
         let formatter = RelativeDateTimeFormatter()

@@ -4,12 +4,18 @@ import LINKER
 import JavaScriptKit
 #endif
 
-public enum AppLogFeature: LogFeature {
+public enum AppLogFeature: LogFeature, CaseIterable {
     case startup
     case security
     case data
     case nlp
     case ui
+    case feeds
+    case storage
+    case grid
+    case scroll
+    case gpu
+    case keyboard
 
     public var name: String {
         switch self {
@@ -18,6 +24,12 @@ public enum AppLogFeature: LogFeature {
         case .data: return "APP.DATA"
         case .nlp: return "APP.NLP"
         case .ui: return "APP.UI"
+        case .feeds: return "APP.FEEDS"
+        case .storage: return "APP.STORAGE"
+        case .grid: return "APP.GRID"
+        case .scroll: return "APP.SCROLL"
+        case .gpu: return "APP.GPU"
+        case .keyboard: return "APP.KEYBOARD"
         }
     }
     public var parent: LogFeature? { nil }
@@ -43,7 +55,7 @@ public struct App {
 
     private static func perf(_ phase: String, since start: Double) -> Double {
         let elapsed = now() - start
-        print("[PERF] \(phase): \(String(format: "%.1f", elapsed))ms")
+        Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] \(phase): \(String(format: "%.1f", elapsed))ms") }
         return now()
     }
 
@@ -52,6 +64,14 @@ public struct App {
         var t = t0
 
         await Logger.shared.configureForDevelopment()
+        await Logger.shared.enable([
+            AppLogFeature.startup, .data, .nlp, .ui, .feeds,
+            .storage, .gpu, .security, .grid, .scroll, .keyboard
+        ] as [AppLogFeature])
+
+        let enabledNames = AppLogFeature.allCases.map { $0.name.replacingOccurrences(of: "APP.", with: "").lowercased() }
+        print("[FEATURES] Enabled: \(enabledNames.joined(separator: ", "))")
+
         t = perf("Logger setup", since: t)
         await Logger.shared.info(AppLogFeature.startup, "Bulletin Board starting...")
 
@@ -75,18 +95,9 @@ public struct App {
             CSPConfiguration.apply()
             #endif
 
-            print("🛡️  All LINKER security features ENABLED:")
-            print("   ✅ HTML Sanitization (XSS protection)")
-            print("   ✅ CSRF Protection (state-modifying actions)")
-            print("   ✅ Rate Limiting (abuse prevention)")
-            print("   ✅ HTTPS Enforcement (secure connections)")
-            print("   ✅ WebAuthn Hardware-Backed Encryption")
-            print("   ✅ Content Security Policy")
             await Logger.shared.info(AppLogFeature.security, "All security features enabled")
         } catch {
-            print("⚠️  Security initialization failed: \(error)")
-            print("⚠️  Running with REDUCED security - manual intervention required")
-            await Logger.shared.error(AppLogFeature.security, "Security initialization failed: \(error)")
+            await Logger.shared.error(AppLogFeature.security, "Security initialization failed: \(error) — running with reduced security")
         }
         t = perf("Security init", since: t)
 
@@ -142,38 +153,38 @@ public struct App {
         GPUComponentConfig.enabled = supported
         if supported {
             await GPUEffectManager.shared.ensureInitialized()
-            print("✅ WebGPU supported — GPU effects enabled")
+            await Logger.shared.info(AppLogFeature.gpu, "WebGPU supported — GPU effects enabled")
         } else {
-            print("ℹ️ WebGPU not supported — using CSS effects (backdrop-filter, box-shadow)")
+            await Logger.shared.warn(AppLogFeature.gpu, "WebGPU not supported — CSS effects fallback")
         }
     }
     #elseif canImport(JavaScriptKit)
     private static func detectGPUSupport() async {
-        print("ℹ️ Non-WASM environment - disabling GPU effects")
+        await Logger.shared.info(AppLogFeature.gpu, "Non-WASM environment — disabling GPU effects")
         GPUComponentConfig.enabled = false
     }
     #endif
 
     private static func loadPersistedData() async {
-        print("📦 Loading persisted data...")
+        await Logger.shared.info(AppLogFeature.storage, "Loading persisted data...")
 
         do {
             let feeds = try await storageService.loadFeeds()
-            print("  ✓ Loaded \(feeds.count) feeds")
+            await Logger.shared.info(AppLogFeature.storage, "Loaded \(feeds.count) feeds")
 
             for feed in feeds {
                 appStore.dispatch(FeedAction.addFeed(feed))
             }
 
             let articles = try await storageService.loadArticles()
-            print("  ✓ Loaded \(articles.count) articles")
+            await Logger.shared.info(AppLogFeature.storage, "Loaded \(articles.count) articles")
 
             appStore.dispatch(ArticleAction.addArticles(articles))
 
         } catch StorageService.StorageError.notFound {
-            print("  ℹ️ No persisted data found (first run)")
+            await Logger.shared.info(AppLogFeature.storage, "No persisted data found (first run)")
         } catch {
-            print("  ⚠️ Error loading data: \(error)")
+            await Logger.shared.warn(AppLogFeature.storage, "Error loading data: \(error)")
         }
     }
 
@@ -181,10 +192,10 @@ public struct App {
         let articles = appStore.getState().articles.articles
 
         if !articles.isEmpty {
-            print("🔍 Indexing \(articles.count) articles for search...")
+            await Logger.shared.info(AppLogFeature.data, "Indexing \(articles.count) articles for search...")
             await searchService.indexArticles(articles)
             let termCount = await searchService.termCount()
-            print("  ✓ Indexed \(termCount) unique terms")
+            await Logger.shared.info(AppLogFeature.data, "Indexed \(termCount) unique terms")
         }
     }
 
@@ -193,14 +204,14 @@ public struct App {
         let unprocessed = articles.filter { !$0.isNLPProcessed }
         guard !unprocessed.isEmpty else { return }
 
-        print("🧠 Processing \(unprocessed.count) articles with NLP...")
+        await Logger.shared.info(AppLogFeature.nlp, "Processing \(unprocessed.count) articles with NLP...")
 
         await nlpService.buildCorpus(from: articles)
         let results = await nlpService.processArticles(unprocessed)
 
         let allIds = articles.map { $0.id }
         let clusters = await nlpService.clusterArticles(allIds)
-        print("  📊 Clustering complete: \(clusters.count) articles assigned to clusters")
+        await Logger.shared.info(AppLogFeature.nlp, "Clustering complete: \(clusters.count) articles assigned")
 
         let updates = results.map { result in
             (id: result.articleId,
@@ -229,7 +240,7 @@ public struct App {
             }
         }
 
-        print("  ✓ NLP processing complete for \(results.count) articles")
+        await Logger.shared.info(AppLogFeature.nlp, "NLP processing complete for \(results.count) articles")
     }
 
     #if canImport(JavaScriptKit) && arch(wasm32)
@@ -241,7 +252,7 @@ public struct App {
         }
         guard !needsColor.isEmpty else { return }
 
-        print("🎨 Extracting dominant colors from \(needsColor.count) article images...")
+        await Logger.shared.info(AppLogFeature.gpu, "Extracting dominant colors from \(needsColor.count) images...")
 
         var updates: [(id: String, color: ArticleColor)] = []
 
@@ -254,22 +265,22 @@ public struct App {
 
         if !updates.isEmpty {
             appStore.dispatch(ArticleAction.batchUpdateDominantColors(updates))
-            print("  ✓ Extracted colors for \(updates.count) articles")
+            await Logger.shared.info(AppLogFeature.gpu, "Extracted colors for \(updates.count) articles")
         }
     }
     #endif
 
     #if canImport(JavaScriptKit) && arch(wasm32)
     private static func mountUI() {
-        print("🎨 Mounting UI...")
+        Task { await Logger.shared.info(AppLogFeature.ui, "Mounting UI...") }
 
         guard let document = SafeJSGlobal.global?.document.object else {
-            print("❌ Failed to access document")
+            Task { await Logger.shared.error(AppLogFeature.ui, "Failed to access document") }
             return
         }
 
         guard let rootElement = document.getElementById!("app").object else {
-            print("❌ Root element #app not found")
+            Task { await Logger.shared.error(AppLogFeature.ui, "Root element #app not found") }
             return
         }
 
@@ -280,22 +291,51 @@ public struct App {
         renderToDOM()
 
         var renderScheduled = false
+        var lastContextKey = scrollContextKey()
         _ = appStore.subscribe { _ in
             guard !renderScheduled else { return }
             renderScheduled = true
             _ = SafeJSGlobal.global?.queueMicrotask.function?(JSClosure { _ in
                 renderScheduled = false
                 renderToDOM()
+
+                let newKey = scrollContextKey()
+                if newKey != lastContextKey {
+                    lastContextKey = newKey
+                    restoreScrollPosition()
+                }
+
                 return .undefined
             })
+
+            if let existing = saveTimerId {
+                _ = SafeJSGlobal.global?.clearTimeout.function?(existing)
+            }
+            saveTimerId = SafeJSGlobal.global?.setTimeout.function?(JSClosure { _ in
+                Task {
+                    let articles = appStore.getState().articles.articles
+                    let feeds = appStore.getState().feeds.feeds
+                    do {
+                        if !articles.isEmpty { try await storageService.saveArticles(articles) }
+                        if !feeds.isEmpty { try await storageService.saveFeeds(feeds) }
+                        await Logger.shared.debug(AppLogFeature.storage, "Auto-saved \(articles.count) articles, \(feeds.count) feeds")
+                    } catch {
+                        await Logger.shared.warn(AppLogFeature.storage, "Auto-save failed: \(error)")
+                    }
+                }
+                return .undefined
+            }, 2000)
         }
 
         setupEventHandlers(document: document)
 
-        print("✅ UI mounted successfully")
+        restoreScrollPosition()
+
+        Task { await Logger.shared.info(AppLogFeature.ui, "UI mounted successfully") }
     }
 
     private nonisolated(unsafe) static var reconciler: DOMReconciler?
+    private nonisolated(unsafe) static var saveTimerId: JSValue? = nil
 
     private nonisolated(unsafe) static var renderCount = 0
 
@@ -310,7 +350,7 @@ public struct App {
         let vdom = tVdom - t0
         let patch = now() - tVdom
         if renderCount <= 3 || total > 50 {
-            print("[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)")
+            Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)") }
         }
     }
 
@@ -343,7 +383,7 @@ public struct App {
         setupFileInputHandler(document: document)
         setupScrollListener()
         CardExpansionController.shared.setupEscapeHandler(document: document)
-        print("⚡ Event handlers registered")
+        Task { await Logger.shared.info(AppLogFeature.ui, "Event handlers registered") }
     }
 
     private static func setupScrollListener() {
@@ -375,6 +415,8 @@ public struct App {
                 }
                 let effectiveScroll = max(0, windowY - listOffset)
                 scrollTopSignal.set(effectiveScroll)
+
+                saveScrollPosition()
 
                 _ = SafeJSGlobal.global?.queueMicrotask.function?(JSClosure { _ in
                     renderToDOM()
@@ -511,6 +553,43 @@ public struct App {
                     _ = fileInput.click!()
                 }
 
+            case "discover-feeds":
+                guard let urlInput = SafeJSGlobal.global?.document.object?
+                    .getElementById!("feed-url").object,
+                    let url = urlInput.value.string, !url.isEmpty else {
+                    break
+                }
+                Task {
+                    isDiscovering = true
+                    renderToDOM()
+                    await Logger.shared.info(AppLogFeature.feeds, "Discovering feeds from \(url)")
+                    do {
+                        let results = try await feedService.discoverFeeds(from: url)
+                        discoveredFeeds = results
+                        await Logger.shared.info(AppLogFeature.feeds, "Discovered \(results.count) feeds")
+                        if results.isEmpty {
+                            showToast("No feeds found at \(url)")
+                        }
+                    } catch {
+                        showToast("Discovery failed: \(error.localizedDescription)")
+                        await Logger.shared.warn(AppLogFeature.feeds, "Discovery failed: \(error)")
+                    }
+                    isDiscovering = false
+                    renderToDOM()
+                }
+
+            case "add-discovered-feed":
+                if let feedURL = actionEl.dataset.object?["feedUrl"].string {
+                    discoveredFeeds.removeAll { $0.url == feedURL }
+                    Task {
+                        await addFeedHelper(url: feedURL)
+                    }
+                }
+
+            case "dismiss-discovered":
+                discoveredFeeds.removeAll()
+                renderToDOM()
+
             case "export-opml":
                 let feeds = appStore.getState().feeds.feeds
                 let opmlXML = OPMLService.generateOPML(feeds: feeds)
@@ -533,6 +612,11 @@ public struct App {
                     }
                     appStore.dispatch(ArticleAction.setSortOrder(order))
                 }
+
+            case "toggle-view-mode":
+                viewMode = viewMode == .list ? .grid : .list
+                Task { await Logger.shared.info(AppLogFeature.grid, "View mode: \(viewMode.rawValue)") }
+                renderToDOM()
 
             case "toggle-archived-filter":
                 var currentFilters = appStore.getState().articles.filters
@@ -636,7 +720,7 @@ public struct App {
             guard let urlInput = document.getElementById!("feed-url").object,
                   let url = urlInput.value.string,
                   !url.isEmpty else {
-                print("❌ Feed URL input not found or empty")
+                Task { await Logger.shared.warn(AppLogFeature.feeds, "Feed URL input not found or empty") }
                 return JSValue.undefined
             }
 
@@ -671,7 +755,7 @@ public struct App {
             }
 
         case "edit":
-            print("Edit feed: \(feedId)")
+            Task { await Logger.shared.debug(AppLogFeature.feeds, "Edit feed: \(feedId)") }
 
         case "delete":
             appStore.dispatch(FeedAction.removeFeed(id: feedId))
@@ -707,7 +791,7 @@ public struct App {
                             refreshedFeedTitle = feed.title
                         }
                     } catch {
-                        print("⚠️ Auto-refresh failed for \(feed.title): \(error)")
+                        Task { await Logger.shared.warn(AppLogFeature.feeds, "Auto-refresh failed for \(feed.title): \(error)") }
                     }
                 }
 
@@ -738,7 +822,7 @@ public struct App {
                 appStore.dispatch(ArticleAction.addArticles(articles))
                 totalArticles += articles.count
             } catch {
-                print("❌ Failed to refresh \(feed.title): \(error)")
+                Task { await Logger.shared.error(AppLogFeature.feeds, "Failed to refresh \(feed.title): \(error)") }
             }
         }
 
@@ -954,14 +1038,58 @@ public struct App {
 
     #elseif canImport(JavaScriptKit)
     private static func mountUI() {
-        print("🎨 Mounting UI...")
-        print("  ℹ️ DOM mounting only available in WASM environment")
+        Task { await Logger.shared.info(AppLogFeature.ui, "DOM mounting only available in WASM environment") }
     }
     #endif
 
     private nonisolated(unsafe) static var scrollTopSignal = MutableSignal<Int>(0)
     private nonisolated(unsafe) static var viewportHeightSignal = MutableSignal<Int>(800)
     private nonisolated(unsafe) static var lastScrollUpdateY: Int = -1000
+    private nonisolated(unsafe) static var discoveredFeeds: [DiscoveredFeed] = []
+    private nonisolated(unsafe) static var isDiscovering: Bool = false
+    private nonisolated(unsafe) static var scrollSaveTimerId: JSValue? = nil
+    private nonisolated(unsafe) static var viewMode: ViewMode = .list
+
+    private static func scrollContextKey() -> String {
+        let state = appStore.getState().articles
+        let sort = state.sortBy.rawValue
+        let cats = state.filters.categories.map { $0.rawValue }.sorted().joined(separator: ",")
+        let search = state.searchQuery
+        let unread = state.filters.showOnlyUnread ? "u" : ""
+        let favs = state.filters.showOnlyFavorites ? "f" : ""
+        return "\(sort)-\(cats)-\(search)-\(unread)\(favs)"
+    }
+
+    #if canImport(JavaScriptKit) && arch(wasm32)
+    private static func saveScrollPosition() {
+        if let existing = scrollSaveTimerId {
+            _ = SafeJSGlobal.global?.clearTimeout.function?(existing)
+        }
+        let windowY = Int(SafeJSGlobal.global?.scrollY.number ?? 0)
+        let key = scrollContextKey()
+        scrollSaveTimerId = SafeJSGlobal.global?.setTimeout.function?(JSClosure { _ -> JSValue in
+            Task {
+                try? await storageService.save(windowY, forKey: "scroll_\(key)")
+                await Logger.shared.debug(AppLogFeature.scroll, "Saved scroll position \(windowY) for context \(key)")
+            }
+            return .undefined
+        }, 2000)
+    }
+
+    private static func restoreScrollPosition() {
+        let key = scrollContextKey()
+        Task {
+            do {
+                let saved: Int = try await storageService.load(forKey: "scroll_\(key)")
+                if saved > 0 {
+                    _ = SafeJSGlobal.global?.scrollTo!(0, saved)
+                    lastScrollUpdateY = saved
+                    await Logger.shared.debug(AppLogFeature.scroll, "Restored scroll position \(saved) for context \(key)")
+                }
+            } catch {}
+        }
+    }
+    #endif
 
     private nonisolated(unsafe) static let articlesSignal = appStore.selectArticles()
 
@@ -1089,11 +1217,21 @@ public struct App {
                 bufferSize: 5,
                 containerHeight: viewportHeightSignal.get()
             )
-            children.append(contentsOf: ArticleList.renderVirtualGPU(
-                props: listProps,
-                scrollTop: scrollTop,
-                config: config
-            ))
+
+            switch viewMode {
+            case .grid:
+                children.append(contentsOf: CategoryGrid.render(
+                    props: listProps,
+                    scrollTop: scrollTop,
+                    config: config
+                ))
+            case .list:
+                children.append(contentsOf: ArticleList.renderVirtualGPU(
+                    props: listProps,
+                    scrollTop: scrollTop,
+                    config: config
+                ))
+            }
         }
 
         return Element<AnyHTMLContext>(
@@ -1251,6 +1389,16 @@ public struct App {
                     tag: "button",
                     attributes: [
                         Attribute(name: "type", value: "button"),
+                        Attribute(name: "class", value: "toolbar-button" + (viewMode == .grid ? " toolbar-button--active" : "")),
+                        Attribute(name: "data-action", value: "toggle-view-mode"),
+                        Attribute(name: "aria-label", value: "Toggle grid/list view")
+                    ],
+                    children: [AnyNode(Text(viewMode == .grid ? "📋 List" : "▦ Grid"))]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "button",
+                    attributes: [
+                        Attribute(name: "type", value: "button"),
                         Attribute(name: "class", value: "toolbar-button"),
                         Attribute(name: "data-action", value: "open-settings"),
                         Attribute(name: "aria-label", value: "Settings")
@@ -1339,13 +1487,88 @@ public struct App {
             }
         )
 
+        var modalChildren = FeedManager.renderGPU(props: props)
+
+        var discoverSection: [AnyNode] = []
+
+        discoverSection.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "button",
+            attributes: [
+                Attribute(name: "type", value: "button"),
+                Attribute(name: "class", value: "toolbar-button"),
+                Attribute(name: "data-action", value: "discover-feeds"),
+                Attribute(name: "style", value: "margin: 8px 16px")
+            ],
+            children: [AnyNode(Text(isDiscovering ? "Discovering..." : "🔍 Discover Feeds"))]
+        )))
+
+        if !discoveredFeeds.isEmpty {
+            var feedItems: [AnyNode] = []
+            feedItems.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "h4",
+                attributes: [Attribute(name: "style", value: "margin: 0 0 8px 0")],
+                children: [AnyNode(Text("Discovered Feeds (\(discoveredFeeds.count))"))]
+            )))
+
+            for feed in discoveredFeeds {
+                let typeLabel = feed.type == .atom ? "Atom" : (feed.type == .rss ? "RSS" : "Feed")
+                let title = feed.title ?? feed.url
+                feedItems.append(AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "discovered-feed-item")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "span",
+                            attributes: [Attribute(name: "class", value: "discovered-feed-item__title")],
+                            children: [AnyNode(Text("[\(typeLabel)] \(title)"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--primary"),
+                                Attribute(name: "data-action", value: "add-discovered-feed"),
+                                Attribute(name: "data-feed-url", value: feed.url)
+                            ],
+                            children: [AnyNode(Text("+ Add"))]
+                        ))
+                    ]
+                )))
+            }
+
+            feedItems.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "button",
+                attributes: [
+                    Attribute(name: "type", value: "button"),
+                    Attribute(name: "class", value: "toolbar-button"),
+                    Attribute(name: "data-action", value: "dismiss-discovered"),
+                    Attribute(name: "style", value: "margin-top: 8px")
+                ],
+                children: [AnyNode(Text("Dismiss"))]
+            )))
+
+            discoverSection.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "discovered-feeds-list")],
+                children: feedItems
+            )))
+        }
+
+        if !discoverSection.isEmpty {
+            modalChildren.append(AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "discover-section")],
+                children: discoverSection
+            )))
+        }
+
         let modal = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
                 Attribute(name: "class", value: "modal-overlay"),
                 Attribute(name: "data-action", value: "close-feed-manager-overlay")
             ],
-            children: FeedManager.renderGPU(props: props)
+            children: modalChildren
         )
 
         return [AnyNode(modal)]
@@ -1598,7 +1821,7 @@ public struct App {
             appStore.dispatch(UIAction.closeFeedManager)
             showToast("Feed added with \(articles.count) articles")
 
-            print("✅ Feed added: \(url) with \(articles.count) articles")
+            Task { await Logger.shared.info(AppLogFeature.feeds, "Feed added: \(url) with \(articles.count) articles") }
 
             await processArticlesWithNLP()
             #if canImport(JavaScriptKit) && arch(wasm32)
@@ -1621,10 +1844,10 @@ public struct App {
                 message = "Too many requests. Please wait a moment and try again."
             }
             appStore.dispatch(UIAction.showError(message))
-            print("❌ Failed to add feed: \(error)")
+            Task { await Logger.shared.error(AppLogFeature.feeds, "Failed to add feed: \(error)") }
         } catch {
             appStore.dispatch(UIAction.showError("Failed to add feed: \(error.localizedDescription)"))
-            print("❌ Failed to add feed: \(error)")
+            Task { await Logger.shared.error(AppLogFeature.feeds, "Failed to add feed: \(error)") }
         }
     }
 
@@ -1644,35 +1867,7 @@ public struct App {
             if !articles.isEmpty {
                 Task {
                     await searchService.indexArticles(articles)
-                    print("📇 Re-indexed \(articles.count) articles")
-                }
-            }
-        })
-
-        _ = Effect(execute: {
-            let articles = articlesSignal.get().articles
-            if !articles.isEmpty {
-                Task {
-                    do {
-                        try await storageService.saveArticles(articles)
-                        print("💾 Saved \(articles.count) articles")
-                    } catch {
-                        print("⚠️ Failed to save articles: \(error)")
-                    }
-                }
-            }
-        })
-
-        _ = Effect(execute: {
-            let feeds = feedsSignal.get().feeds
-            if !feeds.isEmpty {
-                Task {
-                    do {
-                        try await storageService.saveFeeds(feeds)
-                        print("💾 Saved \(feeds.count) feeds")
-                    } catch {
-                        print("⚠️ Failed to save feeds: \(error)")
-                    }
+                    await Logger.shared.debug(AppLogFeature.data, "Re-indexed \(articles.count) articles")
                 }
             }
         })
@@ -1680,7 +1875,7 @@ public struct App {
         _ = Effect(execute: {
             let articleCount = articleCountSignal.get()
             let unreadCount = unreadCountSignal.get()
-            print("📊 State updated: \(articleCount) articles, \(unreadCount) unread")
+            Task { await Logger.shared.debug(AppLogFeature.data, "State updated: \(articleCount) articles, \(unreadCount) unread") }
         })
 
         _ = Effect(execute: {
@@ -1701,7 +1896,7 @@ public struct App {
         })
         #endif
 
-        print("⚡ Reactive effects initialized")
+        Task { await Logger.shared.info(AppLogFeature.ui, "Reactive effects initialized") }
     }
 
     public static var services: Services {
