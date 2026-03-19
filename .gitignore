@@ -60,3 +60,40 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# WASM and Carton
+.carton/
+dist/
+node_modules/
+*.wasm
+*.wasm.js
+*.wasm.map
+Bundle/
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.log
+.temp/
+tmp/
+
+# Environment files
+.env
+.env.local
+
+# System
+.DS_Store
+Thumbs.db
+
+# Test files and screenshots
+test-*.js
+test-*.png
+package.json
+package-lock.json

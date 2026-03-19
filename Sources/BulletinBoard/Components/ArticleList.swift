@@ -142,10 +142,10 @@ extension ArticleList {
         config: VirtualScrollConfig,
         totalItems: Int
     ) -> Range<Int> {
-        let startIndex = max(0, (scrollTop / config.itemHeight) - config.bufferSize)
+        let startIndex = max(0, (scrollTop / max(config.itemHeight, 1)) - config.bufferSize)
         let endIndex = min(
             totalItems,
-            ((scrollTop + config.containerHeight) / config.itemHeight) + config.bufferSize
+            ((scrollTop + config.containerHeight) / max(config.itemHeight, 1)) + config.bufferSize
         )
 
         return startIndex..<endIndex
@@ -189,9 +189,10 @@ extension ArticleList {
             children: []
         )
 
-        var children: [AnyNode] = [AnyNode(topSpacer)]
+        var children: [AnyNode] = []
 
         children.append(AnyNode(renderListHeader(count: totalItems)))
+        children.append(AnyNode(topSpacer))
 
         for index in visibleRange {
             guard index < props.articles.count else { break }

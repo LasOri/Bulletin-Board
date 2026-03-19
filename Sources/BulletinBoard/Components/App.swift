@@ -341,8 +341,59 @@ public struct App {
         setupSearchHandlers(document: document)
         setupKeyboardHandler(document: document)
         setupFileInputHandler(document: document)
+        setupScrollListener()
         CardExpansionController.shared.setupEscapeHandler(document: document)
         print("⚡ Event handlers registered")
+    }
+
+    private static func setupScrollListener() {
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        guard let window = SafeJSGlobal.global else { return }
+
+        if let innerH = window.innerHeight.number {
+            viewportHeightSignal.set(Int(innerH))
+        }
+
+        var scrollRAFScheduled = false
+        let scrollHandler = JSClosure { _ -> JSValue in
+            guard !scrollRAFScheduled else { return .undefined }
+            scrollRAFScheduled = true
+            _ = window.requestAnimationFrame!(JSClosure { _ -> JSValue in
+                scrollRAFScheduled = false
+                let windowY = Int(window.scrollY.number ?? 0)
+                let threshold = 170
+                guard abs(windowY - lastScrollUpdateY) >= threshold else { return .undefined }
+                lastScrollUpdateY = windowY
+
+                let listOffset: Int
+                if let listEl = window.document.object?.querySelector!(".article-list").object,
+                   let rect = listEl.getBoundingClientRect!().object,
+                   let top = rect.top.number {
+                    listOffset = windowY + Int(top)
+                } else {
+                    listOffset = 300
+                }
+                let effectiveScroll = max(0, windowY - listOffset)
+                scrollTopSignal.set(effectiveScroll)
+
+                _ = SafeJSGlobal.global?.queueMicrotask.function?(JSClosure { _ in
+                    renderToDOM()
+                    return .undefined
+                })
+                return .undefined
+            })
+            return .undefined
+        }
+        _ = window.addEventListener!("scroll", scrollHandler, ["passive": true])
+
+        let resizeHandler = JSClosure { _ -> JSValue in
+            if let innerH = window.innerHeight.number {
+                viewportHeightSignal.set(Int(innerH))
+            }
+            return .undefined
+        }
+        _ = window.addEventListener!("resize", resizeHandler)
+        #endif
     }
 
     private static func setupClickHandler(document: JSObject) {
@@ -768,6 +819,11 @@ public struct App {
                 let targetId = articles[newIndex].id
                 appStore.dispatch(ArticleAction.selectArticle(id: targetId))
 
+                let estimatedY = newIndex * 340
+                scrollTopSignal.set(max(0, estimatedY - viewportHeightSignal.get() / 2))
+                lastScrollUpdateY = Int(SafeJSGlobal.global?.scrollY.number ?? 0)
+                renderToDOM()
+
                 if let el = SafeJSGlobal.global?.document.object?
                     .querySelector!("[data-article-id=\"\(targetId)\"]").object {
                     _ = el.scrollIntoView!(["behavior": "smooth", "block": "nearest"])
@@ -903,6 +959,10 @@ public struct App {
     }
     #endif
 
+    private nonisolated(unsafe) static var scrollTopSignal = MutableSignal<Int>(0)
+    private nonisolated(unsafe) static var viewportHeightSignal = MutableSignal<Int>(800)
+    private nonisolated(unsafe) static var lastScrollUpdateY: Int = -1000
+
     private nonisolated(unsafe) static let articlesSignal = appStore.selectArticles()
 
     private nonisolated(unsafe) static let feedsSignal = appStore.selectFeeds()
@@ -1023,7 +1083,17 @@ public struct App {
                     appStore.dispatch(ArticleAction.selectArticle(id: articleId))
                 }
             )
-            children.append(contentsOf: ArticleList.renderGPU(props: listProps))
+            let scrollTop = scrollTopSignal.get()
+            let config = ArticleList.VirtualScrollConfig(
+                itemHeight: 340,
+                bufferSize: 5,
+                containerHeight: viewportHeightSignal.get()
+            )
+            children.append(contentsOf: ArticleList.renderVirtualGPU(
+                props: listProps,
+                scrollTop: scrollTop,
+                config: config
+            ))
         }
 
         return Element<AnyHTMLContext>(
