@@ -236,12 +236,10 @@ public struct ArticleDetailView {
     }
 
     private static func renderFooter(article: Article) -> Element<AnyHTMLContext> {
-        let favoriteIcon = article.isFavorite ? "\u{2605}" : "\u{2606}"
         let favoriteLabel = article.isFavorite ? "Remove from favorites" : "Add to favorites"
 
         let archiveAction = article.isArchived ? "unarchive-article" : "archive-article"
         let archiveLabel = article.isArchived ? "Restore from archive" : "Archive article"
-        let archiveText = article.isArchived ? "\u{1F4E4} Restore" : "\u{1F4E6} Archive"
 
         return Element<AnyHTMLContext>(
             tag: "footer",
@@ -256,7 +254,7 @@ public struct ArticleDetailView {
                         Attribute(name: "data-article-id", value: article.id),
                         Attribute(name: "aria-label", value: favoriteLabel)
                     ],
-                    children: [AnyNode(Text("\(favoriteIcon) Favorite"))]
+                    children: [AnyNode(Icons.wrap(Icons.star(filled: article.isFavorite))), AnyNode(Text(" Favorite"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
@@ -278,7 +276,7 @@ public struct ArticleDetailView {
                         Attribute(name: "data-article-id", value: article.id),
                         Attribute(name: "aria-label", value: archiveLabel)
                     ],
-                    children: [AnyNode(Text(archiveText))]
+                    children: [AnyNode(Icons.wrap(article.isArchived ? Icons.unarchive() : Icons.archive())), AnyNode(Text(article.isArchived ? " Restore" : " Archive"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",

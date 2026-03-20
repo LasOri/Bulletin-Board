@@ -195,7 +195,6 @@ public struct ArticleCard {
     }
 
     private static func renderFooter(article: Article, props: Props) -> Element<AnyHTMLContext> {
-        let favoriteIcon = article.isFavorite ? "★" : "☆"
         let favoriteButton = Element<AnyHTMLContext>(
             tag: "button",
             attributes: [
@@ -204,7 +203,7 @@ public struct ArticleCard {
                 Attribute(name: "data-article-id", value: article.id),
                 Attribute(name: "data-action", value: "toggle-favorite")
             ],
-            children: [AnyNode(Text(favoriteIcon))]
+            children: [AnyNode(Icons.star(filled: article.isFavorite))]
         )
 
         let readIndicator = Element<AnyHTMLContext>(
@@ -218,7 +217,6 @@ public struct ArticleCard {
 
         let archiveAction = article.isArchived ? "unarchive-article" : "archive-article"
         let archiveLabel = article.isArchived ? "Restore" : "Archive"
-        let archiveIcon = article.isArchived ? "📤" : "📦"
         let archiveButton = Element<AnyHTMLContext>(
             tag: "button",
             attributes: [
@@ -227,7 +225,7 @@ public struct ArticleCard {
                 Attribute(name: "data-article-id", value: article.id),
                 Attribute(name: "data-action", value: archiveAction)
             ],
-            children: [AnyNode(Text(archiveIcon))]
+            children: [AnyNode(article.isArchived ? Icons.unarchive() : Icons.archive())]
         )
 
         let readMore = Element<AnyHTMLContext>(

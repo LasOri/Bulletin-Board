@@ -1462,7 +1462,7 @@ public struct App {
                 Attribute(name: "class", value: "empty-state__cta"),
                 Attribute(name: "data-action", value: "open-feed-manager")
             ],
-            children: [AnyNode(Text("➕ Add Your First Feed"))]
+            children: [AnyNode(Icons.wrap(Icons.plus())), AnyNode(Text(" Add Your First Feed"))]
         )))
 
         children.append(AnyNode(Element<AnyHTMLContext>(
@@ -1589,10 +1589,6 @@ public struct App {
         let filters = articlesState.filters
         let currentSort = articlesState.sortBy
 
-        let unreadClass = "toolbar-button" + (filters.showOnlyUnread ? " toolbar-button--active" : "")
-        let favoritesClass = "toolbar-button" + (filters.showOnlyFavorites ? " toolbar-button--active" : "")
-        let archivedClass = "toolbar-button" + (filters.showArchived ? " toolbar-button--active" : "")
-
         let currentRange: String = {
             guard let dr = filters.dateRange else { return "all" }
             switch dr {
@@ -1636,84 +1632,112 @@ public struct App {
             attributes: [Attribute(name: "class", value: "app-toolbar")],
             children: [
                 AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: "toolbar-button toolbar-button--primary"),
-                        Attribute(name: "data-action", value: "open-feed-manager"),
-                        Attribute(name: "aria-label", value: "Add new feed")
-                    ],
-                    children: [AnyNode(Text("➕ Add Feed"))]
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "toolbar-group")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--primary"),
+                                Attribute(name: "data-action", value: "open-feed-manager"),
+                                Attribute(name: "aria-label", value: "Add new feed")
+                            ],
+                            children: [AnyNode(Icons.wrap(Icons.plus())), AnyNode(Text("Add Feed"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--secondary"),
+                                Attribute(name: "data-action", value: "refresh-all"),
+                                Attribute(name: "aria-label", value: "Refresh all feeds")
+                            ],
+                            children: [AnyNode(Icons.wrap(Icons.refresh())), AnyNode(Text("Refresh"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--secondary"),
+                                Attribute(name: "data-action", value: "mark-all-read"),
+                                Attribute(name: "aria-label", value: "Mark all as read")
+                            ],
+                            children: [AnyNode(Icons.wrap(Icons.checkAll())), AnyNode(Text("Mark All Read"))]
+                        ))
+                    ]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: "toolbar-button"),
-                        Attribute(name: "data-action", value: "refresh-all"),
-                        Attribute(name: "aria-label", value: "Refresh all feeds")
-                    ],
-                    children: [AnyNode(Text("🔄 Refresh All"))]
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "toolbar-separator")],
+                    children: []
                 )),
                 AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: "toolbar-button"),
-                        Attribute(name: "data-action", value: "mark-all-read"),
-                        Attribute(name: "aria-label", value: "Mark all as read")
-                    ],
-                    children: [AnyNode(Text("✓ Mark All Read"))]
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "toolbar-group")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--toggle" + (filters.showOnlyUnread ? " toolbar-button--active" : "")),
+                                Attribute(name: "data-action", value: "toggle-unread-filter"),
+                                Attribute(name: "aria-label", value: "Show unread only")
+                            ],
+                            children: [AnyNode(Icons.wrap(Icons.mail())), AnyNode(Text("Unread"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--toggle" + (filters.showOnlyFavorites ? " toolbar-button--active" : "")),
+                                Attribute(name: "data-action", value: "toggle-favorites-filter"),
+                                Attribute(name: "aria-label", value: "Show favorites only")
+                            ],
+                            children: [AnyNode(Icons.wrap(Icons.favorites())), AnyNode(Text("Favorites"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--toggle" + (filters.showArchived ? " toolbar-button--active" : "")),
+                                Attribute(name: "data-action", value: "toggle-archived-filter"),
+                                Attribute(name: "aria-label", value: "Show archived articles")
+                            ],
+                            children: [AnyNode(Icons.wrap(Icons.archive())), AnyNode(Text("Archived"))]
+                        ))
+                    ]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: unreadClass),
-                        Attribute(name: "data-action", value: "toggle-unread-filter"),
-                        Attribute(name: "aria-label", value: "Show unread only")
-                    ],
-                    children: [AnyNode(Text("📬 Unread"))]
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "toolbar-separator")],
+                    children: []
                 )),
                 AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: favoritesClass),
-                        Attribute(name: "data-action", value: "toggle-favorites-filter"),
-                        Attribute(name: "aria-label", value: "Show favorites only")
-                    ],
-                    children: [AnyNode(Text("⭐ Favorites"))]
-                )),
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: archivedClass),
-                        Attribute(name: "data-action", value: "toggle-archived-filter"),
-                        Attribute(name: "aria-label", value: "Show archived articles")
-                    ],
-                    children: [AnyNode(Text("📦 Archived"))]
-                )),
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: "toolbar-button" + (viewMode == .grid ? " toolbar-button--active" : "")),
-                        Attribute(name: "data-action", value: "toggle-view-mode"),
-                        Attribute(name: "aria-label", value: "Toggle grid/list view")
-                    ],
-                    children: [AnyNode(Text(viewMode == .grid ? "📋 List" : "▦ Grid"))]
-                )),
-                AnyNode(Element<AnyHTMLContext>(
-                    tag: "button",
-                    attributes: [
-                        Attribute(name: "type", value: "button"),
-                        Attribute(name: "class", value: "toolbar-button"),
-                        Attribute(name: "data-action", value: "open-settings"),
-                        Attribute(name: "aria-label", value: "Settings")
-                    ],
-                    children: [AnyNode(Text("⚙️ Settings"))]
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "toolbar-group")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--icon-only" + (viewMode == .grid ? " toolbar-button--active" : "")),
+                                Attribute(name: "data-action", value: "toggle-view-mode"),
+                                Attribute(name: "aria-label", value: viewMode == .grid ? "Switch to list view" : "Switch to grid view")
+                            ],
+                            children: [AnyNode(viewMode == .grid ? Icons.list() : Icons.grid())]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "button",
+                            attributes: [
+                                Attribute(name: "type", value: "button"),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--icon-only"),
+                                Attribute(name: "data-action", value: "open-settings"),
+                                Attribute(name: "aria-label", value: "Settings")
+                            ],
+                            children: [AnyNode(Icons.settings())]
+                        ))
+                    ]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "div",

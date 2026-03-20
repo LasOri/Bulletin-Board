@@ -77,7 +77,6 @@ public struct CategoryGridCard {
         }
 
         var actions: [AnyNode] = []
-        let favIcon = article.isFavorite ? "★" : "☆"
         actions.append(AnyNode(Element<AnyHTMLContext>(
             tag: "button",
             attributes: [
@@ -86,7 +85,7 @@ public struct CategoryGridCard {
                 Attribute(name: "data-action", value: "toggle-favorite"),
                 Attribute(name: "aria-label", value: article.isFavorite ? "Unfavorite" : "Favorite")
             ],
-            children: [AnyNode(Text(favIcon))]
+            children: [AnyNode(Icons.star(filled: article.isFavorite, size: 14))]
         )))
         actions.append(AnyNode(Element<AnyHTMLContext>(
             tag: "span",

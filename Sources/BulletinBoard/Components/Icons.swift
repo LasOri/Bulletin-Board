@@ -1,0 +1,140 @@
+import LINKER
+
+public struct Icons {
+
+    private static func svg(size: Int = 16, paths: [String], fill: Bool = false) -> Element<AnyHTMLContext> {
+        let strokeAttrs: [Attribute] = fill ? [] : [
+            Attribute(name: "stroke", value: "currentColor"),
+            Attribute(name: "stroke-width", value: "2"),
+            Attribute(name: "stroke-linecap", value: "round"),
+            Attribute(name: "stroke-linejoin", value: "round"),
+            Attribute(name: "fill", value: "none")
+        ]
+
+        let fillAttrs: [Attribute] = fill ? [
+            Attribute(name: "fill", value: "currentColor")
+        ] : []
+
+        var attrs: [Attribute] = [
+            Attribute(name: "xmlns", value: "http://www.w3.org/2000/svg"),
+            Attribute(name: "viewBox", value: "0 0 24 24"),
+            Attribute(name: "width", value: "\(size)"),
+            Attribute(name: "height", value: "\(size)")
+        ]
+        attrs.append(contentsOf: strokeAttrs)
+        attrs.append(contentsOf: fillAttrs)
+
+        let pathElements: [AnyNode] = paths.map { d in
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "path",
+                attributes: [Attribute(name: "d", value: d)],
+                children: []
+            ))
+        }
+
+        return Element<AnyHTMLContext>(
+            tag: "svg",
+            attributes: attrs,
+            children: pathElements
+        )
+    }
+
+    public static func plus(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: ["M12 5v14", "M5 12h14"])
+    }
+
+    public static func refresh(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M1 4v6h6",
+            "M23 20v-6h-6",
+            "M20.49 9A9 9 0 0 0 5.64 5.64L1 10",
+            "M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"
+        ])
+    }
+
+    public static func checkAll(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M18 7l-8 8-4-4",
+            "M22 7l-8 8",
+            "M12 15l-2 2-4-4"
+        ])
+    }
+
+    public static func mail(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z",
+            "M22 6l-10 7L2 6"
+        ])
+    }
+
+    public static func star(filled: Bool = false, size: Int = 16) -> Element<AnyHTMLContext> {
+        let path = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        if filled {
+            return svg(size: size, paths: [path], fill: true)
+        }
+        return svg(size: size, paths: [path])
+    }
+
+    public static func archive(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M21 8v13H3V8",
+            "M1 3h22v5H1z",
+            "M10 12h4"
+        ])
+    }
+
+    public static func unarchive(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M21 8v13H3V8",
+            "M1 3h22v5H1z",
+            "M12 11v6",
+            "M9 14l3-3 3 3"
+        ])
+    }
+
+    public static func settings(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+            "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+        ])
+    }
+
+    public static func grid(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M3 3h7v7H3z",
+            "M14 3h7v7h-7z",
+            "M14 14h7v7h-7z",
+            "M3 14h7v7H3z"
+        ])
+    }
+
+    public static func list(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M8 6h13",
+            "M8 12h13",
+            "M8 18h13",
+            "M3 6h.01",
+            "M3 12h.01",
+            "M3 18h.01"
+        ])
+    }
+
+    public static func favorites(size: Int = 16) -> Element<AnyHTMLContext> {
+        star(filled: false, size: size)
+    }
+
+    public static func search(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12z",
+            "M21 21l-4.35-4.35"
+        ])
+    }
+
+    public static func wrap(_ icon: Element<AnyHTMLContext>) -> Element<AnyHTMLContext> {
+        Element<AnyHTMLContext>(
+            tag: "span",
+            attributes: [Attribute(name: "class", value: "toolbar-icon")],
+            children: [AnyNode(icon)]
+        )
+    }
+}
