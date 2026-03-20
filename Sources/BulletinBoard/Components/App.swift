@@ -1311,7 +1311,7 @@ public struct App {
             children.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "offline-indicator")],
-                children: [AnyNode(Text("⚠️ Offline Mode"))]
+                children: [AnyNode(Icons.wrap(Icons.wifiOff())), AnyNode(Text(" Offline Mode"))]
             )))
         }
 
@@ -1837,7 +1837,7 @@ public struct App {
                 Attribute(name: "data-action", value: "discover-feeds"),
                 Attribute(name: "style", value: "margin: 8px 16px")
             ],
-            children: [AnyNode(Text(isDiscovering ? "Discovering..." : "🔍 Discover Feeds"))]
+            children: [AnyNode(Text(isDiscovering ? "Discovering..." : "Discover Feeds"))]
         )))
 
         if !discoveredFeeds.isEmpty {
@@ -1923,7 +1923,7 @@ public struct App {
             children.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "feed-preview feed-preview--loading")],
-                children: [AnyNode(Text("🔍 Discovering feeds..."))]
+                children: [AnyNode(Text("Discovering feeds..."))]
             )))
 
         case .success(let feeds, let samples):
@@ -1969,7 +1969,7 @@ public struct App {
             children.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "feed-preview feed-preview--error")],
-                children: [AnyNode(Text("⚠️ \(message)"))]
+                children: [AnyNode(Text("\(message)"))]
             )))
         }
 
@@ -2080,7 +2080,7 @@ public struct App {
                                         Attribute(name: "class", value: "toolbar-button"),
                                         Attribute(name: "data-action", value: "bulk-archive-read")
                                     ],
-                                    children: [AnyNode(Text("📦 Archive All Read"))]
+                                    children: [AnyNode(Icons.wrap(Icons.archive())), AnyNode(Text(" Archive All Read"))]
                                 )),
                                 AnyNode(Element<AnyHTMLContext>(
                                     tag: "button",
@@ -2090,7 +2090,7 @@ public struct App {
                                         Attribute(name: "data-action", value: "delete-older"),
                                         Attribute(name: "data-days", value: "30")
                                     ],
-                                    children: [AnyNode(Text("🗑️ Delete Older Than 30 Days"))]
+                                    children: [AnyNode(Icons.wrap(Icons.trash())), AnyNode(Text(" Delete Older Than 30 Days"))]
                                 )),
                                 AnyNode(Element<AnyHTMLContext>(
                                     tag: "button",
@@ -2100,7 +2100,7 @@ public struct App {
                                         Attribute(name: "data-action", value: "delete-older"),
                                         Attribute(name: "data-days", value: "7")
                                     ],
-                                    children: [AnyNode(Text("🗑️ Delete Older Than 7 Days"))]
+                                    children: [AnyNode(Icons.wrap(Icons.trash())), AnyNode(Text(" Delete Older Than 7 Days"))]
                                 ))
                             ]
                         ))

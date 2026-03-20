@@ -80,7 +80,7 @@ public struct SearchBar {
                 Attribute(name: "class", value: "search-bar__icon"),
                 Attribute(name: "aria-hidden", value: "true")
             ],
-            children: [AnyNode(Text("🔍"))]
+            children: [AnyNode(Icons.search())]
         )
         children.append(AnyNode(searchIcon))
 

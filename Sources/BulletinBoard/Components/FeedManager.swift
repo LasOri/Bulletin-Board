@@ -231,7 +231,7 @@ public struct FeedManager {
                                 Attribute(name: "data-action", value: "refresh"),
                                 Attribute(name: "data-feed-id", value: feed.id)
                             ],
-                            children: [AnyNode(Text("🔄"))]
+                            children: [AnyNode(Icons.refresh())]
                         )),
                         AnyNode(Element<AnyHTMLContext>(
                             tag: "button",
@@ -242,7 +242,7 @@ public struct FeedManager {
                                 Attribute(name: "data-action", value: "delete"),
                                 Attribute(name: "data-feed-id", value: feed.id)
                             ],
-                            children: [AnyNode(Text("🗑️"))]
+                            children: [AnyNode(Icons.trash())]
                         ))
                     ]
                 ))
@@ -263,7 +263,7 @@ public struct FeedManager {
                         Attribute(name: "data-action", value: "import-opml"),
                         Attribute(name: "aria-label", value: "Import OPML")
                     ],
-                    children: [AnyNode(Text("📥 Import OPML"))]
+                    children: [AnyNode(Icons.wrap(Icons.download())), AnyNode(Text(" Import OPML"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
@@ -273,7 +273,7 @@ public struct FeedManager {
                         Attribute(name: "data-action", value: "export-opml"),
                         Attribute(name: "aria-label", value: "Export OPML")
                     ],
-                    children: [AnyNode(Text("📤 Export OPML"))]
+                    children: [AnyNode(Icons.wrap(Icons.upload())), AnyNode(Text(" Export OPML"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "input",

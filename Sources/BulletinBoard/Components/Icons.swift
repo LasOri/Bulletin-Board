@@ -137,4 +137,47 @@ public struct Icons {
             children: [AnyNode(icon)]
         )
     }
+
+    public static func trash(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M3 6h18",
+            "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+        ])
+    }
+
+    public static func download(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+            "M7 10l5 5 5-5",
+            "M12 15V3"
+        ])
+    }
+
+    public static func upload(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+            "M17 8l-5-5-5 5",
+            "M12 3v12"
+        ])
+    }
+
+    public static func warning(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z",
+            "M12 9v4",
+            "M12 17h.01"
+        ])
+    }
+
+    public static func wifiOff(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M1 1l22 22",
+            "M16.72 11.06A10.94 10.94 0 0 1 19 12.55",
+            "M5 12.55a10.94 10.94 0 0 1 5.17-2.39",
+            "M10.71 5.05A16 16 0 0 1 22.56 9",
+            "M1.42 9a15.91 15.91 0 0 1 4.7-2.88",
+            "M8.53 16.11a6 6 0 0 1 6.95 0",
+            "M12 20h.01"
+        ])
+    }
 }
