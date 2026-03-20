@@ -1904,6 +1904,9 @@ public struct App {
             tag: "div",
             attributes: [
                 Attribute(name: "class", value: "modal-overlay"),
+                Attribute(name: "role", value: "dialog"),
+                Attribute(name: "aria-modal", value: "true"),
+                Attribute(name: "aria-label", value: "Feed Manager"),
                 Attribute(name: "data-action", value: "close-feed-manager-overlay")
             ],
             children: modalChildren
@@ -1933,13 +1936,13 @@ public struct App {
                 previewChildren.append(AnyNode(Element<AnyHTMLContext>(
                     tag: "div",
                     attributes: [Attribute(name: "class", value: "feed-preview__title")],
-                    children: [AnyNode(Text("✓ Feed found: \(feeds[0].title ?? "Untitled")"))]
+                    children: [AnyNode(Icons.check(size: 14)), AnyNode(Text(" Feed found: \(feeds[0].title ?? "Untitled")"))]
                 )))
             } else {
                 previewChildren.append(AnyNode(Element<AnyHTMLContext>(
                     tag: "div",
                     attributes: [Attribute(name: "class", value: "feed-preview__title")],
-                    children: [AnyNode(Text("✓ Found \(feeds.count) feeds"))]
+                    children: [AnyNode(Icons.check(size: 14)), AnyNode(Text(" Found \(feeds.count) feeds"))]
                 )))
             }
 
@@ -1954,7 +1957,7 @@ public struct App {
                     previewChildren.append(AnyNode(Element<AnyHTMLContext>(
                         tag: "div",
                         attributes: [Attribute(name: "class", value: "feed-preview__article")],
-                        children: [AnyNode(Text("• \(sample.title)"))]
+                        children: [AnyNode(Text(sample.title))]
                     )))
                 }
             }
@@ -2022,7 +2025,7 @@ public struct App {
                                 Attribute(name: "data-action", value: "close-settings"),
                                 Attribute(name: "aria-label", value: "Close")
                             ],
-                            children: [AnyNode(Text("✕"))]
+                            children: [AnyNode(Icons.close(size: 16))]
                         ))
                     ]
                 )),
@@ -2071,7 +2074,7 @@ public struct App {
                                         Attribute(name: "class", value: "toolbar-button"),
                                         Attribute(name: "data-action", value: "mark-all-read")
                                     ],
-                                    children: [AnyNode(Text("✓ Mark All Read"))]
+                                    children: [AnyNode(Icons.wrap(Icons.check())), AnyNode(Text(" Mark All Read"))]
                                 )),
                                 AnyNode(Element<AnyHTMLContext>(
                                     tag: "button",
@@ -2122,6 +2125,9 @@ public struct App {
                 tag: "div",
                 attributes: [
                     Attribute(name: "class", value: "modal-overlay"),
+                    Attribute(name: "role", value: "dialog"),
+                    Attribute(name: "aria-modal", value: "true"),
+                    Attribute(name: "aria-label", value: "Settings"),
                     Attribute(name: "data-action", value: "close-settings-overlay")
                 ],
                 children: blurredContent
@@ -2134,6 +2140,9 @@ public struct App {
             tag: "div",
             attributes: [
                 Attribute(name: "class", value: "modal-overlay"),
+                Attribute(name: "role", value: "dialog"),
+                Attribute(name: "aria-modal", value: "true"),
+                Attribute(name: "aria-label", value: "Settings"),
                 Attribute(name: "data-action", value: "close-settings-overlay")
             ],
             children: [AnyNode(content)]
@@ -2192,7 +2201,7 @@ public struct App {
                         Attribute(name: "aria-label", value: "Dismiss"),
                         Attribute(name: "data-action", value: "dismiss-toast")
                     ],
-                    children: [AnyNode(Text("✕"))]
+                    children: [AnyNode(Icons.close(size: 14))]
                 ))
             ]
         )

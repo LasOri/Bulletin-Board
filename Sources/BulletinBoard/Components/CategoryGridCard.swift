@@ -90,7 +90,7 @@ public struct CategoryGridCard {
         actions.append(AnyNode(Element<AnyHTMLContext>(
             tag: "span",
             attributes: [Attribute(name: "class", value: "grid-card__read-indicator")],
-            children: [AnyNode(Text(article.isRead ? "✓" : "•"))]
+            children: [AnyNode(article.isRead ? Icons.check(size: 12) : Icons.circle(size: 12))]
         )))
         children.append(AnyNode(Element<AnyHTMLContext>(
             tag: "div",

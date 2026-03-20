@@ -22,6 +22,9 @@ public struct ArticleDetailView {
                 tag: "div",
                 attributes: [
                     Attribute(name: "class", value: "article-detail-overlay"),
+                    Attribute(name: "role", value: "dialog"),
+                    Attribute(name: "aria-modal", value: "true"),
+                    Attribute(name: "aria-label", value: article.title),
                     Attribute(name: "data-action", value: "collapse-article-overlay")
                 ],
                 children: [
@@ -75,7 +78,7 @@ public struct ArticleDetailView {
                 Attribute(name: "data-action", value: "collapse-article"),
                 Attribute(name: "aria-label", value: "Close article")
             ],
-            children: [AnyNode(Text("\u{2715}"))]
+            children: [AnyNode(Icons.close(size: 18))]
         )
     }
 
@@ -266,7 +269,9 @@ public struct ArticleDetailView {
                         Attribute(name: "data-article-id", value: article.id),
                         Attribute(name: "aria-label", value: article.isRead ? "Already read" : "Mark as read")
                     ],
-                    children: [AnyNode(Text(article.isRead ? "\u{2713} Read" : "\u{25CF} Mark Read"))]
+                    children: article.isRead
+                        ? [AnyNode(Icons.wrap(Icons.check())), AnyNode(Text(" Read"))]
+                        : [AnyNode(Icons.wrap(Icons.circle())), AnyNode(Text(" Mark Read"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
@@ -300,7 +305,7 @@ public struct ArticleDetailView {
                         Attribute(name: "target", value: "_blank"),
                         Attribute(name: "rel", value: "noopener noreferrer")
                     ],
-                    children: [AnyNode(Text("Open Original \u{2192}"))]
+                    children: [AnyNode(Icons.wrap(Icons.externalLink())), AnyNode(Text(" Open Original"))]
                 ))
             ]
         )

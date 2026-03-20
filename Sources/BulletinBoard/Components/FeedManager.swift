@@ -73,6 +73,7 @@ public struct FeedManager {
             attributes: [
                 Attribute(name: "class", value: "feed-manager"),
                 Attribute(name: "role", value: "dialog"),
+                Attribute(name: "aria-modal", value: "true"),
                 Attribute(name: "aria-label", value: "Feed Manager")
             ],
             children: children
@@ -99,7 +100,7 @@ public struct FeedManager {
                         Attribute(name: "aria-label", value: "Close"),
                         Attribute(name: "data-action", value: "close")
                     ],
-                    children: [AnyNode(Text("✕"))]
+                    children: [AnyNode(Icons.close(size: 16))]
                 ))
             ]
         )

@@ -240,7 +240,7 @@ public struct ArticleCard {
                 Attribute(name: "class", value: "article-card__read-indicator"),
                 Attribute(name: "aria-label", value: article.isRead ? "Read" : "Unread")
             ],
-            children: [AnyNode(Text(article.isRead ? "✓" : "•"))]
+            children: [AnyNode(article.isRead ? Icons.check(size: 14) : Icons.circle(size: 14))]
         )
 
         let archiveAction = article.isArchived ? "unarchive-article" : "archive-article"
@@ -266,7 +266,7 @@ public struct ArticleCard {
                 Attribute(name: "data-article-id", value: article.id),
                 Attribute(name: "data-action", value: "read-more")
             ],
-            children: [AnyNode(Text("Read more →"))]
+            children: [AnyNode(Text("Read more")), AnyNode(Icons.arrowRight(size: 14))]
         )
 
         return Element<AnyHTMLContext>(

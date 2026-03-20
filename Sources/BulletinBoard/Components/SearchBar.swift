@@ -93,7 +93,7 @@ public struct SearchBar {
                     Attribute(name: "aria-label", value: "Clear search"),
                     Attribute(name: "data-action", value: "clear-search")
                 ],
-                children: [AnyNode(Text("✕"))]
+                children: [AnyNode(Icons.close(size: 14))]
             )
             children.append(AnyNode(clearButton))
         }

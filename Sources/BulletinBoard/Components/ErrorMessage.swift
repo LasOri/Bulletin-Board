@@ -143,7 +143,7 @@ public struct ErrorMessage {
                     Attribute(name: "aria-label", value: "Dismiss error"),
                     Attribute(name: "data-action", value: "dismiss")
                 ],
-                children: [AnyNode(Text("✕"))]
+                children: [AnyNode(Icons.close(size: 14))]
             )
             children.append(AnyNode(dismissButton))
         }

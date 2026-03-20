@@ -215,4 +215,38 @@ public struct Icons {
             "M12 2v13"
         ])
     }
+
+    public static func close(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M18 6L6 18",
+            "M6 6l12 12"
+        ])
+    }
+
+    public static func check(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M20 6L9 17l-5-5"
+        ])
+    }
+
+    public static func circle(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"
+        ])
+    }
+
+    public static func arrowRight(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M5 12h14",
+            "M12 5l7 7-7 7"
+        ])
+    }
+
+    public static func externalLink(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6",
+            "M15 3h6v6",
+            "M10 14L21 3"
+        ])
+    }
 }
