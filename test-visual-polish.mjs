@@ -12,6 +12,7 @@ const MOCK_RSS = `<?xml version="1.0" encoding="UTF-8"?>
       <description>A new AI accelerator chip has shattered performance benchmarks, achieving 10x faster inference than its closest competitor. The chip uses a novel architecture combining analog and digital computing.</description>
       <pubDate>Thu, 19 Mar 2026 12:00:00 GMT</pubDate>
       <category>Tech</category>
+      <enclosure url="https://picsum.photos/seed/1/800/400" type="image/jpeg" />
     </item>
     <item>
       <title>SpaceX Launches First Crewed Mission to Mars</title>
@@ -19,6 +20,7 @@ const MOCK_RSS = `<?xml version="1.0" encoding="UTF-8"?>
       <description>SpaceX has successfully launched the first crewed Starship mission to Mars with a crew of six astronauts. The journey is expected to take approximately seven months.</description>
       <pubDate>Wed, 18 Mar 2026 10:00:00 GMT</pubDate>
       <category>Science</category>
+      <enclosure url="https://picsum.photos/seed/2/800/400" type="image/jpeg" />
     </item>
     <item>
       <title>Global Markets Rally on Trade Deal</title>
@@ -26,6 +28,7 @@ const MOCK_RSS = `<?xml version="1.0" encoding="UTF-8"?>
       <description>Stock markets around the world surged after the announcement of a comprehensive trade agreement between major economies. The deal is expected to boost GDP growth by 2%.</description>
       <pubDate>Tue, 17 Mar 2026 08:00:00 GMT</pubDate>
       <category>Business</category>
+      <enclosure url="https://picsum.photos/seed/3/800/400" type="image/jpeg" />
     </item>
     <item>
       <title>New CRISPR Therapy Cures Genetic Disease</title>
@@ -33,7 +36,7 @@ const MOCK_RSS = `<?xml version="1.0" encoding="UTF-8"?>
       <description>Scientists have achieved a breakthrough using CRISPR gene editing to cure a previously untreatable genetic disorder in clinical trials.</description>
       <pubDate>Mon, 16 Mar 2026 14:00:00 GMT</pubDate>
       <category>Science</category>
-      <enclosure url="https://picsum.photos/800/400?random=4" type="image/jpeg" />
+      <enclosure url="https://picsum.photos/seed/4/800/400" type="image/jpeg" />
     </item>
     <item>
       <title>World Cup Qualifiers: Stunning Upsets</title>
@@ -41,6 +44,7 @@ const MOCK_RSS = `<?xml version="1.0" encoding="UTF-8"?>
       <description>Multiple favorites were eliminated in the latest round of World Cup qualifiers, including two former champions.</description>
       <pubDate>Sun, 15 Mar 2026 16:00:00 GMT</pubDate>
       <category>Sports</category>
+      <enclosure url="https://picsum.photos/seed/5/800/400" type="image/jpeg" />
     </item>
     <item>
       <title>Streaming Wars: New Platform Launches</title>
@@ -55,6 +59,7 @@ const MOCK_RSS = `<?xml version="1.0" encoding="UTF-8"?>
       <description>The popular web framework has become the first open-source project to reach one million GitHub stars, reflecting its massive adoption across the industry.</description>
       <pubDate>Fri, 13 Mar 2026 11:00:00 GMT</pubDate>
       <category>Tech</category>
+      <enclosure url="https://picsum.photos/seed/7/800/400" type="image/jpeg" />
     </item>
     <item>
       <title>Climate Summit Produces Binding Agreement</title>
@@ -119,80 +124,84 @@ async function auditTouchTargets(page, label) {
     return violations;
 }
 
-async function auditColors(page) {
-    const orangeElements = await page.evaluate(() => {
-        const all = document.querySelectorAll('*');
-        const orangeHits = [];
-        for (const el of all) {
-            const style = getComputedStyle(el);
-            const bg = style.backgroundColor;
-            if (bg.includes('245, 166, 35') || bg.includes('f5a623')) {
-                orangeHits.push({
-                    tag: el.tagName,
-                    text: el.textContent?.trim().substring(0, 30) || '',
-                    classes: el.className?.substring(0, 50) || '',
-                    bg,
-                });
-            }
-        }
-        return orangeHits;
-    });
-    if (orangeElements.length > 0) {
-        console.log(`\n  Orange accent color found (${orangeElements.length} elements):`);
-        for (const e of orangeElements) {
-            console.log(`    <${e.tag.toLowerCase()}> "${e.text}" bg=${e.bg}`);
-        }
-    } else {
-        console.log('  Color audit: No orange accent backgrounds found');
-    }
-    return orangeElements;
-}
-
 async function auditEmojis(page) {
-    const emojiButtons = await page.evaluate(() => {
-        const buttons = document.querySelectorAll('.app-toolbar button');
-        const hits = [];
+    const emojiHits = await page.evaluate(() => {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
         const emojiPattern = /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F000}-\u{1FFFF}]/u;
-        for (const btn of buttons) {
-            if (emojiPattern.test(btn.textContent)) {
-                hits.push({ text: btn.textContent.trim().substring(0, 30), classes: btn.className });
+        const hits = [];
+        while (walker.nextNode()) {
+            const text = walker.currentNode.textContent;
+            if (emojiPattern.test(text)) {
+                const parent = walker.currentNode.parentElement;
+                hits.push({
+                    text: text.trim().substring(0, 40),
+                    tag: parent?.tagName || 'unknown',
+                    classes: parent?.className?.substring(0, 60) || '',
+                });
             }
         }
         return hits;
     });
-    if (emojiButtons.length > 0) {
-        console.log(`\n  Emoji in toolbar buttons (${emojiButtons.length}):`);
-        for (const e of emojiButtons) {
-            console.log(`    "${e.text}" .${e.classes}`);
+    if (emojiHits.length > 0) {
+        console.log(`  EMOJI FOUND in DOM (${emojiHits.length}):`);
+        for (const e of emojiHits) {
+            console.log(`    "${e.text}" in <${e.tag.toLowerCase()}> .${e.classes}`);
         }
     } else {
-        console.log('  Toolbar emoji audit: CLEAN (no emoji icons)');
+        console.log('  Full emoji sweep: CLEAN (zero emoji in DOM)');
     }
-    return emojiButtons;
+    return emojiHits;
 }
 
 async function auditSVGIcons(page) {
     const svgCount = await page.evaluate(() => {
-        return document.querySelectorAll('.app-toolbar svg').length;
+        return document.querySelectorAll('.app-toolbar svg, .error-message__icon svg, .search-bar__suggestion-icon svg, .article-detail__footer svg').length;
     });
-    console.log(`  SVG icons in toolbar: ${svgCount}`);
+    console.log(`  SVG icons in UI: ${svgCount}`);
     return svgCount;
 }
 
-async function auditButtonHierarchy(page) {
-    const counts = await page.evaluate(() => {
+async function auditHeroImages(page) {
+    const result = await page.evaluate(() => {
+        const heroes = document.querySelectorAll('.article-card__hero');
+        const loaded = document.querySelectorAll('.article-card__hero-img.loaded');
+        const imgs = document.querySelectorAll('.article-card__hero-img');
         return {
-            primary: document.querySelectorAll('.toolbar-button--primary').length,
-            secondary: document.querySelectorAll('.toolbar-button--secondary').length,
-            toggle: document.querySelectorAll('.toolbar-button--toggle').length,
-            iconOnly: document.querySelectorAll('.toolbar-button--icon-only').length,
-            separators: document.querySelectorAll('.toolbar-separator').length,
-            groups: document.querySelectorAll('.toolbar-group').length,
+            heroContainers: heroes.length,
+            loadedImages: loaded.length,
+            totalImages: imgs.length,
         };
     });
-    console.log(`  Button hierarchy: ${counts.primary} primary, ${counts.secondary} secondary, ${counts.toggle} toggle, ${counts.iconOnly} icon-only`);
-    console.log(`  Layout: ${counts.groups} groups, ${counts.separators} separators`);
-    return counts;
+    console.log(`  Hero images: ${result.heroContainers} containers, ${result.totalImages} imgs, ${result.loadedImages} loaded`);
+    return result;
+}
+
+async function auditAnimations(page) {
+    const result = await page.evaluate(() => {
+        const detail = document.querySelector('.article-detail');
+        const overlay = document.querySelector('.article-detail-overlay');
+        return {
+            hasDetail: !!detail,
+            hasOverlay: !!overlay,
+            detailAnim: detail ? getComputedStyle(detail).animationName : null,
+            overlayAnim: overlay ? getComputedStyle(overlay).animationName : null,
+        };
+    });
+    if (result.hasDetail) {
+        console.log(`  Detail panel animation: ${result.detailAnim}`);
+        console.log(`  Overlay animation: ${result.overlayAnim}`);
+    } else {
+        console.log('  No detail panel open (animation check skipped)');
+    }
+    return result;
+}
+
+async function auditGPUCanvases(page) {
+    const count = await page.evaluate(() => {
+        return document.querySelectorAll('[data-linker-lifecycle] canvas, canvas[data-gpu]').length;
+    });
+    console.log(`  GPU canvases (lifecycle): ${count}`);
+    return count;
 }
 
 (async () => {
@@ -220,75 +229,84 @@ async function auditButtonHierarchy(page) {
         await new Promise(r => setTimeout(r, 2000));
 
         console.log('\n=== PHASE 1: Empty State ===');
-        await page.screenshot({ path: 'audit-phase1b-empty-desktop.png', fullPage: true });
-        console.log('  Screenshot: audit-phase1b-empty-desktop.png');
+        await page.screenshot({ path: 'audit-phase2-empty-desktop.png', fullPage: true });
+        console.log('  Screenshot: audit-phase2-empty-desktop.png');
 
-        console.log('\n=== PHASE 2: Add Feed via Suggested Card ===');
+        console.log('\n=== PHASE 2: Add Feed ===');
         const addBtn = await page.$('.suggested-feed-card__button');
         if (addBtn) {
             await addBtn.click();
             console.log('  Clicked suggested feed card, waiting for articles...');
-            await new Promise(r => setTimeout(r, 5000));
+            await new Promise(r => setTimeout(r, 8000));
 
             const articleCount = await page.evaluate(() =>
                 document.querySelectorAll('.article-card').length
             );
             console.log(`  Articles rendered: ${articleCount}`);
 
-            console.log('\n=== PHASE 3: Article List Screenshots ===');
-            await page.screenshot({ path: 'audit-phase1b-list-desktop.png', fullPage: true });
-            console.log('  Screenshot: audit-phase1b-list-desktop.png (1440px)');
+            console.log('\n=== PHASE 3: Hero Image Loading ===');
+            try {
+                await page.waitForSelector('.article-card__hero-img.loaded', { timeout: 10000 });
+                console.log('  Hero images loaded successfully');
+            } catch {
+                console.log('  Hero image load timeout (images may not load in headless with CORS proxy)');
+            }
+
+            const heroInfo = await auditHeroImages(page);
+
+            console.log('\n=== PHASE 4: Screenshots at 3 Viewports ===');
+            await page.screenshot({ path: 'audit-phase2-list-desktop.png', fullPage: true });
+            console.log('  Screenshot: audit-phase2-list-desktop.png (1440px)');
 
             await page.setViewport(VIEWPORTS.tablet);
             await new Promise(r => setTimeout(r, 500));
-            await page.screenshot({ path: 'audit-phase1b-list-tablet.png', fullPage: true });
-            console.log('  Screenshot: audit-phase1b-list-tablet.png (768px)');
+            await page.screenshot({ path: 'audit-phase2-list-tablet.png', fullPage: true });
+            console.log('  Screenshot: audit-phase2-list-tablet.png (768px)');
 
             await page.setViewport(VIEWPORTS.mobile);
             await new Promise(r => setTimeout(r, 500));
-            await page.screenshot({ path: 'audit-phase1b-list-mobile.png', fullPage: true });
-            console.log('  Screenshot: audit-phase1b-list-mobile.png (375px)');
+            await page.screenshot({ path: 'audit-phase2-list-mobile.png', fullPage: true });
+            console.log('  Screenshot: audit-phase2-list-mobile.png (375px)');
 
-            console.log('\n=== PHASE 4: Article Detail ===');
+            console.log('\n=== PHASE 5: Article Detail ===');
             await page.setViewport(VIEWPORTS.desktop);
             await new Promise(r => setTimeout(r, 500));
             const firstCard = await page.$('.article-card');
             if (firstCard) {
                 await firstCard.click();
                 await new Promise(r => setTimeout(r, 1500));
-                await page.screenshot({ path: 'audit-phase1b-detail-desktop.png', fullPage: true });
-                console.log('  Screenshot: audit-phase1b-detail-desktop.png');
 
-                await page.setViewport(VIEWPORTS.mobile);
-                await new Promise(r => setTimeout(r, 500));
-                await page.screenshot({ path: 'audit-phase1b-detail-mobile.png', fullPage: true });
-                console.log('  Screenshot: audit-phase1b-detail-mobile.png');
+                await auditAnimations(page);
+
+                const detailHero = await page.evaluate(() => {
+                    const hero = document.querySelector('.article-detail__hero-img');
+                    return hero ? { src: hero.src, loaded: hero.classList.contains('loaded') } : null;
+                });
+                if (detailHero) {
+                    console.log(`  Detail hero image: ${detailHero.loaded ? 'loaded' : 'loading'} (${detailHero.src.substring(0, 50)}...)`);
+                }
+
+                await page.screenshot({ path: 'audit-phase2-detail-desktop.png', fullPage: true });
+                console.log('  Screenshot: audit-phase2-detail-desktop.png');
 
                 const closeBtn = await page.$('.article-detail__close-btn, [data-action="collapse-article"]');
                 if (closeBtn) await closeBtn.click();
                 await new Promise(r => setTimeout(r, 1000));
             }
 
-            console.log('\n=== PHASE 5: Grid View ===');
-            await page.setViewport(VIEWPORTS.desktop);
-            await new Promise(r => setTimeout(r, 500));
+            console.log('\n=== PHASE 6: Grid View ===');
             const gridBtn = await page.$('[data-action="toggle-view-mode"]');
             if (gridBtn) {
                 await gridBtn.click();
                 await new Promise(r => setTimeout(r, 1000));
-                await page.screenshot({ path: 'audit-phase1b-grid-desktop.png', fullPage: true });
-                console.log('  Screenshot: audit-phase1b-grid-desktop.png');
-
-                await page.setViewport(VIEWPORTS.tablet);
-                await new Promise(r => setTimeout(r, 500));
-                await page.screenshot({ path: 'audit-phase1b-grid-tablet.png', fullPage: true });
-                console.log('  Screenshot: audit-phase1b-grid-tablet.png');
+                await page.screenshot({ path: 'audit-phase2-grid-desktop.png', fullPage: true });
+                console.log('  Screenshot: audit-phase2-grid-desktop.png');
             }
         } else {
-            console.log('  No suggested feed card found (articles may already be loaded)');
+            console.log('  No suggested feed card found');
         }
 
-        console.log('\n=== PHASE 6: Audits ===');
+        console.log('\n=== PHASE 7: Audits ===');
 
         console.log('\n--- Touch Target Audit ---');
         await page.setViewport(VIEWPORTS.mobile);
@@ -297,19 +315,15 @@ async function auditButtonHierarchy(page) {
 
         await page.setViewport(VIEWPORTS.desktop);
         await new Promise(r => setTimeout(r, 500));
-        await auditTouchTargets(page, '1440px desktop');
 
-        console.log('\n--- Color Audit ---');
-        await auditColors(page);
-
-        console.log('\n--- Emoji Audit ---');
+        console.log('\n--- Emoji Sweep ---');
         await auditEmojis(page);
 
         console.log('\n--- SVG Icon Audit ---');
         await auditSVGIcons(page);
 
-        console.log('\n--- Button Hierarchy Audit ---');
-        await auditButtonHierarchy(page);
+        console.log('\n--- GPU Canvas Audit ---');
+        await auditGPUCanvases(page);
 
         console.log('\n=== Test Complete ===');
 

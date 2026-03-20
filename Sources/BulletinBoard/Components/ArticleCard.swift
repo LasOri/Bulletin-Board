@@ -44,14 +44,42 @@ public struct ArticleCard {
         let card = Element<AnyHTMLContext>(
             tag: "article",
             attributes: attrs,
-            children: [
-                AnyNode(renderHeader(article: article, props: props)),
-                AnyNode(renderContent(article: article)),
-                AnyNode(renderFooter(article: article, props: props))
-            ]
+            children: cardChildren(article: article, props: props)
         )
 
         return [AnyNode(card)]
+    }
+
+    private static func cardChildren(article: Article, props: Props) -> [AnyNode] {
+        var children: [AnyNode] = []
+        if let enclosure = article.enclosure, enclosure.type.starts(with: "image/") {
+            children.append(AnyNode(renderHeroImage(url: enclosure.url, alt: article.title)))
+        }
+        children.append(AnyNode(renderHeader(article: article, props: props)))
+        children.append(AnyNode(renderContent(article: article)))
+        children.append(AnyNode(renderFooter(article: article, props: props)))
+        return children
+    }
+
+    private static func renderHeroImage(url: String, alt: String) -> Element<AnyHTMLContext> {
+        Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "article-card__hero")],
+            children: [
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "img",
+                    attributes: [
+                        Attribute(name: "src", value: url),
+                        Attribute(name: "alt", value: alt),
+                        Attribute(name: "class", value: "article-card__hero-img"),
+                        Attribute(name: "loading", value: "lazy"),
+                        Attribute(name: "crossorigin", value: "anonymous"),
+                        Attribute(name: "onload", value: "this.classList.add('loaded')"),
+                        Attribute(name: "onerror", value: "this.style.display='none';this.parentElement.classList.add('article-card__hero--placeholder')")
+                    ]
+                ))
+            ]
+        )
     }
 
     private static func cardClasses(article: Article) -> String {
@@ -78,12 +106,12 @@ public struct ArticleCard {
         if let category = article.autoCategory {
             badgeRow.append(AnyNode(renderCategoryBadge(category: category)))
         }
-        if let sentiment = article.sentimentLabel, let emoji = article.sentimentEmoji {
+        if let sentiment = article.sentimentLabel {
             let sentimentClass = "sentiment-indicator sentiment--\(sentiment.lowercased())"
             badgeRow.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "span",
                 attributes: [Attribute(name: "class", value: sentimentClass)],
-                children: [AnyNode(Text("\(emoji) \(sentiment)"))]
+                children: [AnyNode(Text(sentiment))]
             )))
         }
         if !badgeRow.isEmpty {

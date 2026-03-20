@@ -246,7 +246,7 @@ extension SearchBar {
                 Attribute(name: "class", value: "search-bar__suggestion-icon"),
                 Attribute(name: "aria-hidden", value: "true")
             ],
-            children: [AnyNode(Text(icon))]
+            children: [AnyNode(icon)]
         )
         children.append(AnyNode(iconElement))
 
@@ -280,12 +280,12 @@ extension SearchBar {
         )
     }
 
-    private static func suggestionIcon(for type: SuggestionType) -> String {
+    private static func suggestionIcon(for type: SuggestionType) -> Element<AnyHTMLContext> {
         switch type {
-        case .keyword: return "🔖"
-        case .category: return "📁"
-        case .feed: return "📰"
-        case .recent: return "🕐"
+        case .keyword: return Icons.search(size: 14)
+        case .category: return Icons.folder(size: 14)
+        case .feed: return Icons.list(size: 14)
+        case .recent: return Icons.clock(size: 14)
         }
     }
 }

@@ -71,15 +71,15 @@ public struct ErrorMessage {
                 Attribute(name: "class", value: "error-message__icon"),
                 Attribute(name: "aria-hidden", value: "true")
             ],
-            children: [AnyNode(Text(icon))]
+            children: [AnyNode(icon)]
         )
     }
 
-    private static func iconForSeverity(_ severity: Severity) -> String {
+    private static func iconForSeverity(_ severity: Severity) -> Element<AnyHTMLContext> {
         switch severity {
-        case .error: return "⚠️"
-        case .warning: return "⚡"
-        case .info: return "ℹ️"
+        case .error: return Icons.warning()
+        case .warning: return Icons.zap()
+        case .info: return Icons.info()
         }
     }
 

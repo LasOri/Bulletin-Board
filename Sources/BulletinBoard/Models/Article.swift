@@ -182,13 +182,6 @@ extension Article {
         return "Neutral"
     }
 
-    public var sentimentEmoji: String? {
-        guard let score = sentimentScore else { return nil }
-        if score > 0.1 { return "\u{1F60A}" }
-        if score < -0.1 { return "\u{1F61F}" }
-        return "\u{1F610}"
-    }
-
     public mutating func markAsRead() {
         isRead = true
         updatedAt = Date()

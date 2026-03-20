@@ -91,6 +91,7 @@ public struct ArticleDetailView {
                         Attribute(name: "alt", value: alt),
                         Attribute(name: "class", value: "article-detail__hero-img"),
                         Attribute(name: "crossorigin", value: "anonymous"),
+                        Attribute(name: "onload", value: "this.classList.add('loaded')"),
                         Attribute(name: "onerror", value: "this.style.display='none';this.parentElement.classList.add('article-detail__hero--placeholder')")
                     ]
                 ))
@@ -115,12 +116,12 @@ public struct ArticleDetailView {
                 children: [AnyNode(Text(category.rawValue))]
             )))
         }
-        if let sentiment = article.sentimentLabel, let emoji = article.sentimentEmoji {
+        if let sentiment = article.sentimentLabel {
             let sentimentClass = "sentiment-indicator sentiment--\(sentiment.lowercased())"
             badgeRow.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "span",
                 attributes: [Attribute(name: "class", value: sentimentClass)],
-                children: [AnyNode(Text("\(emoji) \(sentiment)"))]
+                children: [AnyNode(Text(sentiment))]
             )))
         }
         if !badgeRow.isEmpty {
@@ -289,7 +290,7 @@ public struct ArticleDetailView {
                         Attribute(name: "data-article-title", value: article.title),
                         Attribute(name: "aria-label", value: "Share article")
                     ],
-                    children: [AnyNode(Text("\u{1F517} Share"))]
+                    children: [AnyNode(Icons.wrap(Icons.share())), AnyNode(Text(" Share"))]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "a",

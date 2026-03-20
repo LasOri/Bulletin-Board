@@ -828,7 +828,7 @@ public struct App {
         let onlineHandler = JSClosure { _ -> JSValue in
             isOffline = false
             renderToDOM()
-            showToast("✅ Back online")
+            showToast("Back online")
             Task { await Logger.shared.info(AppLogFeature.ui, "Network: online") }
             return .undefined
         }
@@ -836,7 +836,7 @@ public struct App {
         let offlineHandler = JSClosure { _ -> JSValue in
             isOffline = true
             renderToDOM()
-            showToast("⚠️ You're offline - using cached data")
+            showToast("You're offline - using cached data")
             Task { await Logger.shared.warn(AppLogFeature.ui, "Network: offline") }
             return .undefined
         }

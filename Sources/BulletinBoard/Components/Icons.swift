@@ -180,4 +180,39 @@ public struct Icons {
             "M12 20h.01"
         ])
     }
+
+    public static func folder(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+        ])
+    }
+
+    public static func clock(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z",
+            "M12 6v6l4 2"
+        ])
+    }
+
+    public static func zap(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M13 2L3 14h9l-1 10 10-12h-9l1-10z"
+        ])
+    }
+
+    public static func info(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z",
+            "M12 16v-4",
+            "M12 8h.01"
+        ])
+    }
+
+    public static func share(size: Int = 16) -> Element<AnyHTMLContext> {
+        svg(size: size, paths: [
+            "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8",
+            "M16 6l-4-4-4 4",
+            "M12 2v13"
+        ])
+    }
 }
