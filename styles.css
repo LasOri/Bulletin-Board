@@ -1675,6 +1675,73 @@ body {
     cursor: pointer;
 }
 
+.feed-item__frequency {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+}
+
+.feed-item__frequency-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-lighter);
+    white-space: nowrap;
+}
+
+.feed-item__frequency-select {
+    flex: 1;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family);
+    background: var(--color-surface);
+    color: var(--color-text);
+    cursor: pointer;
+    min-height: 32px;
+}
+
+.feed-item__frequency-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.shortcuts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-xs) var(--spacing-lg);
+}
+
+.shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) 0;
+}
+
+.shortcut-key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+    padding: 0 var(--spacing-xs);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.shortcut-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
 body.theme-dark {
     --color-brand-primary: #6ba3e8;
     --color-brand-primary-dark: #4a90e2;
