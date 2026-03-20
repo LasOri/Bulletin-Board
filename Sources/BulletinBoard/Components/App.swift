@@ -688,12 +688,19 @@ public struct App {
                    let titleInput = SafeJSGlobal.global?.document.object?
                     .getElementById!("edit-feed-title-\(feedId)").object,
                    let newTitle = titleInput.value.string {
+                    var newFrequency: Int?
+                    if let freqSelect = SafeJSGlobal.global?.document.object?
+                        .getElementById!("edit-feed-freq-\(feedId)").object,
+                       let freqStr = freqSelect.value.string {
+                        newFrequency = Int(freqStr)
+                    }
                     if let feed = appStore.getState().feeds.feeds.first(where: { $0.id == feedId }) {
                         let updated = Feed(
                             id: feed.id, title: newTitle, description: feed.description,
                             url: feed.url, siteUrl: feed.siteUrl, language: feed.language,
                             iconUrl: feed.iconUrl, userCategory: feed.userCategory,
-                            updateFrequency: feed.updateFrequency, lastFetched: feed.lastFetched,
+                            updateFrequency: newFrequency ?? feed.updateFrequency,
+                            lastFetched: feed.lastFetched,
                             lastSuccessfulFetch: feed.lastSuccessfulFetch, lastError: feed.lastError,
                             articleCount: feed.articleCount, unreadCount: feed.unreadCount,
                             subscribedAt: feed.subscribedAt, updatedAt: Date(),
@@ -1013,12 +1020,42 @@ public struct App {
             if let activeTag = SafeJSGlobal.global?.document.object?
                 .activeElement.object?.tagName.string?.lowercased(),
                activeTag == "input" || activeTag == "textarea" {
+                if key == "Escape" {
+                    if let activeEl = SafeJSGlobal.global?.document.object?.activeElement.object {
+                        _ = activeEl.blur!()
+                    }
+                } else if key == "Tab" {
+                    let modalOpen = appStore.getState().ui
+                    if modalOpen.isSettingsOpen || modalOpen.isFeedManagerOpen
+                        || modalOpen.animationPhase == .expanded {
+                        _ = event.preventDefault!()
+                        let isShift = event.shiftKey.boolean ?? false
+                        trapFocus(reverse: isShift)
+                    }
+                }
                 return .undefined
             }
 
             let uiState = appStore.getState().ui
 
             switch key {
+            case "Escape":
+                if uiState.animationPhase == .expanded {
+                    CardExpansionController.shared.beginCollapse()
+                } else if uiState.isSettingsOpen {
+                    appStore.dispatch(UIAction.toggleSettings)
+                } else if uiState.isFeedManagerOpen {
+                    appStore.dispatch(UIAction.closeFeedManager)
+                }
+
+            case "Tab":
+                let isShift = event.shiftKey.boolean ?? false
+                if uiState.isSettingsOpen || uiState.isFeedManagerOpen
+                    || uiState.animationPhase == .expanded {
+                    _ = event.preventDefault!()
+                    trapFocus(reverse: isShift)
+                }
+
             case "j", "k":
                 let articles = filteredArticlesSignal.get()
                 guard !articles.isEmpty else { return .undefined }
@@ -1080,6 +1117,43 @@ public struct App {
         }
 
         document.addEventListener!("keydown", handler)
+    }
+
+    private static func trapFocus(reverse: Bool) {
+        guard let doc = SafeJSGlobal.global?.document.object else { return }
+
+        let selector = ".modal-overlay button, .modal-overlay input, .modal-overlay select, .modal-overlay a, .modal-overlay textarea, .modal-overlay [tabindex]"
+        guard let nodeList = doc.querySelectorAll!(selector).object else { return }
+        let count = nodeList.length.number.map(Int.init) ?? 0
+        guard count > 0 else { return }
+
+        var focusables: [JSObject] = []
+        for i in 0..<count {
+            if let el = nodeList.item!(i).object {
+                focusables.append(el)
+            }
+        }
+
+        guard !focusables.isEmpty else { return }
+
+        let activeEl = doc.activeElement
+
+        var currentIndex = -1
+        for (i, el) in focusables.enumerated() {
+            if el.isSameNode!(activeEl).boolean == true {
+                currentIndex = i
+                break
+            }
+        }
+
+        let nextIndex: Int
+        if reverse {
+            nextIndex = currentIndex <= 0 ? focusables.count - 1 : currentIndex - 1
+        } else {
+            nextIndex = currentIndex >= focusables.count - 1 ? 0 : currentIndex + 1
+        }
+
+        _ = focusables[nextIndex].focus!()
     }
 
     private static func setupFileInputHandler(document: JSObject) {
@@ -1979,6 +2053,44 @@ public struct App {
         return children
     }
 
+    private static func renderShortcutsGrid() -> Element<AnyHTMLContext> {
+        let shortcuts: [(String, String)] = [
+            ("j", "Next article"),
+            ("k", "Previous article"),
+            ("o", "Open article"),
+            ("f", "Toggle favorite"),
+            ("m", "Mark as read"),
+            ("r", "Refresh feeds"),
+            ("/", "Focus search"),
+            ("Esc", "Close panel")
+        ]
+
+        let rows: [AnyNode] = shortcuts.map { (key, desc) in
+            AnyNode(Element<AnyHTMLContext>(
+                tag: "div",
+                attributes: [Attribute(name: "class", value: "shortcut-row")],
+                children: [
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "kbd",
+                        attributes: [Attribute(name: "class", value: "shortcut-key")],
+                        children: [AnyNode(Text(key))]
+                    )),
+                    AnyNode(Element<AnyHTMLContext>(
+                        tag: "span",
+                        attributes: [Attribute(name: "class", value: "shortcut-desc")],
+                        children: [AnyNode(Text(desc))]
+                    ))
+                ]
+            ))
+        }
+
+        return Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "class", value: "shortcuts-grid")],
+            children: rows
+        )
+    }
+
     private static func renderSettings() -> [AnyNode] {
         let uiState = uiSignal.get()
         guard uiState.isSettingsOpen else { return [] }
@@ -2107,6 +2219,18 @@ public struct App {
                                 ))
                             ]
                         ))
+                    ]
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "settings-panel__section")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "h3",
+                            attributes: [Attribute(name: "class", value: "settings-panel__section-title")],
+                            children: [AnyNode(Text("Keyboard Shortcuts"))]
+                        )),
+                        AnyNode(renderShortcutsGrid())
                     ]
                 ))
             ]

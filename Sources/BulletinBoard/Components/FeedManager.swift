@@ -178,6 +178,30 @@ public struct FeedManager {
             ))
         ]
 
+        let frequencyOptions: [(String, String)] = [
+            ("15", "15 min"),
+            ("30", "30 min"),
+            ("60", "1 hour"),
+            ("120", "2 hours"),
+            ("240", "4 hours"),
+            ("480", "8 hours"),
+            ("1440", "24 hours")
+        ]
+
+        let selectChildren: [AnyNode] = frequencyOptions.map { (value, label) in
+            var attrs = [
+                Attribute(name: "value", value: value)
+            ]
+            if String(feed.updateFrequency) == value {
+                attrs.append(Attribute(name: "selected", value: "true"))
+            }
+            return AnyNode(Element<AnyHTMLContext>(
+                tag: "option",
+                attributes: attrs,
+                children: [AnyNode(Text(label))]
+            ))
+        }
+
         let editForm = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [Attribute(name: "class", value: "feed-item__edit-form")],
@@ -192,6 +216,29 @@ public struct FeedManager {
                         Attribute(name: "placeholder", value: "Feed title")
                     ],
                     children: []
+                )),
+                AnyNode(Element<AnyHTMLContext>(
+                    tag: "div",
+                    attributes: [Attribute(name: "class", value: "feed-item__frequency")],
+                    children: [
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "label",
+                            attributes: [
+                                Attribute(name: "class", value: "feed-item__frequency-label"),
+                                Attribute(name: "for", value: "edit-feed-freq-\(feed.id)")
+                            ],
+                            children: [AnyNode(Icons.clock(size: 12)), AnyNode(Text(" Refresh"))]
+                        )),
+                        AnyNode(Element<AnyHTMLContext>(
+                            tag: "select",
+                            attributes: [
+                                Attribute(name: "id", value: "edit-feed-freq-\(feed.id)"),
+                                Attribute(name: "class", value: "feed-item__frequency-select"),
+                                Attribute(name: "data-feed-id", value: feed.id)
+                            ],
+                            children: selectChildren
+                        ))
+                    ]
                 )),
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "button",
