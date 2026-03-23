@@ -114,19 +114,6 @@ public struct App {
         await loadPersistedData()
         t = perf("Load persisted data", since: t)
 
-        await Logger.shared.info(AppLogFeature.data, "Indexing articles for search...")
-        await indexArticlesForSearch()
-        t = perf("Search indexing", since: t)
-
-        await Logger.shared.info(AppLogFeature.nlp, "Processing articles with NLP...")
-        await processArticlesWithNLP()
-        t = perf("NLP processing", since: t)
-
-        #if canImport(JavaScriptKit) && arch(wasm32)
-        await extractDominantColors()
-        t = perf("Color extraction", since: t)
-        #endif
-
         setupReactiveEffects()
         t = perf("Reactive effects setup", since: t)
 
@@ -134,17 +121,37 @@ public struct App {
         #if canImport(JavaScriptKit)
         mountUI()
         #else
-        print("✅ Bulletin Board initialized (no UI in non-WASM environment)")
+        print("Bulletin Board initialized (no UI in non-WASM environment)")
         #endif
         t = perf("UI mount + initial render", since: t)
 
-        _ = perf("TOTAL Swift startup", since: t0)
-        await Logger.shared.info(AppLogFeature.startup, "Bulletin Board ready!")
-        print("✅ Bulletin Board ready!")
+        _ = perf("TOTAL Swift startup (to first paint)", since: t0)
+        await Logger.shared.info(AppLogFeature.startup, "Bulletin Board visible — starting background processing...")
+        print("Bulletin Board ready!")
 
         #if canImport(JavaScriptKit) && arch(wasm32)
         startAutoRefresh()
         #endif
+
+        Task {
+            let bgStart = now()
+            await indexArticlesForSearch()
+            _ = perf("Search indexing (background)", since: bgStart)
+
+            let nlpStart = now()
+            await processArticlesWithNLP()
+            _ = perf("NLP processing (background)", since: nlpStart)
+
+            #if canImport(JavaScriptKit) && arch(wasm32)
+            let colorStart = now()
+            await extractDominantColors()
+            _ = perf("Color extraction (background)", since: colorStart)
+
+            renderToDOM()
+            #endif
+
+            await Logger.shared.info(AppLogFeature.startup, "Background processing complete (\(String(format: "%.1f", now() - bgStart))ms)")
+        }
     }
 
     #if canImport(JavaScriptKit) && arch(wasm32)
@@ -248,7 +255,7 @@ public struct App {
         let articles = appStore.getState().articles.articles
         let needsColor = articles.filter { article in
             article.dominantColor == nil &&
-            article.enclosure?.type.hasPrefix("image/") == true
+            article.heroImageURL != nil
         }
         guard !needsColor.isEmpty else { return }
 
@@ -257,7 +264,7 @@ public struct App {
         var updates: [(id: String, color: ArticleColor)] = []
 
         for article in needsColor {
-            guard let imageURL = article.enclosure?.url else { continue }
+            guard let imageURL = article.heroImageURL else { continue }
             if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
                 updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
             }
@@ -2116,9 +2123,16 @@ public struct App {
         let readCount = articlesSignal.get().articles.filter { $0.isRead && !$0.isArchived }.count
         let archivedCount = articlesSignal.get().articles.filter { $0.isArchived }.count
 
+        var settingsPanelClass = "settings-panel"
+        #if canImport(JavaScriptKit) && arch(wasm32)
+        if GPUComponentConfig.isEnabled(for: "SettingsPanel") {
+            settingsPanelClass += " settings-panel--blurred"
+        }
+        #endif
+
         let content = Element<AnyHTMLContext>(
             tag: "div",
-            attributes: [Attribute(name: "class", value: "settings-panel")],
+            attributes: [Attribute(name: "class", value: settingsPanelClass)],
             children: [
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "header",

@@ -48,7 +48,9 @@ self.addEventListener('fetch', event => {
             caches.match(event.request).then(cached => {
                 if (cached) {
                     console.log('[SW] Cache hit:', url.pathname);
-                    fetchAndCache(event.request);
+                    if (!url.pathname.endsWith(WASM_URL)) {
+                        fetchAndCache(event.request);
+                    }
                     return cached;
                 }
                 return fetchAndCache(event.request);

@@ -68,10 +68,15 @@ public struct FeedManager {
 
         children.append(AnyNode(renderOPMLActions()))
 
+        var feedManagerClass = "feed-manager"
+        if GPUComponentConfig.isEnabled(for: "FeedManager") {
+            feedManagerClass += " feed-manager--blurred"
+        }
+
         let container = Element<AnyHTMLContext>(
             tag: "div",
             attributes: [
-                Attribute(name: "class", value: "feed-manager"),
+                Attribute(name: "class", value: feedManagerClass),
                 Attribute(name: "role", value: "dialog"),
                 Attribute(name: "aria-modal", value: "true"),
                 Attribute(name: "aria-label", value: "Feed Manager")

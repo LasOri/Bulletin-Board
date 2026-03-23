@@ -52,8 +52,8 @@ public struct ArticleCard {
 
     private static func cardChildren(article: Article, props: Props) -> [AnyNode] {
         var children: [AnyNode] = []
-        if let enclosure = article.enclosure, enclosure.type.starts(with: "image/") {
-            children.append(AnyNode(renderHeroImage(url: enclosure.url, alt: article.title)))
+        if let imageURL = article.heroImageURL {
+            children.append(AnyNode(renderHeroImage(url: imageURL, alt: article.title)))
         }
         children.append(AnyNode(renderHeader(article: article, props: props)))
         children.append(AnyNode(renderContent(article: article)))

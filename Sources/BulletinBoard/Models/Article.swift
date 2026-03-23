@@ -161,6 +161,39 @@ public enum ArticleCategory: String, Codable, CaseIterable, Sendable {
 }
 
 extension Article {
+    public var heroImageURL: String? {
+        if let enc = enclosure, enc.type.hasPrefix("image/") {
+            return enc.url
+        }
+        return Self.extractFirstImageURL(from: content)
+            ?? Self.extractFirstImageURL(from: description)
+    }
+
+    private static func extractFirstImageURL(from html: String?) -> String? {
+        guard let html = html else { return nil }
+        var searchStart = html.startIndex
+        while let imgRange = html.range(of: "<img ", options: .caseInsensitive, range: searchStart..<html.endIndex) {
+            let tagEnd = html.range(of: ">", range: imgRange.upperBound..<html.endIndex)?.upperBound ?? html.endIndex
+            let tagContent = String(html[imgRange.lowerBound..<tagEnd])
+            if let url = extractSrcAttribute(from: tagContent), url.hasPrefix("http") {
+                return url
+            }
+            searchStart = tagEnd
+        }
+        return nil
+    }
+
+    private static func extractSrcAttribute(from tag: String) -> String? {
+        for pattern in ["src=\"", "src='"] {
+            guard let start = tag.range(of: pattern, options: .caseInsensitive) else { continue }
+            let valueStart = start.upperBound
+            let quote = String(pattern.last!)
+            guard let end = tag.range(of: quote, range: valueStart..<tag.endIndex) else { continue }
+            return String(tag[valueStart..<end.lowerBound])
+        }
+        return nil
+    }
+
     public var displayContent: String {
         nlpSummary ?? description ?? content ?? ""
     }
