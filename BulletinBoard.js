@@ -1015,7 +1015,35 @@ export async function startWasmApp() {
         // Use streaming instantiation — compiles while downloading (much faster for large binaries)
         const tFetch = performance.now();
         console.log('[PERF] Fetching & compiling WASM module (streaming)...');
-        const response = fetch('BulletinBoard.wasm');
+
+        const progressBar = document.getElementById('load-progress-bar');
+        const progressText = document.getElementById('load-progress-text');
+        const rawResponse = await fetch('BulletinBoard.wasm');
+        const contentLength = rawResponse.headers.get('content-length');
+        const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+        let response;
+        if (totalBytes > 0 && rawResponse.body) {
+            const reader = rawResponse.body.getReader();
+            const chunks = [];
+            let loaded = 0;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                loaded += value.length;
+                const pct = Math.min(100, (loaded / totalBytes * 100));
+                if (progressBar) progressBar.style.width = pct.toFixed(0) + '%';
+                if (progressText) progressText.textContent = `${(loaded / 1048576).toFixed(1)} / ${(totalBytes / 1048576).toFixed(1)} MB`;
+            }
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressText) progressText.textContent = 'Compiling...';
+            const blob = new Blob(chunks, { type: 'application/wasm' });
+            response = new Response(blob, { headers: { 'content-type': 'application/wasm' } });
+        } else {
+            response = rawResponse;
+        }
+
         const wasmModule = await WebAssembly.instantiateStreaming(response, importObject);
         wasmInstance = wasmModule.instance;
         console.log(`[PERF] WASM fetch+compile+instantiate: ${(performance.now() - tFetch).toFixed(1)}ms`);
