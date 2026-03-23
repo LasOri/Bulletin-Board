@@ -1,5 +1,4 @@
-const CACHE_NAME = 'bulletin-board-v3';
-const WASM_URL = 'BulletinBoard.wasm';
+const CACHE_NAME = 'bulletin-board-v4';
 
 const PRECACHE_URLS = [
     './',
@@ -39,21 +38,15 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (url.pathname.endsWith(WASM_URL) ||
+    if (url.pathname.endsWith('.wasm') ||
         url.pathname.endsWith('.js') ||
         url.pathname.endsWith('.css') ||
         url.pathname.endsWith('.html') ||
         url.pathname.endsWith('/')) {
         event.respondWith(
             caches.match(event.request).then(cached => {
-                if (cached) {
-                    console.log('[SW] Cache hit:', url.pathname);
-                    if (!url.pathname.endsWith(WASM_URL)) {
-                        fetchAndCache(event.request);
-                    }
-                    return cached;
-                }
-                return fetchAndCache(event.request);
+                const networkFetch = fetchAndCache(event.request);
+                return cached || networkFetch;
             })
         );
     }
