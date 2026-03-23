@@ -450,8 +450,13 @@ class SwiftRuntime {
             swjs_call_function_no_catch: (ref, argv, argc, payload1_ptr, payload2_ptr) => {
                 const memory = this.memory;
                 const func = memory.getObject(ref);
-                const args = decodeArray(argv, argc, this.getDataView(), memory);
-                const result = func(...args);
+                let result;
+                try {
+                    const args = decodeArray(argv, argc, this.getDataView(), memory);
+                    result = func(...args);
+                } catch (error) {
+                    return writeAndReturnKindBits(error, payload1_ptr, payload2_ptr, true, this.getDataView(), this.memory);
+                }
                 return writeAndReturnKindBits(result, payload1_ptr, payload2_ptr, false, this.getDataView(), this.memory);
             },
             swjs_call_function_with_this: (obj_ref, func_ref, argv, argc, payload1_ptr, payload2_ptr) => {
@@ -471,8 +476,13 @@ class SwiftRuntime {
                 const memory = this.memory;
                 const obj = memory.getObject(obj_ref);
                 const func = memory.getObject(func_ref);
-                const args = decodeArray(argv, argc, this.getDataView(), memory);
-                const result = func.apply(obj, args);
+                let result;
+                try {
+                    const args = decodeArray(argv, argc, this.getDataView(), memory);
+                    result = func.apply(obj, args);
+                } catch (error) {
+                    return writeAndReturnKindBits(error, payload1_ptr, payload2_ptr, true, this.getDataView(), this.memory);
+                }
                 return writeAndReturnKindBits(result, payload1_ptr, payload2_ptr, false, this.getDataView(), this.memory);
             },
             swjs_call_new: (ref, argv, argc) => {
