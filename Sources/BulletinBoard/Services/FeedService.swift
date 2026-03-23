@@ -30,6 +30,9 @@ public actor FeedService {
         return proxy + encoded
     }
 
+    private static let maxRetriesPerProxy = 2
+    private static let retryDelayMs: UInt64 = 800_000_000
+
     private func fetchViaProxies(_ targetURL: String) async throws -> String {
         guard !FeedService.corsProxies.isEmpty else {
             let response = try await httpClient.get(targetURL)
@@ -44,23 +47,51 @@ public actor FeedService {
         for proxy in FeedService.corsProxies {
             guard let fetchURL = buildProxiedURL(targetURL, proxy: proxy) else { continue }
 
-            do {
-                let response = try await httpClient.get(fetchURL)
-
-                guard let body = response.body.stringValue, !body.isEmpty else {
-                    lastError = FeedError.parseError("Proxy returned empty body")
-                    continue
+            for attempt in 0..<FeedService.maxRetriesPerProxy {
+                if attempt > 0 {
+                    try await Task.sleep(nanoseconds: FeedService.retryDelayMs * UInt64(attempt))
                 }
 
-                if body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{\"Error\"") {
-                    lastError = FeedError.parseError("Proxy returned error")
+                do {
+                    let response = try await httpClient.get(fetchURL)
+
+                    if response.statusCode >= 500 {
+                        lastError = FeedError.networkError("Proxy returned HTTP \(response.statusCode)")
+                        continue
+                    }
+
+                    if response.statusCode == 429 {
+                        lastError = FeedError.rateLimitExceeded
+                        break
+                    }
+
+                    guard let body = response.body.stringValue, !body.isEmpty else {
+                        lastError = FeedError.parseError("Proxy returned empty body")
+                        continue
+                    }
+
+                    let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    if trimmedBody.hasPrefix("{\"Error\"") {
+                        lastError = FeedError.parseError("Proxy returned error JSON")
+                        continue
+                    }
+
+                    if trimmedBody.hasPrefix("error code:") {
+                        lastError = FeedError.networkError("Proxy upstream error: \(trimmedBody)")
+                        continue
+                    }
+
+                    if body.count < 50 && !trimmedBody.hasPrefix("<?xml") && !trimmedBody.hasPrefix("<rss") && !trimmedBody.hasPrefix("<feed") && !trimmedBody.hasPrefix("<") {
+                        lastError = FeedError.parseError("Proxy returned non-XML short response")
+                        continue
+                    }
+
+                    return body
+                } catch {
+                    lastError = error
                     continue
                 }
-
-                return body
-            } catch {
-                lastError = error
-                continue
             }
         }
 

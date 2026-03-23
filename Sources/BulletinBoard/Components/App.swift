@@ -110,6 +110,7 @@ public struct App {
 
         FeedService.corsProxies = [
             "https://api.allorigins.win/raw?url=",
+            "https://api.cors.lol/?url=",
             "https://api.codetabs.com/v1/proxy?quest="
         ]
 
