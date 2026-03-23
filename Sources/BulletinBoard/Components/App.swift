@@ -108,7 +108,10 @@ public struct App {
         #endif
         t = perf("GPU detection + WebGPU init", since: t)
 
-        FeedService.corsProxy = "https://api.codetabs.com/v1/proxy?quest="
+        FeedService.corsProxies = [
+            "https://api.allorigins.win/raw?url=",
+            "https://api.codetabs.com/v1/proxy?quest="
+        ]
 
         await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
         await loadPersistedData()

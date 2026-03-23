@@ -1,64 +1,77 @@
 # Bulletin Board
 
-A modern, intelligent news feed reader built with LINKER framework, demonstrating Swift WASM capabilities, reactive UI patterns, and local NLP processing.
+A modern RSS/Atom feed reader built with Swift compiled to WebAssembly via the [LINKER](https://github.com/nicktmro/LINKER) reactive UI framework. Runs entirely in the browser with zero backend — all processing (NLP, storage, rendering) happens client-side.
 
-## Overview
+**Live Demo**: [lasori.github.io/Bulletin-Board](https://lasori.github.io/Bulletin-Board/)
 
-Bulletin Board is a production-quality news feed reader that runs entirely in the browser using Swift compiled to WebAssembly. It features:
+## Features
 
-- 🗞️ **Multi-feed support** - Subscribe to unlimited RSS/Atom feeds
-- 🤖 **Local NLP** - Text summarization, categorization, and clustering (client-side)
-- ⚡ **High performance** - Virtual scrolling handles 1000+ articles smoothly
-- 🎨 **Beautiful animations** - AppStore-style card expansion with spring physics
-- 💾 **Offline-first** - IndexedDB storage for offline reading
-- 🔒 **Privacy-focused** - Zero backend, all processing happens locally
-- 🌙 **Dark mode** - Full dark theme support
+- **Multi-feed RSS/Atom reader** with auto-discovery and CORS proxy fallback chain
+- **Local NLP** — TextRank summarization, TF-IDF keyword extraction, auto-categorization, K-means topic clustering
+- **WebGPU effects** — hardware-accelerated shadows and blur via WGSL shaders on `<canvas>` elements
+- **Full-text search** with ranked results and match-field badges
+- **Offline-first** — IndexedDB storage with WebAuthn-backed encryption fallback
+- **Virtual scrolling** for 1000+ articles
+- **Dark mode** with system preference detection
+- **Mobile responsive** with touch-optimized controls (44px targets)
+- **Privacy-focused** — no analytics, no tracking, no server
 
 ## Tech Stack
 
-- **Language**: Swift 6.2+
-- **Framework**: [LINKER](../LINKER) (Signal-based reactive UI framework)
-- **Runtime**: Swift WASM + JavaScriptKit
-- **Build Tool**: Carton
-- **State Management**: Redux architecture
-- **Storage**: IndexedDB
-- **Testing**: XCTest
+| Layer | Technology |
+|-------|-----------|
+| Language | Swift 6.4-dev |
+| Framework | [LINKER](https://github.com/nicktmro/LINKER) (signal-based reactive UI) |
+| Runtime | Swift WASM + JavaScriptKit 0.46.5 (patched) |
+| Build | Docker (`swiftlang/swift:nightly-main-jammy`) |
+| GPU | WebGPU + WGSL shaders |
+| State | Redux architecture (Store/Reducer/Middleware) |
+| Storage | IndexedDB |
+| Deployment | GitHub Pages (gh-pages branch) |
 
 ## Quick Start
 
 ### Prerequisites
 
-- Swift 6.2+ with WebAssembly support
-- Carton (`brew install swiftwasm/tap/carton`)
+- Docker
+- Parent directory must contain the [LINKER](https://github.com/nicktmro/LINKER) framework:
+  ```
+  parent/
+  ├── LINKER/
+  └── Bulletin-Board/
+  ```
 
-### Development
+### Build
 
 ```bash
-# Install dependencies (LINKER framework is local)
-cd /Users/I525390/Documents/own/Bulletin-Board
-
-# Run development server
-carton dev
-
-# Open browser to http://127.0.0.1:8080
+cd ..
+docker build -f Dockerfile.bulletin-board -t bulletin-board-wasm .
+docker cp $(docker create bulletin-board-wasm):/output/BulletinBoard.wasm Bulletin-Board/Public/
 ```
 
-### Build for Production
+### Run Locally
 
 ```bash
-# Build optimized WASM bundle
-carton bundle
+cd Bulletin-Board
+python3 -c "
+import http.server, socketserver
 
-# Output in Bundle/BulletinBoard.wasm
+class H(http.server.SimpleHTTPRequestHandler):
+    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, '.wasm': 'application/wasm'}
+    def end_headers(self):
+        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+        self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+        super().end_headers()
+
+socketserver.TCPServer(('', 8080), H).serve_forever()
+" &
+open http://localhost:8080/Public/index.html
 ```
 
-### Testing
+### Run Tests
 
 ```bash
-# Run all tests
 swift test
-
-# Run specific test suite
 swift test --filter ArticleTests
 ```
 
@@ -66,143 +79,74 @@ swift test --filter ArticleTests
 
 ```
 Sources/BulletinBoard/
-├── BulletinBoard.swift          # Entry point
-├── App.swift                     # Root component
-├── State/                        # Redux store
-├── Components/                   # UI components
-├── Services/                     # Business logic
-├── NLP/                         # NLP algorithms
-├── Models/                      # Data models
-├── Animations/                  # Custom animations
-└── Utils/                       # Utilities
+├── main.swift                    Entry point (WASM-guarded)
+├── Components/
+│   ├── App.swift                 Root component, proxy config, mount logic
+│   ├── ArticleCard.swift         Feed card with hero image
+│   ├── ArticleDetailView.swift   Expanded article view
+│   ├── ArticleList.swift         Virtual-scrolled article list
+│   ├── CategoryGrid.swift        Category-grouped view
+│   ├── FeedManager.swift         Add/remove/discover feeds
+│   ├── SearchBar.swift           Full-text search with ranked results
+│   └── GPU/                      WebGPU canvas lifecycle
+├── Models/
+│   ├── Article.swift
+│   ├── Feed.swift
+│   ├── DiscoveredFeed.swift
+│   └── FeedPreview.swift
+├── Services/
+│   ├── FeedService.swift         RSS fetch with CORS proxy fallback
+│   ├── SearchService.swift       TF-IDF indexed full-text search
+│   ├── StorageService.swift      IndexedDB with encryption fallback
+│   ├── OPMLService.swift         OPML import/export
+│   └── NLP/                      TextRank, TF-IDF, K-means
+├── State/
+│   ├── Store.swift               Redux store
+│   ├── AppState.swift            Root state
+│   ├── AppReducer.swift          Root reducer
+│   ├── Articles/                 Article actions/reducers
+│   ├── Feeds/                    Feed actions/reducers
+│   └── UI/                       UI state actions/reducers
+└── Security/
+    └── CSPConfiguration.swift    Content Security Policy
 
-Tests/BulletinBoardTests/
-├── StateTests/
-├── ComponentTests/
-├── ServiceTests/
-└── NLPTests/
+patches/
+└── JavaScriptEventLoop+ExecutorFactory.swift   WASM executor fix
+
+Public/
+├── index.html                    App shell with loading progress
+├── styles.css                    All styles (dark mode, responsive)
+├── BulletinBoard.js              WASM loader with download progress
+└── BulletinBoard.wasm            Compiled binary (~48MB)
 ```
 
-## Features
+## CORS Proxy
 
-### Feed Management
-- Subscribe to RSS/Atom feeds
-- Auto-discovery from URLs
-- Feed organization
-- Offline caching
-- Manual/auto refresh
+Browser CORS restrictions prevent direct RSS fetching. The app uses a proxy fallback chain:
 
-### Content Analysis (Local NLP)
-- Text summarization (TextRank)
-- Keyword extraction (TF-IDF)
-- Auto-categorization
-- Topic clustering (K-means)
-- All processing client-side
+1. `api.allorigins.win/raw` (primary)
+2. `api.codetabs.com/v1/proxy` (fallback)
 
-### UI/UX
-- Virtual scrolling
-- AppStore-style animations
-- Backdrop blur effects
-- Responsive design
-- Dark mode
+If all proxies fail, the error is surfaced to the user. No registration or API keys required.
 
-### Article Management
-- Read/unread tracking
-- Favorites
-- Archive
-- Full-text search
-- Filter by category/feed/date
+## Deployment
 
-## Development Standards
-
-See [BULLETIN_BOARD_PLAN.md](./Sources/BulletinBoard/BULLETIN_BOARD_PLAN.md) for:
-- Code quality standards
-- Testing requirements
-- File organization
-- Naming conventions
-- Git commit standards
-- Performance targets
-
-## Roadmap
-
-- [x] Project setup
-- [x] Redux store (Phase 1) - ✅ 338 tests
-- [x] GPU integration (Phase 2) - ✅ 42 tests
-- [x] Security features (Phase 3) - ✅ 18 tests
-- [x] UI implementation (Phase 4) - ✅ Complete
-- [x] CI/CD pipeline (Phase 4) - ✅ GitHub Actions
-
-**Current Status**: 🎉 **398 tests passing** - Ready for deployment!
-
-## 🚀 Deployment
-
-The app automatically deploys to GitHub Pages on every push to `main`.
-
-**Live Demo**: https://lasori.github.io/Bulletin-Board/ _(will be live after first deployment)_
-
-### CI/CD Pipeline
-
-The GitHub Actions workflow (`.github/workflows/deploy.yml`) automatically:
-
-1. ✅ Runs all 398 tests
-2. ✅ Verifies security features (XSS, CSRF, rate limiting)
-3. ✅ Builds optimized WASM bundle
-4. ✅ Deploys to GitHub Pages
-
-### Manual Deployment
-
-If you want to deploy manually:
+The app deploys to GitHub Pages via the `gh-pages` branch.
 
 ```bash
-# Install Carton if not already installed
-brew install swiftwasm/tap/carton
-
-# Build production bundle
-carton bundle --release
-
-# The Bundle/ directory will contain:
-# - BulletinBoard.wasm (compiled Swift code)
-# - BulletinBoard.js (JavaScript loader)
-
-# Copy to deployment directory
-mkdir -p dist
-cp -r Bundle/* dist/
-cp Public/index.html dist/
-cp Public/styles.css dist/
-
-# Deploy dist/ to your web server
+git checkout gh-pages
+cp Public/index.html Public/styles.css Public/BulletinBoard.js Public/BulletinBoard.wasm .
+git add -A && git commit -m "deploy" && git push
+git checkout main
 ```
 
-### Local Development Without Carton
+## JavaScriptKit Patches
 
-If you don't have Carton installed, you can still develop and test:
+JavaScriptKit 0.46.5 requires two patches for WASM compatibility:
 
-```bash
-# Run tests (native Swift, no WASM needed)
-swift test
-
-# All 398 tests will run in native Swift mode
-# UI rendering tests are skipped in non-WASM environments
-```
-
-To test the UI in a browser, you need Carton:
-
-```bash
-# Install Carton
-brew install swiftwasm/tap/carton
-
-# Run development server with hot reload
-carton dev
-
-# Browser opens automatically to http://localhost:8080
-```
+1. **ExecutorFactory** (`patches/`): Removes `@available` annotations that fail on WASM (no OS versioning)
+2. **installGlobalExecutor** (Dockerfile `sed`): Removes `if #available(macOS 9999, ...)` guard that prevents executor installation on WASM, causing `Task {}` bodies to never run
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details
-
-## Related Projects
-
-- [LINKER Framework](../LINKER) - The reactive UI framework powering Bulletin Board
-
-<!-- Trigger GitHub Actions deployment -->
+MIT License — see [LICENSE](./LICENSE) for details.

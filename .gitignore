@@ -94,6 +94,15 @@ Thumbs.db
 
 # Test files and screenshots
 test-*.js
+test-*.mjs
 test-*.png
+audit-*.png
+design-*.json
+design-*.mjs
+deep-ux-*.json
+deep-ux-*.mjs
+check-dom.mjs
+design-review-pro.mjs
+debug-*.png
 package.json
 package-lock.json

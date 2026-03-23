@@ -14,7 +14,7 @@ public actor FeedService {
 
     private let httpClient: SecureHTTPClient
 
-    public nonisolated(unsafe) static var corsProxy: String? = nil
+    public nonisolated(unsafe) static var corsProxies: [String] = []
 
     public init(httpClient: SecureHTTPClient? = nil) {
         self.httpClient = httpClient ?? SecureApp.createHTTPClient(
@@ -23,29 +23,57 @@ public actor FeedService {
         )
     }
 
+    private func buildProxiedURL(_ targetURL: String, proxy: String) -> String? {
+        guard let encoded = targetURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            return nil
+        }
+        return proxy + encoded
+    }
+
+    private func fetchViaProxies(_ targetURL: String) async throws -> String {
+        guard !FeedService.corsProxies.isEmpty else {
+            let response = try await httpClient.get(targetURL)
+            guard let body = response.body.stringValue, !body.isEmpty else {
+                throw FeedError.parseError("Expected XML string in response body")
+            }
+            return body
+        }
+
+        var lastError: Error = FeedError.networkError("No proxies configured")
+
+        for proxy in FeedService.corsProxies {
+            guard let fetchURL = buildProxiedURL(targetURL, proxy: proxy) else { continue }
+
+            do {
+                let response = try await httpClient.get(fetchURL)
+
+                guard let body = response.body.stringValue, !body.isEmpty else {
+                    lastError = FeedError.parseError("Proxy returned empty body")
+                    continue
+                }
+
+                if body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{\"Error\"") {
+                    lastError = FeedError.parseError("Proxy returned error")
+                    continue
+                }
+
+                return body
+            } catch {
+                lastError = error
+                continue
+            }
+        }
+
+        throw lastError
+    }
+
     public func fetchFeed(from url: String, feedId: String) async throws -> [Article] {
-        guard let feedURL = URL(string: url) else {
+        guard URL(string: url) != nil else {
             throw FeedError.invalidURL
         }
 
-        let fetchURL: String
-        if let proxy = FeedService.corsProxy {
-            guard let encoded = feedURL.absoluteString.addingPercentEncoding(
-                withAllowedCharacters: .urlQueryAllowed
-            ) else {
-                throw FeedError.invalidURL
-            }
-            fetchURL = proxy + encoded
-        } else {
-            fetchURL = feedURL.absoluteString
-        }
-
         do {
-            let response = try await httpClient.get(fetchURL)
-
-            guard let xmlString = response.body.stringValue else {
-                throw FeedError.parseError("Expected XML string in response body")
-            }
+            let xmlString = try await fetchViaProxies(url)
 
             let trimmed = xmlString.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.hasPrefix("<!DOCTYPE") || trimmed.hasPrefix("<html") {
@@ -96,24 +124,12 @@ public actor FeedService {
         var discovered: [DiscoveredFeed] = []
         var seenURLs: Set<String> = []
 
-        let fetchURL: String
-        if let proxy = FeedService.corsProxy {
-            guard let encoded = websiteURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-                throw FeedError.invalidURL
-            }
-            fetchURL = proxy + encoded
-        } else {
-            fetchURL = websiteURL
-        }
-
         do {
-            let response = try await httpClient.get(fetchURL)
-            if let html = response.body.stringValue {
-                let linkFeeds = parseFeedLinks(from: html, baseOrigin: origin)
-                for feed in linkFeeds where !seenURLs.contains(feed.url) {
-                    seenURLs.insert(feed.url)
-                    discovered.append(feed)
-                }
+            let html = try await fetchViaProxies(websiteURL)
+            let linkFeeds = parseFeedLinks(from: html, baseOrigin: origin)
+            for feed in linkFeeds where !seenURLs.contains(feed.url) {
+                seenURLs.insert(feed.url)
+                discovered.append(feed)
             }
         } catch {}
 
@@ -122,23 +138,13 @@ public actor FeedService {
             let probeURL = origin + path
             guard !seenURLs.contains(probeURL) else { continue }
 
-            let probeFetchURL: String
-            if let proxy = FeedService.corsProxy {
-                guard let encoded = probeURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { continue }
-                probeFetchURL = proxy + encoded
-            } else {
-                probeFetchURL = probeURL
-            }
-
             do {
-                let response = try await httpClient.get(probeFetchURL)
-                if let body = response.body.stringValue {
-                    let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed.hasPrefix("<?xml") || trimmed.hasPrefix("<rss") || trimmed.hasPrefix("<feed") {
-                        let feedType: FeedType = trimmed.contains("<feed") ? .atom : .rss
-                        seenURLs.insert(probeURL)
-                        discovered.append(DiscoveredFeed(url: probeURL, title: path, type: feedType))
-                    }
+                let body = try await fetchViaProxies(probeURL)
+                let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.hasPrefix("<?xml") || trimmed.hasPrefix("<rss") || trimmed.hasPrefix("<feed") {
+                    let feedType: FeedType = trimmed.contains("<feed") ? .atom : .rss
+                    seenURLs.insert(probeURL)
+                    discovered.append(DiscoveredFeed(url: probeURL, title: path, type: feedType))
                 }
             } catch {}
         }
