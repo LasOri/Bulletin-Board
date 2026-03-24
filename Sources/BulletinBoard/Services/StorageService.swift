@@ -63,62 +63,71 @@ public actor StorageService {
         return b
     }
 
-    public func save<T: Codable>(_ value: T, forKey key: String) async throws {
+    public func save<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
         let backend = await ensureBackend()
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(value) else {
-            throw StorageError.encodingFailed
-        }
 
         switch backend {
         case .inMemory:
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            guard let data = try? encoder.encode(value) else {
+                throw StorageError.encodingFailed
+            }
             inMemoryStore[key] = data
 
         case .webAuthn(let storage):
             let store = storage.store("secure_storage")
-            try await store.put(data, key: key)
+            try await store.put(value, key: key)
 
         case .indexedDB(let db):
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            guard let data = try? encoder.encode(value),
+                  let jsonString = String(data: data, encoding: .utf8) else {
+                throw StorageError.encodingFailed
+            }
             let store = db.store("bb_data")
-            try await store.put(data, key: key)
+            try await store.putRaw(jsonString, key: key)
         }
     }
 
-    public func load<T: Codable>(forKey key: String) async throws -> T {
+    public func load<T: Codable & Sendable>(forKey key: String) async throws -> T {
         let backend = await ensureBackend()
-
-        let data: Data
 
         switch backend {
         case .inMemory:
-            guard let storedData = inMemoryStore[key] else {
+            guard let data = inMemoryStore[key] else {
                 throw StorageError.notFound
             }
-            data = storedData
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            guard let value = try? decoder.decode(T.self, from: data) else {
+                throw StorageError.decodingFailed
+            }
+            return value
 
         case .webAuthn(let storage):
             let store = storage.store("secure_storage")
-            guard let storedData = try await store.get(key, as: Data.self) else {
+            guard let value: T = try await store.get(key, as: T.self) else {
                 throw StorageError.notFound
             }
-            data = storedData
+            return value
 
         case .indexedDB(let db):
             let store = db.store("bb_data")
-            guard let storedData = try await store.get(key, as: Data.self) else {
+            guard let jsonString = try await store.getRaw(key) else {
                 throw StorageError.notFound
             }
-            data = storedData
+            guard let data = jsonString.data(using: .utf8) else {
+                throw StorageError.decodingFailed
+            }
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            guard let value = try? decoder.decode(T.self, from: data) else {
+                throw StorageError.decodingFailed
+            }
+            return value
         }
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        guard let value = try? decoder.decode(T.self, from: data) else {
-            throw StorageError.decodingFailed
-        }
-        return value
     }
 
     public func delete(forKey key: String) async throws {
@@ -145,16 +154,16 @@ public actor StorageService {
         case .webAuthn(let storage):
             do {
                 let store = storage.store("secure_storage")
-                let data = try await store.get(key, as: Data.self)
-                return data != nil
+                let data = try await store.exists(forKey: key)
+                return data
             } catch {
                 return false
             }
         case .indexedDB(let db):
             do {
                 let store = db.store("bb_data")
-                let data: Data? = try await store.get(key, as: Data.self)
-                return data != nil
+                let jsonString = try await store.getRaw(key)
+                return jsonString != nil
             } catch {
                 return false
             }
@@ -199,7 +208,10 @@ public actor StorageService {
         }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let request = indexedDBObj.open!(name, 1).object!
+            guard let request = (try? indexedDBObj.throwing.open?(name, 1))?.object else {
+                continuation.resume(throwing: StorageError.saveFailed("IndexedDB open failed"))
+                return
+            }
 
             let onUpgrade = JSClosure { args in
                 guard let event = args.first?.object,
@@ -219,7 +231,7 @@ public actor StorageService {
                 }
 
                 if !hasStore {
-                    _ = db.createObjectStore!(storeName)
+                    _ = try? db.throwing.createObjectStore?(storeName)
                 }
 
                 return .undefined
@@ -230,7 +242,7 @@ public actor StorageService {
                 if let event = args.first?.object,
                    let target = event.target.object,
                    let db = target.result.object {
-                    _ = db.close!()
+                    _ = try? db.throwing.close?()
                 }
                 continuation.resume()
                 return .undefined
