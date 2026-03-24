@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bulletin-board-v8';
+const CACHE_NAME = 'bulletin-board-v9';
 
 const PRECACHE_URLS = [
     './',
