@@ -25,20 +25,20 @@ public struct CSPConfiguration {
             return
         }
 
-        guard let metaTag = document.createElement("meta").object else {
+        guard let metaTag = (try? document.object?.throwing.createElement?("meta"))?.object else {
             print("⚠️ Cannot create CSP meta tag")
             return
         }
 
-        _ = metaTag.setAttribute!("http-equiv", "Content-Security-Policy")
-        _ = metaTag.setAttribute!("content", configure())
+        _ = try? metaTag.throwing.setAttribute?("http-equiv", "Content-Security-Policy")
+        _ = try? metaTag.throwing.setAttribute?("content", configure())
 
         guard let head = document.head.object else {
             print("⚠️ Cannot access document head")
             return
         }
 
-        _ = head.appendChild!(metaTag)
+        _ = try? head.throwing.appendChild?(metaTag)
         print("✅ CSP applied via meta tag")
     }
     #endif

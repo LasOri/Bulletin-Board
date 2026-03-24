@@ -19,7 +19,7 @@ public final class CardExpansionController: @unchecked Sendable {
     public func beginExpand(articleId: String) {
         guard let document = SafeJSGlobal.global?.document.object else { return }
 
-        guard let cardEl = document.querySelector!("[data-article-id=\"\(articleId)\"]").object else {
+        guard let cardEl = (try? document.throwing.querySelector?("[data-article-id=\"\(articleId)\"]"))?.object else {
             appStore.dispatch(UIAction.beginExpanding(id: articleId))
             appStore.dispatch(UIAction.expandComplete)
             return
@@ -27,7 +27,7 @@ public final class CardExpansionController: @unchecked Sendable {
 
         self.articleId = articleId
 
-        guard let rectObj = cardEl.getBoundingClientRect!().object else { return }
+        guard let rectObj = (try? cardEl.throwing.getBoundingClientRect?())?.object else { return }
         let sx = rectObj.x.number ?? 0
         let sy = rectObj.y.number ?? 0
         let sw = rectObj.width.number ?? 0
@@ -36,27 +36,27 @@ public final class CardExpansionController: @unchecked Sendable {
 
         appStore.dispatch(UIAction.beginExpanding(id: articleId))
 
-        let backdrop = document.createElement!("div").object!
+        guard let backdrop = (try? document.throwing.createElement?("div"))?.object else { return }
         backdrop.className = .string("card-expansion-backdrop")
-        backdrop.style.object?.setProperty!("opacity", "0")
+        backdrop.style.object?.setProperty?("opacity", "0")
 
-        let clone = cardEl.cloneNode!(true).object!
+        guard let clone = (try? cardEl.throwing.cloneNode?(true))?.object else { return }
         clone.className = .string("card-expansion-clone")
-        clone.style.object?.setProperty!("position", "fixed")
-        clone.style.object?.setProperty!("left", "\(sx)px")
-        clone.style.object?.setProperty!("top", "\(sy)px")
-        clone.style.object?.setProperty!("width", "\(sw)px")
-        clone.style.object?.setProperty!("height", "\(sh)px")
-        clone.style.object?.setProperty!("transform-origin", "top left")
-        clone.style.object?.setProperty!("z-index", "10001")
-        clone.style.object?.setProperty!("will-change", "transform")
-        clone.style.object?.setProperty!("pointer-events", "none")
+        clone.style.object?.setProperty?("position", "fixed")
+        clone.style.object?.setProperty?("left", "\(sx)px")
+        clone.style.object?.setProperty?("top", "\(sy)px")
+        clone.style.object?.setProperty?("width", "\(sw)px")
+        clone.style.object?.setProperty?("height", "\(sh)px")
+        clone.style.object?.setProperty?("transform-origin", "top left")
+        clone.style.object?.setProperty?("z-index", "10001")
+        clone.style.object?.setProperty?("will-change", "transform")
+        clone.style.object?.setProperty?("pointer-events", "none")
 
-        let body = document.body.object!
-        _ = body.appendChild!(backdrop)
-        _ = body.appendChild!(clone)
+        guard let body = document.body.object else { return }
+        _ = try? body.throwing.appendChild?(backdrop)
+        _ = try? body.throwing.appendChild?(clone)
 
-        cardEl.style.object?.setProperty!("opacity", "0")
+        cardEl.style.object?.setProperty?("opacity", "0")
 
         let vw = SafeJSGlobal.global?.innerWidth.number ?? 800
         let vh = SafeJSGlobal.global?.innerHeight.number ?? 600
@@ -83,13 +83,13 @@ public final class CardExpansionController: @unchecked Sendable {
                 let translateX = currentX - sx
                 let translateY = currentY - sy
 
-                clone.style.object?.setProperty!("transform",
+                clone.style.object?.setProperty?("transform",
                     "translate(\(translateX)px, \(translateY)px) scale(\(scaleX), \(scaleY))")
 
-                backdrop.style.object?.setProperty!("opacity", "\(progress)")
+                backdrop.style.object?.setProperty?("opacity", "\(progress)")
 
                 let radius = 12.0 * (1.0 - progress)
-                clone.style.object?.setProperty!("border-radius", "\(radius)px")
+                clone.style.object?.setProperty?("border-radius", "\(radius)px")
             },
             onComplete: { [weak self] in
                 self?.onExpandComplete(backdrop: backdrop, clone: clone)
@@ -98,8 +98,8 @@ public final class CardExpansionController: @unchecked Sendable {
     }
 
     private func onExpandComplete(backdrop: JSObject, clone: JSObject) {
-        _ = backdrop.remove!()
-        _ = clone.remove!()
+        _ = try? backdrop.throwing.remove?()
+        _ = try? clone.throwing.remove?()
 
         appStore.dispatch(UIAction.expandComplete)
     }
@@ -111,7 +111,7 @@ public final class CardExpansionController: @unchecked Sendable {
             return
         }
 
-        let detailEl = document.querySelector!(".article-detail").object
+        let detailEl = (try? document.throwing.querySelector?(".article-detail"))?.object
 
         appStore.dispatch(UIAction.beginCollapsing)
 
@@ -122,32 +122,35 @@ public final class CardExpansionController: @unchecked Sendable {
         let dx = (vw - dw) / 2.0
         let dy = 0.0
 
-        let backdrop = document.createElement!("div").object!
+        guard let backdrop = (try? document.throwing.createElement?("div"))?.object else { return }
         backdrop.className = .string("card-expansion-backdrop")
-        backdrop.style.object?.setProperty!("opacity", "1")
+        backdrop.style.object?.setProperty?("opacity", "1")
 
         let clone: JSObject
-        if let detailEl = detailEl {
-            clone = detailEl.cloneNode!(true).object!
+        if let detailEl = detailEl,
+           let cloned = (try? detailEl.throwing.cloneNode?(true))?.object {
+            clone = cloned
+        } else if let created = (try? document.throwing.createElement?("div"))?.object {
+            clone = created
         } else {
-            clone = document.createElement!("div").object!
+            return
         }
         clone.className = .string("card-expansion-clone")
-        clone.style.object?.setProperty!("position", "fixed")
-        clone.style.object?.setProperty!("left", "\(dx)px")
-        clone.style.object?.setProperty!("top", "\(dy)px")
-        clone.style.object?.setProperty!("width", "\(dw)px")
-        clone.style.object?.setProperty!("height", "\(dh)px")
-        clone.style.object?.setProperty!("transform-origin", "top left")
-        clone.style.object?.setProperty!("z-index", "10001")
-        clone.style.object?.setProperty!("will-change", "transform")
-        clone.style.object?.setProperty!("pointer-events", "none")
-        clone.style.object?.setProperty!("overflow", "hidden")
-        clone.style.object?.setProperty!("background", "var(--color-surface)")
+        clone.style.object?.setProperty?("position", "fixed")
+        clone.style.object?.setProperty?("left", "\(dx)px")
+        clone.style.object?.setProperty?("top", "\(dy)px")
+        clone.style.object?.setProperty?("width", "\(dw)px")
+        clone.style.object?.setProperty?("height", "\(dh)px")
+        clone.style.object?.setProperty?("transform-origin", "top left")
+        clone.style.object?.setProperty?("z-index", "10001")
+        clone.style.object?.setProperty?("will-change", "transform")
+        clone.style.object?.setProperty?("pointer-events", "none")
+        clone.style.object?.setProperty?("overflow", "hidden")
+        clone.style.object?.setProperty?("background", "var(--color-surface)")
 
-        let body = document.body.object!
-        _ = body.appendChild!(backdrop)
-        _ = body.appendChild!(clone)
+        guard let body = document.body.object else { return }
+        _ = try? body.throwing.appendChild?(backdrop)
+        _ = try? body.throwing.appendChild?(clone)
 
         let sx = sourceRect.x
         let sy = sourceRect.y
@@ -170,13 +173,13 @@ public final class CardExpansionController: @unchecked Sendable {
                 let translateX = currentX - dx
                 let translateY = currentY - dy
 
-                clone.style.object?.setProperty!("transform",
+                clone.style.object?.setProperty?("transform",
                     "translate(\(translateX)px, \(translateY)px) scale(\(scaleX), \(scaleY))")
 
-                backdrop.style.object?.setProperty!("opacity", "\(1.0 - progress)")
+                backdrop.style.object?.setProperty?("opacity", "\(1.0 - progress)")
 
                 let radius = 12.0 * progress
-                clone.style.object?.setProperty!("border-radius", "\(radius)px")
+                clone.style.object?.setProperty?("border-radius", "\(radius)px")
             },
             onComplete: { [weak self] in
                 self?.onCollapseComplete(backdrop: backdrop, clone: clone)
@@ -185,13 +188,13 @@ public final class CardExpansionController: @unchecked Sendable {
     }
 
     private func onCollapseComplete(backdrop: JSObject, clone: JSObject) {
-        _ = backdrop.remove!()
-        _ = clone.remove!()
+        _ = try? backdrop.throwing.remove?()
+        _ = try? clone.throwing.remove?()
 
         if let articleId = articleId,
            let document = SafeJSGlobal.global?.document.object,
-           let cardEl = document.querySelector!("[data-article-id=\"\(articleId)\"]").object {
-            cardEl.style.object?.setProperty!("opacity", "1")
+           let cardEl = (try? document.throwing.querySelector?("[data-article-id=\"\(articleId)\"]"))?.object {
+            cardEl.style.object?.setProperty?("opacity", "1")
         }
 
         self.articleId = nil
@@ -215,7 +218,7 @@ public final class CardExpansionController: @unchecked Sendable {
 
             return .undefined
         }
-        document.addEventListener!("keydown", handler)
+        _ = try? document.throwing.addEventListener?("keydown", handler)
     }
 
     #else
@@ -231,4 +234,3 @@ public final class CardExpansionController: @unchecked Sendable {
     public func setupEscapeHandler(document: Any) {}
     #endif
 }
-

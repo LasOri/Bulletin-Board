@@ -13,25 +13,25 @@ public struct OPMLService {
         }
 
         let parser = domParserConstructor.new()
-        let doc = parser.parseFromString!(xml, "text/xml")
+        let doc = try? parser.throwing.parseFromString?(xml, "text/xml")
 
-        guard let docObj = doc.object else { return [] }
+        guard let docObj = doc?.object else { return [] }
 
-        if docObj.querySelector!("parsererror").object != nil {
+        if (try? docObj.throwing.querySelector?("parsererror"))?.object != nil {
             return []
         }
 
-        let outlines = docObj.querySelectorAll!("outline[xmlUrl]")
-        guard let collection = outlines.object else { return [] }
+        let outlines = try? docObj.throwing.querySelectorAll?("outline[xmlUrl]")
+        guard let collection = outlines?.object else { return [] }
 
         let length = collection.length.number.map { Int($0) } ?? 0
         var feeds: [(title: String, url: String)] = []
 
         for i in 0..<length {
-            guard let item = collection.item!(i).object else { continue }
-            let url = item.getAttribute!("xmlUrl").string ?? ""
-            let title = item.getAttribute!("text").string
-                ?? item.getAttribute!("title").string
+            guard let item = (try? collection.throwing.item?(i))?.object else { continue }
+            let url = (try? item.throwing.getAttribute?("xmlUrl"))?.string ?? ""
+            let title = (try? item.throwing.getAttribute?("text"))?.string
+                ?? (try? item.throwing.getAttribute?("title"))?.string
                 ?? url
             if !url.isEmpty {
                 feeds.append((title: title, url: url))
