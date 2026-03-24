@@ -124,6 +124,49 @@ public actor TFIDFEngine {
 
     public var count: Int { documentCount }
 
+    public var indexedDocumentIds: Set<String> {
+        Set(documentVectors.keys)
+    }
+
+    public func indexDocumentIfNew(id: String, text: String) {
+        guard documentVectors[id] == nil else { return }
+        indexDocument(id: id, text: text)
+    }
+
+    public func pairwiseSimilarities(
+        newIds: [String],
+        existingIds: [String],
+        threshold: Double = 0.15,
+        maxComparisons: Int = 50
+    ) -> [(id1: String, id2: String, similarity: Double)] {
+        var results: [(id1: String, id2: String, similarity: Double)] = []
+        let compareAgainst = existingIds.suffix(maxComparisons)
+
+        for newId in newIds {
+            guard let newVec = documentVectors[newId] else { continue }
+            for existingId in compareAgainst where existingId != newId {
+                guard let existingVec = documentVectors[existingId] else { continue }
+                let sim = Self.cosineSimilarity(newVec, existingVec)
+                if sim >= threshold {
+                    results.append((id1: newId, id2: existingId, similarity: sim))
+                }
+            }
+        }
+
+        for i in 0..<newIds.count {
+            guard let vecI = documentVectors[newIds[i]] else { continue }
+            for j in (i + 1)..<newIds.count {
+                guard let vecJ = documentVectors[newIds[j]] else { continue }
+                let sim = Self.cosineSimilarity(vecI, vecJ)
+                if sim >= threshold {
+                    results.append((id1: newIds[i], id2: newIds[j], similarity: sim))
+                }
+            }
+        }
+
+        return results
+    }
+
     private func computeVector(termFreqs: [String: Int]) -> SparseVector {
         guard documentCount > 0 else { return SparseVector(components: [:]) }
 

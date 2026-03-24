@@ -63,7 +63,18 @@ public actor NLPService {
         await tfidfEngine.clear()
         let documents = articles.map { (id: $0.id, text: $0.textForNLP) }
         await tfidfEngine.indexDocuments(documents)
-        print("📊 NLP corpus built: \(articles.count) documents indexed")
+    }
+
+    public func updateCorpus(with articles: [Article]) async -> [String] {
+        let alreadyIndexed = await tfidfEngine.indexedDocumentIds
+        var newIds: [String] = []
+        for article in articles {
+            if !alreadyIndexed.contains(article.id) {
+                await tfidfEngine.indexDocumentIfNew(id: article.id, text: article.textForNLP)
+                newIds.append(article.id)
+            }
+        }
+        return newIds
     }
 
     public func clusterArticles(_ articleIds: [String], threshold: Double = 0.15) async -> [String: Int] {
@@ -78,6 +89,25 @@ public actor NLPService {
                     similarity: match.similarity
                 ))
             }
+        }
+
+        return TextClusterer.cluster(similarities: pairs, threshold: threshold)
+    }
+
+    public func clusterIncremental(
+        newIds: [String],
+        existingIds: [String],
+        threshold: Double = 0.15
+    ) async -> [String: Int] {
+        let similarities = await tfidfEngine.pairwiseSimilarities(
+            newIds: newIds,
+            existingIds: existingIds,
+            threshold: threshold,
+            maxComparisons: 50
+        )
+
+        let pairs = similarities.map {
+            TextClusterer.SimilarityPair(id1: $0.id1, id2: $0.id2, similarity: $0.similarity)
         }
 
         return TextClusterer.cluster(similarities: pairs, threshold: threshold)
