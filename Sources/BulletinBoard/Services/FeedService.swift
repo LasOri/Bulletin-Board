@@ -16,6 +16,9 @@ public actor FeedService {
 
     public nonisolated(unsafe) static var corsProxies: [String] = []
 
+    private nonisolated(unsafe) static var proxyLastFailed: [String: Double] = [:]
+    private static let proxyCooldownSeconds: Double = 60
+
     public init(httpClient: SecureHTTPClient? = nil) {
         self.httpClient = httpClient ?? SecureApp.createHTTPClient(
             allowedHosts: nil,
@@ -31,7 +34,22 @@ public actor FeedService {
     }
 
     private static let maxRetriesPerProxy = 2
-    private static let retryDelayMs: UInt64 = 800_000_000
+    private static let baseRetryDelayMs: UInt64 = 800_000_000
+
+    private func isProxyHealthy(_ proxy: String) -> Bool {
+        guard let lastFailed = FeedService.proxyLastFailed[proxy] else {
+            return true
+        }
+        return Date().timeIntervalSince1970 - lastFailed >= FeedService.proxyCooldownSeconds
+    }
+
+    private func markProxyFailed(_ proxy: String) {
+        FeedService.proxyLastFailed[proxy] = Date().timeIntervalSince1970
+    }
+
+    private func markProxySuccess(_ proxy: String) {
+        FeedService.proxyLastFailed.removeValue(forKey: proxy)
+    }
 
     private func fetchViaProxies(_ targetURL: String) async throws -> String {
         guard !FeedService.corsProxies.isEmpty else {
@@ -42,14 +60,17 @@ public actor FeedService {
             return body
         }
 
+        let healthyProxies = FeedService.corsProxies.filter { isProxyHealthy($0) }
+        let proxiesToTry = healthyProxies.isEmpty ? FeedService.corsProxies : healthyProxies
+
         var lastError: Error = FeedError.networkError("No proxies configured")
 
-        for proxy in FeedService.corsProxies {
+        for proxy in proxiesToTry {
             guard let fetchURL = buildProxiedURL(targetURL, proxy: proxy) else { continue }
 
             for attempt in 0..<FeedService.maxRetriesPerProxy {
                 if attempt > 0 {
-                    try await Task.sleep(nanoseconds: FeedService.retryDelayMs * UInt64(attempt))
+                    try await Task.sleep(nanoseconds: FeedService.baseRetryDelayMs * UInt64(attempt))
                 }
 
                 do {
@@ -62,6 +83,7 @@ public actor FeedService {
 
                     if response.statusCode == 429 {
                         lastError = FeedError.rateLimitExceeded
+                        markProxyFailed(proxy)
                         break
                     }
 
@@ -87,12 +109,15 @@ public actor FeedService {
                         continue
                     }
 
+                    markProxySuccess(proxy)
                     return body
                 } catch {
                     lastError = error
                     continue
                 }
             }
+
+            markProxyFailed(proxy)
         }
 
         throw lastError

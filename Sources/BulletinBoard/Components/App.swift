@@ -45,7 +45,7 @@ public struct App {
     private static func now() -> Double {
         #if canImport(JavaScriptKit) && arch(wasm32)
         if let perf = SafeJSGlobal.global?.performance.object {
-            return perf.now!().number ?? (Date().timeIntervalSince1970 * 1000)
+            return (try? perf.throwing.now?())?.number ?? (Date().timeIntervalSince1970 * 1000)
         }
         return Date().timeIntervalSince1970 * 1000
         #else
@@ -109,7 +109,6 @@ public struct App {
         t = perf("GPU detection + WebGPU init", since: t)
 
         FeedService.corsProxies = [
-            "https://api.allorigins.win/raw?url=",
             "https://api.cors.lol/?url=",
             "https://api.codetabs.com/v1/proxy?quest="
         ]
@@ -217,41 +216,38 @@ public struct App {
 
         await Logger.shared.info(AppLogFeature.nlp, "Processing \(unprocessed.count) articles with NLP...")
 
-        await nlpService.buildCorpus(from: articles)
-        let results = await nlpService.processArticles(unprocessed)
+        let existingIds = articles.filter { $0.isNLPProcessed }.map { $0.id }
+        let newIds = await nlpService.updateCorpus(with: articles)
 
-        let allIds = articles.map { $0.id }
-        let clusters = await nlpService.clusterArticles(allIds)
-        await Logger.shared.info(AppLogFeature.nlp, "Clustering complete: \(clusters.count) articles assigned")
+        let batchSize = 15
+        var allResults: [NLPService.NLPResult] = []
 
-        let updates = results.map { result in
-            (id: result.articleId,
-             summary: result.summary,
-             keywords: result.keywords,
-             category: result.category,
-             sentiment: result.sentimentScore as Double?,
-             cluster: clusters[result.articleId] as Int?)
-        }
-        appStore.dispatch(ArticleAction.batchUpdateNLP(updates))
+        for batchStart in stride(from: 0, to: unprocessed.count, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, unprocessed.count)
+            let batch = Array(unprocessed[batchStart..<batchEnd])
 
-        let alreadyProcessed = articles.filter { $0.isNLPProcessed }
-        if !alreadyProcessed.isEmpty {
-            let clusterUpdates = alreadyProcessed.compactMap { article -> (id: String, summary: String?, keywords: [String], category: ArticleCategory?, sentiment: Double?, cluster: Int?)? in
-                guard let clusterId = clusters[article.id] else { return nil }
-                guard article.clusterId != clusterId else { return nil }
-                return (id: article.id,
-                        summary: article.nlpSummary,
-                        keywords: article.keywords,
-                        category: article.autoCategory,
-                        sentiment: article.sentimentScore,
-                        cluster: clusterId as Int?)
+            let results = await nlpService.processArticles(batch)
+            allResults.append(contentsOf: results)
+
+            let batchNewIds = batch.map { $0.id }
+            let clusters = await nlpService.clusterIncremental(
+                newIds: batchNewIds,
+                existingIds: existingIds,
+                threshold: 0.15
+            )
+
+            let updates = results.map { result in
+                (id: result.articleId,
+                 summary: result.summary,
+                 keywords: result.keywords,
+                 category: result.category,
+                 sentiment: result.sentimentScore as Double?,
+                 cluster: clusters[result.articleId] as Int?)
             }
-            if !clusterUpdates.isEmpty {
-                appStore.dispatch(ArticleAction.batchUpdateNLP(clusterUpdates))
-            }
+            appStore.dispatch(ArticleAction.batchUpdateNLP(updates))
         }
 
-        await Logger.shared.info(AppLogFeature.nlp, "NLP processing complete for \(results.count) articles")
+        await Logger.shared.info(AppLogFeature.nlp, "NLP complete: \(allResults.count) articles, \(newIds.count) newly indexed")
     }
 
     #if canImport(JavaScriptKit) && arch(wasm32)
@@ -290,7 +286,7 @@ public struct App {
             return
         }
 
-        guard let rootElement = document.getElementById!("app").object else {
+        guard let rootElement = (try? document.throwing.getElementById?("app"))?.object else {
             Task { await Logger.shared.error(AppLogFeature.ui, "Root element #app not found") }
             return
         }
@@ -360,7 +356,7 @@ public struct App {
         let total = now() - t0
         let vdom = tVdom - t0
         let patch = now() - tVdom
-        if renderCount <= 3 || total > 50 {
+        if renderCount <= 5 || total > 50 {
             Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)") }
         }
     }
@@ -380,9 +376,9 @@ public struct App {
             isDark = prefersDark?.boolean ?? false
         }
         if isDark {
-            _ = body.classList.object?.add!("theme-dark")
+            _ = try? body.classList.object?.throwing.add?("theme-dark")
         } else {
-            _ = body.classList.object?.remove!("theme-dark")
+            _ = try? body.classList.object?.throwing.remove?("theme-dark")
         }
     }
 
@@ -410,7 +406,7 @@ public struct App {
         let scrollHandler = JSClosure { _ -> JSValue in
             guard !scrollRAFScheduled else { return .undefined }
             scrollRAFScheduled = true
-            _ = window.requestAnimationFrame!(JSClosure { _ -> JSValue in
+            _ = try? window.throwing.requestAnimationFrame?(JSClosure { _ -> JSValue in
                 scrollRAFScheduled = false
                 let windowY = Int(window.scrollY.number ?? 0)
                 let threshold = 170
@@ -418,8 +414,8 @@ public struct App {
                 lastScrollUpdateY = windowY
 
                 let listOffset: Int
-                if let listEl = window.document.object?.querySelector!(".article-list").object,
-                   let rect = listEl.getBoundingClientRect!().object,
+                if let listEl = (try? window.document.object?.throwing.querySelector?(".article-list"))?.object,
+                   let rect = (try? listEl.throwing.getBoundingClientRect?())?.object,
                    let top = rect.top.number {
                     listOffset = windowY + Int(top)
                 } else {
@@ -438,7 +434,7 @@ public struct App {
             })
             return .undefined
         }
-        _ = window.addEventListener!("scroll", scrollHandler, ["passive": true])
+        _ = try? window.throwing.addEventListener?("scroll", scrollHandler, ["passive": true])
 
         let resizeHandler = JSClosure { _ -> JSValue in
             if let innerH = window.innerHeight.number {
@@ -446,7 +442,7 @@ public struct App {
             }
             return .undefined
         }
-        _ = window.addEventListener!("resize", resizeHandler)
+        _ = try? window.throwing.addEventListener?("resize", resizeHandler)
         #endif
     }
 
@@ -458,7 +454,7 @@ public struct App {
                 return JSValue.undefined
             }
 
-            guard let actionEl = target.closest!("[data-action]").object,
+            guard let actionEl = (try? target.throwing.closest?("[data-action]"))?.object,
                   let action = actionEl.dataset.object?["action"].string else {
                 return JSValue.undefined
             }
@@ -486,7 +482,7 @@ public struct App {
 
             case "toggle", "refresh", "edit", "delete":
                 let feedId = actionEl.dataset.object?["feedId"].string
-                    ?? target.closest!("[data-feed-id]").object?.dataset.object?["feedId"].string
+                    ?? (try? target.throwing.closest?("[data-feed-id]"))?.object?.dataset.object?["feedId"].string
                 if let feedId = feedId {
                     handleFeedAction(action: action, feedId: feedId)
                 }
@@ -537,7 +533,7 @@ public struct App {
                 }
 
             case "toggle-favorite", "mark-read", "article-click":
-                if let articleEl = target.closest!("[data-article-id]").object,
+                if let articleEl = (try? target.throwing.closest?("[data-article-id]"))?.object,
                    let articleId = articleEl.dataset.object?["articleId"].string {
                     switch action {
                     case "toggle-favorite":
@@ -562,14 +558,14 @@ public struct App {
                 }
 
             case "import-opml":
-                if let fileInput = SafeJSGlobal.global?.document.object?
-                    .getElementById!("opml-file-input").object {
-                    _ = fileInput.click!()
+                if let doc = SafeJSGlobal.global?.document.object,
+                   let fileInput = (try? doc.throwing.getElementById?("opml-file-input"))?.object {
+                    _ = try? fileInput.throwing.click?()
                 }
 
             case "discover-feeds":
-                guard let urlInput = SafeJSGlobal.global?.document.object?
-                    .getElementById!("feed-url").object,
+                guard let doc0 = SafeJSGlobal.global?.document.object,
+                      let urlInput = (try? doc0.throwing.getElementById?("feed-url"))?.object,
                     let url = urlInput.value.string, !url.isEmpty else {
                     break
                 }
@@ -647,14 +643,14 @@ public struct App {
                 appStore.dispatch(ArticleAction.setFilters(currentFilters))
 
             case "archive-article":
-                if let articleEl = target.closest!("[data-article-id]").object,
+                if let articleEl = (try? target.throwing.closest?("[data-article-id]"))?.object,
                    let articleId = articleEl.dataset.object?["articleId"].string {
                     appStore.dispatch(ArticleAction.archiveArticle(id: articleId))
                     showToast("Article archived")
                 }
 
             case "unarchive-article":
-                if let articleEl = target.closest!("[data-article-id]").object,
+                if let articleEl = (try? target.throwing.closest?("[data-article-id]"))?.object,
                    let articleId = articleEl.dataset.object?["articleId"].string {
                     appStore.dispatch(ArticleAction.unarchiveArticle(id: articleId))
                     showToast("Article restored")
@@ -697,11 +693,11 @@ public struct App {
             case "save-feed-edit":
                 if let feedId = actionEl.dataset.object?["feedId"].string,
                    let titleInput = SafeJSGlobal.global?.document.object?
-                    .getElementById!("edit-feed-title-\(feedId)").object,
+                    .getElementById?("edit-feed-title-\(feedId)").object,
                    let newTitle = titleInput.value.string {
                     var newFrequency: Int?
                     if let freqSelect = SafeJSGlobal.global?.document.object?
-                        .getElementById!("edit-feed-freq-\(feedId)").object,
+                        .getElementById?("edit-feed-freq-\(feedId)").object,
                        let freqStr = freqSelect.value.string {
                         newFrequency = Int(freqStr)
                     }
@@ -729,7 +725,7 @@ public struct App {
             return JSValue.undefined
         }
 
-        document.addEventListener!("click", clickHandler)
+        _ = try? document.throwing.addEventListener?("click", clickHandler)
     }
 
     private static func setupSubmitHandler(document: JSObject) {
@@ -740,14 +736,14 @@ public struct App {
                 return JSValue.undefined
             }
 
-            _ = event.preventDefault!()
+            _ = try? event.throwing.preventDefault?()
 
             guard let formAction = form.dataset.object?["form"].string,
                   formAction == "add-feed" else {
                 return JSValue.undefined
             }
 
-            guard let urlInput = document.getElementById!("feed-url").object,
+            guard let urlInput = (try? document.throwing.getElementById?("feed-url"))?.object,
                   let url = urlInput.value.string,
                   !url.isEmpty else {
                 Task { await Logger.shared.warn(AppLogFeature.feeds, "Feed URL input not found or empty") }
@@ -773,7 +769,7 @@ public struct App {
             return JSValue.undefined
         }
 
-        document.addEventListener!("submit", submitHandler)
+        _ = try? document.throwing.addEventListener?("submit", submitHandler)
     }
 
     private static func handleFeedAction(action: String, feedId: String) {
@@ -825,7 +821,7 @@ public struct App {
         } else {
             if let navigator = SafeJSGlobal.global?.navigator.object,
                let clipboard = navigator.clipboard.object {
-                _ = clipboard.writeText!(url)
+                _ = try? clipboard.throwing.writeText?(url)
                 showToast("Link copied to clipboard!")
                 Task { await Logger.shared.info(AppLogFeature.ui, "Copied article URL to clipboard: \(url)") }
             } else {
@@ -859,8 +855,8 @@ public struct App {
             return .undefined
         }
 
-        _ = window.addEventListener!("online", onlineHandler)
-        _ = window.addEventListener!("offline", offlineHandler)
+        _ = try? window.throwing.addEventListener?("online", onlineHandler)
+        _ = try? window.throwing.addEventListener?("offline", offlineHandler)
     }
     #else
     private static func setupOnlineOfflineHandlers() {}
@@ -1017,7 +1013,7 @@ public struct App {
             return JSValue.undefined
         }
 
-        document.addEventListener!("input", inputHandler)
+        _ = try? document.throwing.addEventListener?("input", inputHandler)
     }
 
     private static func setupKeyboardHandler(document: JSObject) {
@@ -1033,13 +1029,13 @@ public struct App {
                activeTag == "input" || activeTag == "textarea" {
                 if key == "Escape" {
                     if let activeEl = SafeJSGlobal.global?.document.object?.activeElement.object {
-                        _ = activeEl.blur!()
+                        _ = try? activeEl.throwing.blur?()
                     }
                 } else if key == "Tab" {
                     let modalOpen = appStore.getState().ui
                     if modalOpen.isSettingsOpen || modalOpen.isFeedManagerOpen
                         || modalOpen.animationPhase == .expanded {
-                        _ = event.preventDefault!()
+                        _ = try? event.throwing.preventDefault?()
                         let isShift = event.shiftKey.boolean ?? false
                         trapFocus(reverse: isShift)
                     }
@@ -1063,7 +1059,7 @@ public struct App {
                 let isShift = event.shiftKey.boolean ?? false
                 if uiState.isSettingsOpen || uiState.isFeedManagerOpen
                     || uiState.animationPhase == .expanded {
-                    _ = event.preventDefault!()
+                    _ = try? event.throwing.preventDefault?()
                     trapFocus(reverse: isShift)
                 }
 
@@ -1090,8 +1086,8 @@ public struct App {
                 renderToDOM()
 
                 if let el = SafeJSGlobal.global?.document.object?
-                    .querySelector!("[data-article-id=\"\(targetId)\"]").object {
-                    _ = el.scrollIntoView!(["behavior": "smooth", "block": "nearest"])
+                    .querySelector?("[data-article-id=\"\(targetId)\"]").object {
+                    _ = try? el.throwing.scrollIntoView?(["behavior": "smooth", "block": "nearest"])
                 }
 
             case "o", "Enter":
@@ -1114,10 +1110,10 @@ public struct App {
                 Task { await refreshAllFeeds() }
 
             case "/":
-                _ = event.preventDefault!()
+                _ = try? event.throwing.preventDefault?()
                 if let searchInput = SafeJSGlobal.global?.document.object?
-                    .getElementById!("search-input").object {
-                    _ = searchInput.focus!()
+                    .getElementById?("search-input").object {
+                    _ = try? searchInput.throwing.focus?()
                 }
 
             default:
@@ -1127,20 +1123,20 @@ public struct App {
             return .undefined
         }
 
-        document.addEventListener!("keydown", handler)
+        _ = try? document.throwing.addEventListener?("keydown", handler)
     }
 
     private static func trapFocus(reverse: Bool) {
         guard let doc = SafeJSGlobal.global?.document.object else { return }
 
         let selector = ".modal-overlay button, .modal-overlay input, .modal-overlay select, .modal-overlay a, .modal-overlay textarea, .modal-overlay [tabindex]"
-        guard let nodeList = doc.querySelectorAll!(selector).object else { return }
+        guard let nodeList = (try? doc.throwing.querySelectorAll?(selector))?.object else { return }
         let count = nodeList.length.number.map(Int.init) ?? 0
         guard count > 0 else { return }
 
         var focusables: [JSObject] = []
         for i in 0..<count {
-            if let el = nodeList.item!(i).object {
+            if let el = (try? nodeList.throwing.item?(i))?.object {
                 focusables.append(el)
             }
         }
@@ -1151,7 +1147,7 @@ public struct App {
 
         var currentIndex = -1
         for (i, el) in focusables.enumerated() {
-            if el.isSameNode!(activeEl).boolean == true {
+            if (try? el.throwing.isSameNode?(activeEl))?.boolean == true {
                 currentIndex = i
                 break
             }
@@ -1164,7 +1160,7 @@ public struct App {
             nextIndex = currentIndex >= focusables.count - 1 ? 0 : currentIndex + 1
         }
 
-        _ = focusables[nextIndex].focus!()
+        _ = try? focusables[nextIndex].throwing.focus?()
     }
 
     private static func setupFileInputHandler(document: JSObject) {
@@ -1179,7 +1175,7 @@ public struct App {
             guard targetId == "opml-file-input" else { return .undefined }
 
             guard let files = target.files.object,
-                  let file = files.item!(0).object else {
+                  let file = (try? files.throwing.item?(0))?.object else {
                 return .undefined
             }
 
@@ -1215,14 +1211,14 @@ public struct App {
             }
 
             reader.onload = .object(onLoad)
-            _ = reader.readAsText!(file)
+            _ = try? reader.throwing.readAsText?(file)
 
             target.value = .string("")
 
             return .undefined
         }
 
-        document.addEventListener!("change", changeHandler)
+        _ = try? document.throwing.addEventListener?("change", changeHandler)
     }
 
     private static func exportOPMLFile(_ xml: String) {
@@ -1231,27 +1227,27 @@ public struct App {
             return
         }
 
-        let array = SafeJSGlobal.global?.Array.function?.new()
-        _ = array?.push!(xml)
+        guard let array = SafeJSGlobal.global?.Array.function?.new() else { return }
+        _ = try? array.throwing.push?(xml)
         let options = SafeJSGlobal.global?.Object.function?.new()
         options?.type = .string("application/xml")
-        let blob = blobConstructor.new(array!, options!)
+        guard let opts = options else { return }
+        let blob = blobConstructor.new(array, opts)
 
-        guard let downloadURL = urlObj.createObjectURL!(blob).string else {
+        guard let downloadURL = (try? urlObj.throwing.createObjectURL?(blob))?.string else {
             return
         }
 
         guard let document = SafeJSGlobal.global?.document.object else { return }
 
-        let a = document.createElement!("a")
-        guard let link = a.object else { return }
+        guard let link = (try? document.throwing.createElement?("a"))?.object else { return }
         link.href = .string(downloadURL)
         link.download = .string("bulletin-board-feeds.opml")
         link.style.object?.display = .string("none")
-        _ = document.body.object?.appendChild!(link)
-        _ = link.click!()
-        _ = document.body.object?.removeChild!(link)
-        _ = urlObj.revokeObjectURL!(downloadURL)
+        _ = document.body.object?.appendChild?(link)
+        _ = try? link.throwing.click?()
+        _ = document.body.object?.removeChild?(link)
+        _ = try? urlObj.throwing.revokeObjectURL?(downloadURL)
     }
 
     #elseif canImport(JavaScriptKit)
@@ -1303,7 +1299,7 @@ public struct App {
             do {
                 let saved: Int = try await storageService.load(forKey: "scroll_\(key)")
                 if saved > 0 {
-                    _ = SafeJSGlobal.global?.scrollTo!(0, saved)
+                    _ = SafeJSGlobal.global?.scrollTo?(0, saved)
                     lastScrollUpdateY = saved
                     await Logger.shared.debug(AppLogFeature.scroll, "Restored scroll position \(saved) for context \(key)")
                 }
