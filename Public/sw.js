@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bulletin-board-v3';
+const CACHE_NAME = 'bulletin-board-v4';
 const WASM_URL = 'BulletinBoard.wasm';
 
 const PRECACHE_URLS = [
@@ -6,7 +6,9 @@ const PRECACHE_URLS = [
     './index.html',
     './styles.css',
     './BulletinBoard.js',
-    './BulletinBoard.wasm'
+    './BulletinBoard.wasm',
+    './favicon.ico',
+    './manifest.json'
 ];
 
 self.addEventListener('install', event => {
