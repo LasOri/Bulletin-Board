@@ -1,11 +1,14 @@
-const CACHE_NAME = 'bulletin-board-v10';
+const CACHE_NAME = 'bulletin-board-v4';
+const WASM_URL = 'BulletinBoard.wasm';
 
 const PRECACHE_URLS = [
     './',
     './index.html',
     './styles.css',
     './BulletinBoard.js',
-    './BulletinBoard.wasm'
+    './BulletinBoard.wasm',
+    './favicon.ico',
+    './manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -38,15 +41,21 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    if (url.pathname.endsWith('.wasm') ||
+    if (url.pathname.endsWith(WASM_URL) ||
         url.pathname.endsWith('.js') ||
         url.pathname.endsWith('.css') ||
         url.pathname.endsWith('.html') ||
         url.pathname.endsWith('/')) {
         event.respondWith(
             caches.match(event.request).then(cached => {
-                const networkFetch = fetchAndCache(event.request);
-                return cached || networkFetch;
+                if (cached) {
+                    console.log('[SW] Cache hit:', url.pathname);
+                    if (!url.pathname.endsWith(WASM_URL)) {
+                        fetchAndCache(event.request);
+                    }
+                    return cached;
+                }
+                return fetchAndCache(event.request);
             })
         );
     }
