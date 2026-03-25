@@ -1030,23 +1030,31 @@ export async function startWasmApp() {
         const progressText = document.getElementById('load-progress-text');
         const rawResponse = await fetch('BulletinBoard.wasm');
         const contentLength = rawResponse.headers.get('content-length');
-        const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+        const headerBytes = contentLength ? parseInt(contentLength, 10) : 0;
+        const isCompressed = rawResponse.headers.get('content-encoding');
 
         let response;
-        if (totalBytes > 0 && rawResponse.body) {
+        if (rawResponse.body) {
             const reader = rawResponse.body.getReader();
             const chunks = [];
             let loaded = 0;
+            let estimatedTotal = isCompressed ? 0 : headerBytes;
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
                 chunks.push(value);
                 loaded += value.length;
-                const pct = Math.min(100, (loaded / totalBytes * 100));
-                if (progressBar) progressBar.style.width = pct.toFixed(0) + '%';
-                if (progressText) progressText.textContent = `${(loaded / 1048576).toFixed(1)} / ${(totalBytes / 1048576).toFixed(1)} MB`;
+                if (estimatedTotal > 0 && loaded <= estimatedTotal) {
+                    const pct = Math.min(99, (loaded / estimatedTotal * 100));
+                    if (progressBar) progressBar.style.width = pct.toFixed(0) + '%';
+                    if (progressText) progressText.textContent = `${(loaded / 1048576).toFixed(1)} / ${(estimatedTotal / 1048576).toFixed(1)} MB`;
+                } else {
+                    if (progressBar) progressBar.style.width = '';
+                    if (progressBar) progressBar.classList.add('loading-progress__bar--indeterminate');
+                    if (progressText) progressText.textContent = `${(loaded / 1048576).toFixed(1)} MB loaded...`;
+                }
             }
-            if (progressBar) progressBar.style.width = '100%';
+            if (progressBar) { progressBar.style.width = '100%'; progressBar.classList.remove('loading-progress__bar--indeterminate'); }
             if (progressText) progressText.textContent = 'Compiling...';
             const blob = new Blob(chunks, { type: 'application/wasm' });
             response = new Response(blob, { headers: { 'content-type': 'application/wasm' } });
