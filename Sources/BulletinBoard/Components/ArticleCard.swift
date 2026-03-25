@@ -33,11 +33,10 @@ public struct ArticleCard {
 
         #if canImport(JavaScriptKit) && arch(wasm32)
         if let dc = article.dominantColor {
-            let comp = ColorExtractor.mutedComplement(of: (r: dc.r, g: dc.g, b: dc.b))
-            let r = Int(comp.r * 255)
-            let g = Int(comp.g * 255)
-            let b = Int(comp.b * 255)
-            attrs.append(Attribute(name: "style", value: "color: rgb(\(r), \(g), \(b))"))
+            let r = Int(dc.r * 255)
+            let g = Int(dc.g * 255)
+            let b = Int(dc.b * 255)
+            attrs.append(Attribute(name: "style", value: "border-left: 4px solid rgb(\(r), \(g), \(b)); background: linear-gradient(135deg, rgba(\(r), \(g), \(b), 0.08), transparent 60%)"))
         }
         #endif
 

@@ -300,10 +300,6 @@ public struct App {
                 }
             }
 
-            if updates.count >= 3 && updates.count % 3 == 0 {
-                appStore.dispatch(ArticleAction.batchUpdateDominantColors(updates))
-                renderToDOM()
-            }
         }
 
         if !updates.isEmpty {
