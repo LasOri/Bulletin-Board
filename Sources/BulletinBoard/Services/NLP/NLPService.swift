@@ -65,13 +65,20 @@ public actor NLPService {
         await tfidfEngine.indexDocuments(documents)
     }
 
-    public func updateCorpus(with articles: [Article]) async -> [String] {
+    public func updateCorpus(with documents: [(id: String, text: String)], batchSize: Int = 3) async -> [String] {
         let alreadyIndexed = await tfidfEngine.indexedDocumentIds
+        let newDocs = documents.filter { !alreadyIndexed.contains($0.id) }
         var newIds: [String] = []
-        for article in articles {
-            if !alreadyIndexed.contains(article.id) {
-                await tfidfEngine.indexDocumentIfNew(id: article.id, text: article.textForNLP)
-                newIds.append(article.id)
+
+        for batchStart in stride(from: 0, to: newDocs.count, by: batchSize) {
+            let batchEnd = min(batchStart + batchSize, newDocs.count)
+            for i in batchStart..<batchEnd {
+                let doc = newDocs[i]
+                await tfidfEngine.indexDocumentIfNew(id: doc.id, text: doc.text)
+                newIds.append(doc.id)
+            }
+            if batchEnd < newDocs.count {
+                try? await Task.sleep(nanoseconds: 1_000_000)
             }
         }
         return newIds
@@ -117,7 +124,8 @@ public actor NLPService {
         let source = article.description ?? article.content
         guard let text = source, !text.isEmpty else { return nil }
 
-        let cleaned = TextProcessor.stripHTML(text)
+        let truncatedSource = text.count > 1000 ? String(text.prefix(1000)) : text
+        let cleaned = TextProcessor.stripHTML(truncatedSource)
         let sentences = TextProcessor.sentences(from: cleaned)
 
         guard !sentences.isEmpty else { return nil }

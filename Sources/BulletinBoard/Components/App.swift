@@ -41,6 +41,7 @@ public struct App {
     private static let storageService = StorageService()
     private static let searchService = SearchService()
     private static let nlpService = NLPService()
+    private nonisolated(unsafe) static var nlpInProgress = false
 
     private static func now() -> Double {
         #if canImport(JavaScriptKit) && arch(wasm32)
@@ -110,6 +111,8 @@ public struct App {
 
         FeedService.corsProxies = [
             "https://api.cors.lol/?url=",
+            "https://corsproxy.io/?url=",
+            "https://api.allorigins.win/raw?url=",
             "https://api.codetabs.com/v1/proxy?quest="
         ]
 
@@ -210,16 +213,24 @@ public struct App {
     }
 
     private static func processArticlesWithNLP() async {
-        let articles = appStore.getState().articles.articles
-        let unprocessed = articles.filter { !$0.isNLPProcessed }
-        guard !unprocessed.isEmpty else { return }
+        guard !nlpInProgress else { return }
+        nlpInProgress = true
+        defer { nlpInProgress = false }
 
-        await Logger.shared.info(AppLogFeature.nlp, "Processing \(unprocessed.count) articles with NLP...")
+        let articles = appStore.getState().articles.articles
+        let allUnprocessed = articles.filter { !$0.isNLPProcessed }
+        guard !allUnprocessed.isEmpty else { return }
+
+        let maxPerRun = 20
+        let unprocessed = Array(allUnprocessed.prefix(maxPerRun))
+
+        await Logger.shared.info(AppLogFeature.nlp, "Processing \(unprocessed.count)/\(allUnprocessed.count) articles with NLP...")
 
         let existingIds = articles.filter { $0.isNLPProcessed }.map { $0.id }
-        let newIds = await nlpService.updateCorpus(with: articles)
+        let documents = unprocessed.map { (id: $0.id, text: $0.textForNLP) }
+        let newIds = await nlpService.updateCorpus(with: documents, batchSize: 3)
 
-        let batchSize = 15
+        let batchSize = 3
         var allResults: [NLPService.NLPResult] = []
 
         for batchStart in stride(from: 0, to: unprocessed.count, by: batchSize) {
@@ -896,10 +907,16 @@ public struct App {
                         ? "1 new article from \(refreshedFeedTitle)"
                         : "\(totalNew) new articles"
                     showToast(message)
-                    await processArticlesWithNLP()
                     #if canImport(JavaScriptKit) && arch(wasm32)
-                    await extractDominantColors()
+                    renderToDOM()
                     #endif
+                    Task {
+                        await processArticlesWithNLP()
+                        #if canImport(JavaScriptKit) && arch(wasm32)
+                        await extractDominantColors()
+                        renderToDOM()
+                        #endif
+                    }
                 }
             }
         }
@@ -924,10 +941,16 @@ public struct App {
 
         showToast("Refreshed \(totalArticles) articles from \(feedsState.feeds.count) feeds")
         if totalArticles > 0 {
-            await processArticlesWithNLP()
             #if canImport(JavaScriptKit) && arch(wasm32)
-            await extractDominantColors()
+            renderToDOM()
             #endif
+            Task {
+                await processArticlesWithNLP()
+                #if canImport(JavaScriptKit) && arch(wasm32)
+                await extractDominantColors()
+                renderToDOM()
+                #endif
+            }
         }
     }
 
@@ -2367,10 +2390,16 @@ public struct App {
             let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
             appStore.dispatch(ArticleAction.addArticles(articles))
             showToast("Feed refreshed: \(feed.title)")
-            await processArticlesWithNLP()
             #if canImport(JavaScriptKit) && arch(wasm32)
-            await extractDominantColors()
+            renderToDOM()
             #endif
+            Task {
+                await processArticlesWithNLP()
+                #if canImport(JavaScriptKit) && arch(wasm32)
+                await extractDominantColors()
+                renderToDOM()
+                #endif
+            }
         } catch {
             appStore.dispatch(UIAction.showError("Failed to refresh: \(error.localizedDescription)"))
         }
@@ -2393,10 +2422,17 @@ public struct App {
 
             Task { await Logger.shared.info(AppLogFeature.feeds, "Feed added: \(url) with \(articles.count) articles") }
 
-            await processArticlesWithNLP()
             #if canImport(JavaScriptKit) && arch(wasm32)
-            await extractDominantColors()
+            renderToDOM()
             #endif
+
+            Task {
+                await processArticlesWithNLP()
+                #if canImport(JavaScriptKit) && arch(wasm32)
+                await extractDominantColors()
+                renderToDOM()
+                #endif
+            }
         } catch let error as FeedService.FeedError {
             let message: String
             switch error {
@@ -2446,14 +2482,6 @@ public struct App {
             let articleCount = articleCountSignal.get()
             let unreadCount = unreadCountSignal.get()
             Task { await Logger.shared.debug(AppLogFeature.data, "State updated: \(articleCount) articles, \(unreadCount) unread") }
-        })
-
-        _ = Effect(execute: {
-            let articles = articlesSignal.get().articles
-            let unprocessed = articles.filter { !$0.isNLPProcessed }
-            if !unprocessed.isEmpty {
-                Task { await processArticlesWithNLP() }
-            }
         })
 
         #if canImport(JavaScriptKit) && arch(wasm32)

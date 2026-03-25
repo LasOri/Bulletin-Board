@@ -199,9 +199,13 @@ extension Article {
     }
 
     public var textForNLP: String {
-        [content, description, title]
+        let raw = [title, description, content]
             .compactMap { $0 }
             .joined(separator: " ")
+        if raw.count > 500 {
+            return String(raw.prefix(500))
+        }
+        return raw
     }
 
     public var isNLPProcessed: Bool {
