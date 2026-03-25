@@ -73,7 +73,6 @@ public struct ArticleCard {
                         Attribute(name: "alt", value: alt),
                         Attribute(name: "class", value: "article-card__hero-img"),
                         Attribute(name: "loading", value: "lazy"),
-                        Attribute(name: "crossorigin", value: "anonymous"),
                         Attribute(name: "onload", value: "this.classList.add('loaded')"),
                         Attribute(name: "onerror", value: "this.style.display='none';this.parentElement.classList.add('article-card__hero--placeholder')")
                     ]

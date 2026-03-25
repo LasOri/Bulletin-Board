@@ -93,7 +93,6 @@ public struct ArticleDetailView {
                         Attribute(name: "src", value: url),
                         Attribute(name: "alt", value: alt),
                         Attribute(name: "class", value: "article-detail__hero-img"),
-                        Attribute(name: "crossorigin", value: "anonymous"),
                         Attribute(name: "onload", value: "this.classList.add('loaded')"),
                         Attribute(name: "onerror", value: "this.style.display='none';this.parentElement.classList.add('article-detail__hero--placeholder')")
                     ]

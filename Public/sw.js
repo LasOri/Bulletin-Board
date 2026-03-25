@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bulletin-board-v5';
+const CACHE_NAME = 'bulletin-board-v6';
 const WASM_URL = 'BulletinBoard.wasm';
 
 const PRECACHE_URLS = [
@@ -86,15 +86,18 @@ self.addEventListener('fetch', event => {
     }
 
     else if (url.hostname !== self.location.hostname) {
+        const isFeedURL = url.pathname.endsWith('.xml') ||
+            url.pathname.endsWith('/feed') ||
+            url.pathname.endsWith('/rss') ||
+            url.pathname.includes('/feeds/') ||
+            url.pathname.includes('/frontpage');
+
+        if (!isFeedURL) return;
+
         event.respondWith(
             fetch(event.request)
                 .then(response => {
-                    if (response.ok && (
-                        url.pathname.endsWith('.xml') ||
-                        url.pathname.endsWith('/feed') ||
-                        url.pathname.endsWith('/rss') ||
-                        url.pathname.includes('/feeds/')
-                    )) {
+                    if (response.ok) {
                         const clone = response.clone();
                         caches.open(CACHE_NAME + '-feeds').then(cache => cache.put(event.request, clone));
                     }
@@ -106,7 +109,7 @@ self.addEventListener('fetch', event => {
                             console.log('[SW] Offline: serving cached feed');
                             return cached;
                         }
-                        throw new Error('Feed not available offline');
+                        return new Response('Feed not available offline', { status: 503 });
                     });
                 })
         );
