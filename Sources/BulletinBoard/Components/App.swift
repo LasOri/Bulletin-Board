@@ -272,11 +272,12 @@ public struct App {
 
         await Logger.shared.info(AppLogFeature.gpu, "Extracting dominant colors from \(needsColor.count) images...")
 
+        let proxy = FeedService.corsProxies.first
         var updates: [(id: String, color: ArticleColor)] = []
 
         for article in needsColor {
             guard let imageURL = article.heroImageURL else { continue }
-            if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
+            if let color = await ColorExtractor.extractDominantColor(from: imageURL, corsProxy: proxy) {
                 updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
             }
         }
