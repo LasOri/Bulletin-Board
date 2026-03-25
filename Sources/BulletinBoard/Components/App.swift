@@ -275,18 +275,27 @@ public struct App {
 
         await Logger.shared.info(AppLogFeature.gpu, "Extracting colors for \(toProcess.count)/\(needsColor.count) images...")
 
-        let proxies = FeedService.corsProxies
+        let imageProxies = [
+            "https://api.codetabs.com/v1/proxy?quest=",
+            "https://api.allorigins.win/raw?url=",
+            "https://api.cors.lol/?url="
+        ]
         var updates: [(id: String, color: ArticleColor)] = []
 
         for (index, article) in toProcess.enumerated() {
             guard let imageURL = article.heroImageURL else { continue }
 
             if index > 0 {
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+
+            if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
+                updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+                continue
             }
 
             var extracted = false
-            for proxy in proxies {
+            for proxy in imageProxies {
                 if let color = await ColorExtractor.extractDominantColor(from: imageURL, corsProxy: proxy) {
                     updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
                     extracted = true
@@ -295,11 +304,8 @@ public struct App {
             }
 
             if !extracted {
-                if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
-                    updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
-                }
+                await Logger.shared.info(AppLogFeature.gpu, "All proxies failed for \(imageURL.prefix(60))...")
             }
-
         }
 
         if !updates.isEmpty {
@@ -1390,9 +1396,21 @@ public struct App {
         children.append(AnyNode(content))
         children.append(AnyNode(footer))
 
-        children.append(contentsOf: renderFeedManager())
-        children.append(contentsOf: renderSettings())
-        children.append(contentsOf: renderArticleDetail())
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "id", value: "overlay-feed-manager")],
+            children: renderFeedManager()
+        )))
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "id", value: "overlay-settings")],
+            children: renderSettings()
+        )))
+        children.append(AnyNode(Element<AnyHTMLContext>(
+            tag: "div",
+            attributes: [Attribute(name: "id", value: "overlay-article-detail")],
+            children: renderArticleDetail()
+        )))
         children.append(contentsOf: renderToast())
         children.append(contentsOf: renderErrorMessage())
 

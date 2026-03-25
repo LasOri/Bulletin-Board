@@ -160,6 +160,17 @@ body {
     transition: width 0.3s ease;
 }
 
+.loading-progress__bar--indeterminate {
+    width: 30% !important;
+    animation: indeterminate-progress 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate-progress {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(230%); }
+    100% { transform: translateX(-100%); }
+}
+
 .loading-progress__text {
     font-size: 12px !important;
     color: var(--color-text-lighter) !important;
