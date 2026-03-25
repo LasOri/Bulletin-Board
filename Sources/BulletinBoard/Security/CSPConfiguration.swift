@@ -8,7 +8,7 @@ public struct CSPConfiguration {
             .addDirective(.defaultSrc, sources: [.selfOrigin])
             .addDirective(.scriptSrc, sources: [.selfOrigin, .unsafeInline])
             .addDirective(.styleSrc, sources: [.selfOrigin, .unsafeInline])
-            .addDirective(.imgSrc, sources: [.selfOrigin, .scheme("data"), .scheme("https")])
+            .addDirective(.imgSrc, sources: [.selfOrigin, .scheme("data"), .scheme("blob"), .scheme("https")])
             .addDirective(.connectSrc, sources: [.selfOrigin, .scheme("https")])
             .addDirective(.fontSrc, sources: [.selfOrigin, .scheme("data")])
             .addDirective(.objectSrc, sources: [.none])

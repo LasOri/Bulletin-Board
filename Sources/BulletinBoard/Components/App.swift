@@ -270,21 +270,45 @@ public struct App {
         }
         guard !needsColor.isEmpty else { return }
 
-        await Logger.shared.info(AppLogFeature.gpu, "Extracting dominant colors from \(needsColor.count) images...")
+        let maxImages = 10
+        let toProcess = Array(needsColor.prefix(maxImages))
 
-        let proxy = FeedService.corsProxies.first
+        await Logger.shared.info(AppLogFeature.gpu, "Extracting colors for \(toProcess.count)/\(needsColor.count) images...")
+
+        let proxies = FeedService.corsProxies
         var updates: [(id: String, color: ArticleColor)] = []
 
-        for article in needsColor {
+        for (index, article) in toProcess.enumerated() {
             guard let imageURL = article.heroImageURL else { continue }
-            if let color = await ColorExtractor.extractDominantColor(from: imageURL, corsProxy: proxy) {
-                updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+
+            if index > 0 {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+
+            var extracted = false
+            for proxy in proxies {
+                if let color = await ColorExtractor.extractDominantColor(from: imageURL, corsProxy: proxy) {
+                    updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+                    extracted = true
+                    break
+                }
+            }
+
+            if !extracted {
+                if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
+                    updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+                }
+            }
+
+            if updates.count >= 3 && updates.count % 3 == 0 {
+                appStore.dispatch(ArticleAction.batchUpdateDominantColors(updates))
+                renderToDOM()
             }
         }
 
         if !updates.isEmpty {
             appStore.dispatch(ArticleAction.batchUpdateDominantColors(updates))
-            await Logger.shared.info(AppLogFeature.gpu, "Extracted colors for \(updates.count) articles")
+            await Logger.shared.info(AppLogFeature.gpu, "Extracted colors for \(updates.count)/\(toProcess.count) articles")
         }
     }
     #endif
