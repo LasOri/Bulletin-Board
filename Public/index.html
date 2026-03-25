@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulletin Board - RSS Feed Reader</title>
+
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;">
+
+    <!-- Meta Tags -->
+    <meta name="description" content="A modern RSS feed reader built with Swift WASM and LINKER framework">
+    <meta name="author" content="Bulletin Board">
+    <meta name="theme-color" content="#2196f3">
+
+    <!-- Favicon -->
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗞️</text></svg>">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Preload WASM for faster startup -->
+    <link rel="preload" href="BulletinBoard.wasm" as="fetch" type="application/wasm" crossorigin>
+</head>
+<body>
+    <!-- Root mounting point -->
+    <div id="app">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading Bulletin Board...</p>
+            <p class="loading-subtitle">Initializing security features & GPU effects</p>
+            <div class="loading-progress">
+                <div class="loading-progress__bar" id="load-progress-bar"></div>
+            </div>
+            <p class="loading-progress__text" id="load-progress-text"></p>
+        </div>
+    </div>
+
+    <!-- WASM Bundle -->
+    <script type="module">
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('[SW] Registered:', reg.scope);
+            }).catch(err => console.warn('[SW] Registration failed:', err));
+        }
+
+        import { startWasmApp } from './BulletinBoard.js'
+
+        const pageStart = performance.now();
+        console.log(`[PERF] Page script executing at ${pageStart.toFixed(1)}ms from navigationStart`);
+
+        startWasmApp().then(() => {
+            console.log(`[PERF] App fully started: ${(performance.now() - pageStart).toFixed(1)}ms from script start`);
+        }).catch(err => {
+            console.error('Failed to start WASM app:', err)
+            document.getElementById('app').innerHTML = `
+                <div class="error-container">
+                    <div class="error-icon">⚠️</div>
+                    <h1>Failed to Load</h1>
+                    <p>The application could not be initialized.</p>
+                    <p class="error-details">${err.message || 'Unknown error'}</p>
+                    <button onclick="location.reload()" class="retry-button">Retry</button>
+                </div>
+            `
+        })
+    </script>
+</body>
+</html>
