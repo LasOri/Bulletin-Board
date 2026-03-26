@@ -1124,17 +1124,32 @@ body.theme-dark .feed-manager--blurred {
     background: var(--color-surface);
 }
 
-.article-detail-overlay {
-    position: fixed;
+#article-detail-backdrop {
+    position: fixed !important;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 999;
+    overflow: visible !important;
+}
+
+#article-detail-backdrop > div:last-child {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+}
+
+.article-detail-overlay {
+    position: relative;
+    min-height: 100%;
     z-index: 1000;
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: var(--spacing-lg) var(--spacing-md);
     animation: overlay-fade-in 250ms ease;

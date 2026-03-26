@@ -160,6 +160,17 @@ body {
     transition: width 0.3s ease;
 }
 
+.loading-progress__bar--indeterminate {
+    width: 30% !important;
+    animation: indeterminate-progress 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate-progress {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(230%); }
+    100% { transform: translateX(-100%); }
+}
+
 .loading-progress__text {
     font-size: 12px !important;
     color: var(--color-text-lighter) !important;
@@ -1113,17 +1124,32 @@ body.theme-dark .feed-manager--blurred {
     background: var(--color-surface);
 }
 
-.article-detail-overlay {
-    position: fixed;
+#article-detail-backdrop {
+    position: fixed !important;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    z-index: 999;
+    overflow: visible !important;
+}
+
+#article-detail-backdrop > div:last-child {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto;
+}
+
+.article-detail-overlay {
+    position: relative;
+    min-height: 100%;
     z-index: 1000;
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: var(--spacing-lg) var(--spacing-md);
     animation: overlay-fade-in 250ms ease;
@@ -1552,7 +1578,6 @@ body.theme-dark .feed-manager--blurred {
 }
 
 .article-card--tinted {
-    background: rgba(255, 255, 255, 0.4);
     box-shadow: none;
 }
 
@@ -1561,42 +1586,8 @@ body.theme-dark .feed-manager--blurred {
     transform: translateY(-2px);
 }
 
-.article-card--tinted .article-card__title {
-    color: inherit;
-}
-
-.article-card--tinted .article-card__description {
-    color: inherit;
-    opacity: 0.85;
-}
-
-.article-card--tinted .article-card__metadata {
-    opacity: 0.7;
-}
-
 .article-card--tinted .article-card__keyword {
-    background: rgba(0, 0, 0, 0.08);
-    color: inherit;
-}
-
-.article-card--tinted .article-card__footer {
-    color: inherit;
-}
-
-.article-card--tinted .article-card__action {
-    border-color: rgba(0, 0, 0, 0.15);
-    color: inherit;
-}
-
-.article-card--tinted .article-card__link {
-    color: inherit;
-    opacity: 0.9;
-    font-weight: var(--font-weight-semibold);
-}
-
-.article-card--tinted .article-card__read-indicator {
-    color: inherit;
-    opacity: 0.6;
+    background: rgba(0, 0, 0, 0.06);
 }
 
 .sort-group {
@@ -1821,7 +1812,7 @@ body.theme-dark {
 }
 
 body.theme-dark .article-card--tinted {
-    background: rgba(40, 40, 40, 0.6);
+    box-shadow: none;
 }
 
 body.theme-dark .article-detail {
