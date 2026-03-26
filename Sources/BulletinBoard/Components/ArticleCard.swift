@@ -28,7 +28,10 @@ public struct ArticleCard {
         var attrs: [Attribute] = [
             Attribute(name: "class", value: cardClasses(article: article)),
             Attribute(name: "data-article-id", value: article.id),
-            Attribute(name: "data-action", value: "article-click")
+            Attribute(name: "data-action", value: "article-click"),
+            Attribute(name: "tabindex", value: "0"),
+            Attribute(name: "role", value: "article"),
+            Attribute(name: "aria-label", value: article.title)
         ]
 
         #if canImport(JavaScriptKit) && arch(wasm32)
@@ -36,7 +39,7 @@ public struct ArticleCard {
             let r = Int(dc.r * 255)
             let g = Int(dc.g * 255)
             let b = Int(dc.b * 255)
-            attrs.append(Attribute(name: "style", value: "border-left: 4px solid rgb(\(r), \(g), \(b)); background: linear-gradient(135deg, rgba(\(r), \(g), \(b), 0.08), transparent 60%)"))
+            attrs.append(Attribute(name: "style", value: "border-left: 4px solid rgb(\(r), \(g), \(b)); background: linear-gradient(135deg, rgba(\(r), \(g), \(b), 0.15), transparent 60%)"))
         }
         #endif
 
@@ -63,7 +66,10 @@ public struct ArticleCard {
     private static func renderHeroImage(url: String, alt: String) -> Element<AnyHTMLContext> {
         Element<AnyHTMLContext>(
             tag: "div",
-            attributes: [Attribute(name: "class", value: "article-card__hero")],
+            attributes: [
+                Attribute(name: "class", value: "article-card__hero"),
+                Attribute(name: "style", value: "background-image: url('\(url)'); background-size: cover; background-position: center")
+            ],
             children: [
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "img",

@@ -28,6 +28,8 @@ public struct CategoryFilterBar {
             attributes: [
                 Attribute(name: "type", value: "button"),
                 Attribute(name: "class", value: allClass),
+                Attribute(name: "role", value: "tab"),
+                Attribute(name: "aria-selected", value: allActive ? "true" : "false"),
                 Attribute(name: "data-action", value: "filter-category"),
                 Attribute(name: "data-category", value: "all")
             ],
@@ -48,6 +50,8 @@ public struct CategoryFilterBar {
                     Attribute(name: "type", value: "button"),
                     Attribute(name: "class", value: pillClass),
                     Attribute(name: "style", value: style),
+                    Attribute(name: "role", value: "tab"),
+                    Attribute(name: "aria-selected", value: isActive ? "true" : "false"),
                     Attribute(name: "data-action", value: "filter-category"),
                     Attribute(name: "data-category", value: item.category.rawValue)
                 ],
@@ -58,7 +62,11 @@ public struct CategoryFilterBar {
 
         let container = Element<AnyHTMLContext>(
             tag: "div",
-            attributes: [Attribute(name: "class", value: "category-filter-bar")],
+            attributes: [
+                Attribute(name: "class", value: "category-filter-bar"),
+                Attribute(name: "role", value: "tablist"),
+                Attribute(name: "aria-label", value: "Filter by category")
+            ],
             children: pills
         )
 

@@ -17,7 +17,14 @@ public struct ArticleDetailView {
         let article = props.article
         let relatedArticles = props.relatedArticles
 
-        let backdrop = BlurView(id: "article-detail-backdrop", style: .frostedGlass, intensity: 1.0) {
+        let blurStyle: BlurStyle
+        if let dc = article.dominantColor {
+            blurStyle = .tinted(r: dc.r, g: dc.g, b: dc.b, a: 0.25, radius: 12, saturation: 1.6)
+        } else {
+            blurStyle = .frostedGlass
+        }
+
+        let backdrop = BlurView(id: "article-detail-backdrop", style: blurStyle, intensity: 1.0) {
             return [AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [

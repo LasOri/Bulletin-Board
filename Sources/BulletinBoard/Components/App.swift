@@ -275,36 +275,56 @@ public struct App {
 
         await Logger.shared.info(AppLogFeature.gpu, "Extracting colors for \(toProcess.count)/\(needsColor.count) images...")
 
-        let imageProxies = [
-            "https://api.codetabs.com/v1/proxy?quest=",
-            "https://api.allorigins.win/raw?url=",
-            "https://api.cors.lol/?url="
-        ]
-        var updates: [(id: String, color: ArticleColor)] = []
+        guard let global = SafeJSGlobal.global,
+              let document = global.document.object else { return }
 
-        for (index, article) in toProcess.enumerated() {
+        var updates: [(id: String, color: ArticleColor)] = []
+        var proxyNeeded: [(id: String, url: String)] = []
+
+        for article in toProcess {
             guard let imageURL = article.heroImageURL else { continue }
 
-            if index > 0 {
-                try? await Task.sleep(nanoseconds: 300_000_000)
-            }
-
-            if let color = await ColorExtractor.extractDominantColor(from: imageURL) {
+            let selector = "[data-article-id=\"\(article.id)\"] .article-card__hero-img"
+            if let imgElement = (try? document.throwing.querySelector?(selector))?.object,
+               let color = ColorExtractor.extractFromElement(imgElement) {
                 updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
                 continue
             }
 
-            var extracted = false
-            for proxy in imageProxies {
-                if let color = await ColorExtractor.extractDominantColor(from: imageURL, corsProxy: proxy) {
-                    updates.append((id: article.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
-                    extracted = true
-                    break
-                }
-            }
+            proxyNeeded.append((id: article.id, url: imageURL))
+        }
 
-            if !extracted {
-                await Logger.shared.info(AppLogFeature.gpu, "All proxies failed for \(imageURL.prefix(60))...")
+        if !proxyNeeded.isEmpty {
+            await Logger.shared.info(AppLogFeature.gpu, "\(updates.count) from DOM, \(proxyNeeded.count) need proxy...")
+
+            let imageProxies = [
+                "https://api.codetabs.com/v1/proxy?quest=",
+                "https://api.allorigins.win/raw?url=",
+                "https://api.cors.lol/?url="
+            ]
+
+            for (index, item) in proxyNeeded.enumerated() {
+                if index > 0 {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                }
+
+                if let color = await ColorExtractor.extractDominantColor(from: item.url) {
+                    updates.append((id: item.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+                    continue
+                }
+
+                var extracted = false
+                for proxy in imageProxies {
+                    if let color = await ColorExtractor.extractDominantColor(from: item.url, corsProxy: proxy) {
+                        updates.append((id: item.id, color: ArticleColor(r: color.r, g: color.g, b: color.b)))
+                        extracted = true
+                        break
+                    }
+                }
+
+                if !extracted {
+                    await Logger.shared.info(AppLogFeature.gpu, "All proxies failed for \(item.url.prefix(60))...")
+                }
             }
         }
 
