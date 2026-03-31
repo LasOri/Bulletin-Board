@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public enum ArticleAction: Action {
@@ -28,6 +27,6 @@ public enum ArticleAction: Action {
 
     case markMultipleAsRead([String])
     case archiveMultiple([String])
-    case deleteOlderThan(Date)
+    /// Delete articles older than timestamp (seconds since epoch)
+    case deleteOlderThan(Double)
 }
-

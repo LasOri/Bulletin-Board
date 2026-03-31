@@ -1,8 +1,7 @@
-import Foundation
 import LINKER
 
-public func articleReducer(state: ArticleState, action: any Action) -> ArticleState {
-    guard let action = action as? ArticleAction else {
+public func articleReducer(state: ArticleState, action: AnyAction) -> ArticleState {
+    guard let action = action.as(ArticleAction.self) else {
         return state
     }
 
@@ -65,7 +64,7 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
     case .unarchiveArticle(let id):
         if var article = newState.byId[id] {
             article.isArchived = false
-            article.updatedAt = Date()
+            article.updatedAt = currentTimestamp()
             newState.byId[id] = article
         }
 
@@ -147,11 +146,11 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
             }
         }
 
-    case .deleteOlderThan(let date):
+    case .deleteOlderThan(let cutoffTimestamp):
         let idsToRemove = newState.allIds.filter { id in
             if let article = newState.byId[id],
                let publishedAt = article.publishedAt,
-               publishedAt < date {
+               publishedAt < cutoffTimestamp {
                 return true
             }
             return false
@@ -164,4 +163,3 @@ public func articleReducer(state: ArticleState, action: any Action) -> ArticleSt
 
     return newState
 }
-

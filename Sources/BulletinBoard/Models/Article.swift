@@ -1,7 +1,6 @@
-import Foundation
 import LINKER
 
-public struct ArticleColor: Codable, Equatable, Sendable {
+public struct ArticleColor: Equatable, Sendable {
     public let r: Float
     public let g: Float
     public let b: Float
@@ -13,7 +12,8 @@ public struct ArticleColor: Codable, Equatable, Sendable {
     }
 }
 
-public struct Article: Codable, Equatable, Identifiable, Sendable {
+/// Timestamp is seconds since Unix epoch (1970-01-01 00:00:00 UTC).
+public struct Article: Equatable, Identifiable, Sendable {
     public let id: String
 
     public let title: String
@@ -24,7 +24,8 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
 
     public let url: String
 
-    public let publishedAt: Date?
+    /// Seconds since epoch, or nil if unknown.
+    public let publishedAt: Double?
 
     public let author: String?
 
@@ -52,9 +53,11 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
 
     public var dominantColor: ArticleColor?
 
-    public let addedAt: Date
+    /// Seconds since epoch.
+    public let addedAt: Double
 
-    public var updatedAt: Date
+    /// Seconds since epoch.
+    public var updatedAt: Double
 
     public init(
         id: String,
@@ -62,7 +65,7 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
         description: String? = nil,
         content: String? = nil,
         url: String,
-        publishedAt: Date? = nil,
+        publishedAt: Double? = nil,
         author: String? = nil,
         feedId: String,
         categories: [String] = [],
@@ -76,8 +79,8 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
         sentimentScore: Double? = nil,
         clusterId: Int? = nil,
         dominantColor: ArticleColor? = nil,
-        addedAt: Date = Date(),
-        updatedAt: Date = Date()
+        addedAt: Double = currentTimestamp(),
+        updatedAt: Double = currentTimestamp()
     ) {
         self.id = id
         self.title = title
@@ -118,7 +121,7 @@ public struct Article: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-public struct ArticleEnclosure: Codable, Equatable, Sendable {
+public struct ArticleEnclosure: Equatable, Sendable {
     public let url: String
     public let type: String
     public let length: Int?
@@ -130,7 +133,7 @@ public struct ArticleEnclosure: Codable, Equatable, Sendable {
     }
 }
 
-public enum ArticleCategory: String, Codable, CaseIterable, Sendable {
+public enum ArticleCategory: String, CaseIterable, Sendable {
     case technology = "Technology"
     case science = "Science"
     case politics = "Politics"
@@ -172,8 +175,8 @@ extension Article {
     private static func extractFirstImageURL(from html: String?) -> String? {
         guard let html = html else { return nil }
         var searchStart = html.startIndex
-        while let imgRange = html.range(of: "<img ", options: .caseInsensitive, range: searchStart..<html.endIndex) {
-            let tagEnd = html.range(of: ">", range: imgRange.upperBound..<html.endIndex)?.upperBound ?? html.endIndex
+        while let imgRange = html.findRangeIgnoringCase(of: "<img ", from: searchStart) {
+            let tagEnd = html.findRange(of: ">", from: imgRange.upperBound)?.upperBound ?? html.endIndex
             let tagContent = String(html[imgRange.lowerBound..<tagEnd])
             if let url = extractSrcAttribute(from: tagContent), url.hasPrefix("http") {
                 return url
@@ -185,10 +188,10 @@ extension Article {
 
     private static func extractSrcAttribute(from tag: String) -> String? {
         for pattern in ["src=\"", "src='"] {
-            guard let start = tag.range(of: pattern, options: .caseInsensitive) else { continue }
+            guard let start = tag.findRangeIgnoringCase(of: pattern) else { continue }
             let valueStart = start.upperBound
             let quote = String(pattern.last!)
-            guard let end = tag.range(of: quote, range: valueStart..<tag.endIndex) else { continue }
+            guard let end = tag.findRange(of: quote, from: valueStart) else { continue }
             return String(tag[valueStart..<end.lowerBound])
         }
         return nil
@@ -221,17 +224,17 @@ extension Article {
 
     public mutating func markAsRead() {
         isRead = true
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func toggleFavorite() {
         isFavorite.toggle()
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func archive() {
         isArchived = true
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func updateNLP(
@@ -246,12 +249,121 @@ extension Article {
         self.autoCategory = category
         self.sentimentScore = sentiment
         self.clusterId = cluster
-        self.updatedAt = Date()
+        self.updatedAt = currentTimestamp()
     }
 
     public mutating func updateDominantColor(_ color: ArticleColor) {
         self.dominantColor = color
-        self.updatedAt = Date()
+        self.updatedAt = currentTimestamp()
     }
 }
 
+// MARK: - Json Serialization
+
+extension ArticleColor {
+    public func toJson() -> Json {
+        .object([
+            "r": .double(Double(r)),
+            "g": .double(Double(g)),
+            "b": .double(Double(b))
+        ])
+    }
+
+    public init?(json: Json) {
+        guard let r = json["r"]?.doubleValue,
+              let g = json["g"]?.doubleValue,
+              let b = json["b"]?.doubleValue else { return nil }
+        self.r = Float(r)
+        self.g = Float(g)
+        self.b = Float(b)
+    }
+}
+
+extension ArticleEnclosure {
+    public func toJson() -> Json {
+        var obj: [String: Json] = [
+            "url": .string(url),
+            "type": .string(type)
+        ]
+        if let length = length {
+            obj["length"] = .double(Double(length))
+        }
+        return .object(obj)
+    }
+
+    public init?(json: Json) {
+        guard let url = json["url"]?.stringValue,
+              let type = json["type"]?.stringValue else { return nil }
+        self.url = url
+        self.type = type
+        self.length = json["length"]?.doubleValue.map { Int($0) }
+    }
+}
+
+extension ArticleCategory {
+    public func toJson() -> Json {
+        .string(rawValue)
+    }
+
+    public init?(json: Json) {
+        guard let raw = json.stringValue else { return nil }
+        self.init(rawValue: raw)
+    }
+}
+
+extension Article {
+    public func toJson() -> Json {
+        var obj: [String: Json] = [
+            "id": .string(id),
+            "title": .string(title),
+            "url": .string(url),
+            "feedId": .string(feedId),
+            "isRead": .bool(isRead),
+            "isFavorite": .bool(isFavorite),
+            "isArchived": .bool(isArchived),
+            "keywords": .array(keywords.map { .string($0) }),
+            "categories": .array(categories.map { .string($0) }),
+            "addedAt": .double(addedAt),
+            "updatedAt": .double(updatedAt)
+        ]
+        if let v = description { obj["description"] = .string(v) }
+        if let v = content { obj["content"] = .string(v) }
+        if let v = publishedAt { obj["publishedAt"] = .double(v) }
+        if let v = author { obj["author"] = .string(v) }
+        if let v = enclosure { obj["enclosure"] = v.toJson() }
+        if let v = nlpSummary { obj["nlpSummary"] = .string(v) }
+        if let v = autoCategory { obj["autoCategory"] = v.toJson() }
+        if let v = sentimentScore { obj["sentimentScore"] = .double(v) }
+        if let v = clusterId { obj["clusterId"] = .double(Double(v)) }
+        if let v = dominantColor { obj["dominantColor"] = v.toJson() }
+        return .object(obj)
+    }
+
+    public init?(json: Json) {
+        guard let id = json["id"]?.stringValue,
+              let title = json["title"]?.stringValue,
+              let url = json["url"]?.stringValue,
+              let feedId = json["feedId"]?.stringValue else { return nil }
+        self.id = id
+        self.title = title
+        self.description = json["description"]?.stringValue
+        self.content = json["content"]?.stringValue
+        self.url = url
+        self.publishedAt = json["publishedAt"]?.doubleValue
+        self.author = json["author"]?.stringValue
+        self.feedId = feedId
+        self.categories = json["categories"]?.arrayValue?.compactMap { $0.stringValue } ?? []
+        self.enclosure = json["enclosure"].flatMap { ArticleEnclosure(json: $0) }
+        self.isRead = json["isRead"]?.boolValue ?? false
+        self.isFavorite = json["isFavorite"]?.boolValue ?? false
+        self.isArchived = json["isArchived"]?.boolValue ?? false
+        self.nlpSummary = json["nlpSummary"]?.stringValue
+        self.keywords = json["keywords"]?.arrayValue?.compactMap { $0.stringValue } ?? []
+        self.autoCategory = json["autoCategory"].flatMap { ArticleCategory(json: $0) }
+        self.sentimentScore = json["sentimentScore"]?.doubleValue
+        self.clusterId = json["clusterId"]?.doubleValue.map { Int($0) }
+        self.dominantColor = json["dominantColor"].flatMap { ArticleColor(json: $0) }
+        self.addedAt = json["addedAt"]?.doubleValue ?? currentTimestamp()
+        self.updatedAt = json["updatedAt"]?.doubleValue ?? currentTimestamp()
+    }
+}

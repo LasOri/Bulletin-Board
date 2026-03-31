@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public let appStore: Store<AppState> = {
@@ -28,4 +27,3 @@ extension Store where State == AppState {
         select(\.ui.theme)
     }
 }
-

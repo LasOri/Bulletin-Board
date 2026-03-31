@@ -1,4 +1,12 @@
-import Foundation
+import LINKER
+
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(WASILibc)
+import WASILibc
+#endif
 
 public actor TFIDFEngine {
 

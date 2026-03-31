@@ -22,7 +22,7 @@ final class ArticleCardTests: XCTestCase {
             title: title,
             description: description,
             url: "https://example.com/article",
-            publishedAt: Date(),
+            publishedAt: currentTimestamp(),
             author: author,
             feedId: "feed-1",
             enclosure: enclosure,

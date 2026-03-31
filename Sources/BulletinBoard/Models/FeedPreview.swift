@@ -1,4 +1,4 @@
-import Foundation
+import LINKER
 
 public struct FeedPreview: Sendable {
     public enum State: Sendable {
@@ -10,9 +10,10 @@ public struct FeedPreview: Sendable {
 
     public struct PreviewArticle: Sendable {
         public let title: String
-        public let publishedAt: Date?
+        /// Seconds since epoch, or nil.
+        public let publishedAt: Double?
 
-        public init(title: String, publishedAt: Date?) {
+        public init(title: String, publishedAt: Double?) {
             self.title = title
             self.publishedAt = publishedAt
         }

@@ -1,14 +1,13 @@
-import Foundation
 import LINKER
 
-public enum AnimationPhase: String, Codable, Equatable, Sendable {
+public enum AnimationPhase: String, Equatable, Sendable {
     case idle
     case expanding
     case expanded
     case collapsing
 }
 
-public struct UIState: Codable, Equatable, Sendable {
+public struct UIState: Equatable, Sendable {
     public var expandedArticleId: String?
 
     public var isSidebarVisible: Bool
@@ -50,7 +49,7 @@ public struct UIState: Codable, Equatable, Sendable {
     }
 }
 
-public enum Theme: String, Codable, CaseIterable, Sendable {
+public enum Theme: String, CaseIterable, Sendable {
     case light = "Light"
     case dark = "Dark"
     case auto = "Auto"
@@ -123,4 +122,3 @@ extension UIState {
         activeTab = tab
     }
 }
-

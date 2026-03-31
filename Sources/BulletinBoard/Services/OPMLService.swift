@@ -1,4 +1,3 @@
-import Foundation
 #if canImport(JavaScriptKit)
 import JavaScriptKit
 #endif
@@ -65,10 +64,10 @@ public struct OPMLService {
 
     private static func escapeXML(_ string: String) -> String {
         string
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
-            .replacingOccurrences(of: "\"", with: "&quot;")
-            .replacingOccurrences(of: "'", with: "&apos;")
+            .replacingAll("&", with: "&amp;")
+            .replacingAll("<", with: "&lt;")
+            .replacingAll(">", with: "&gt;")
+            .replacingAll("\"", with: "&quot;")
+            .replacingAll("'", with: "&apos;")
     }
 }

@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public struct CSPConfiguration {
@@ -15,6 +14,7 @@ public struct CSPConfiguration {
             .addDirective(.baseUri, sources: [.selfOrigin])
             .addDirective(.formAction, sources: [.selfOrigin])
             .addDirective(.frameAncestors, sources: [.none])
+            .addDirective(.upgradeInsecureRequests, sources: [])
             .build()
     }
 

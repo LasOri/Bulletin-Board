@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 #if canImport(JavaScriptKit)
 import JavaScriptKit
@@ -46,17 +45,17 @@ public struct App {
     private static func now() -> Double {
         #if canImport(JavaScriptKit) && arch(wasm32)
         if let perf = SafeJSGlobal.global?.performance.object {
-            return (try? perf.throwing.now?())?.number ?? (Date().timeIntervalSince1970 * 1000)
+            return (try? perf.throwing.now?())?.number ?? (currentTimestamp() * 1000)
         }
-        return Date().timeIntervalSince1970 * 1000
+        return currentTimestamp() * 1000
         #else
-        return Date().timeIntervalSince1970 * 1000
+        return currentTimestamp() * 1000
         #endif
     }
 
     private static func perf(_ phase: String, since start: Double) -> Double {
         let elapsed = now() - start
-        Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] \(phase): \(String(format: "%.1f", elapsed))ms") }
+        Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] \(phase): \(formatDecimal(elapsed, decimals: 1))ms") }
         return now()
     }
 
@@ -70,7 +69,7 @@ public struct App {
             .storage, .gpu, .security, .grid, .scroll, .keyboard
         ] as [AppLogFeature])
 
-        let enabledNames = AppLogFeature.allCases.map { $0.name.replacingOccurrences(of: "APP.", with: "").lowercased() }
+        let enabledNames = AppLogFeature.allCases.map { $0.name.replacingAll("APP.", with: "").lowercased() }
         print("[FEATURES] Enabled: \(enabledNames.joined(separator: ", "))")
 
         t = perf("Logger setup", since: t)
@@ -156,7 +155,7 @@ public struct App {
             renderToDOM()
             #endif
 
-            await Logger.shared.info(AppLogFeature.startup, "Background processing complete (\(String(format: "%.1f", now() - bgStart))ms)")
+            await Logger.shared.info(AppLogFeature.startup, "Background processing complete (\(formatDecimal(now() - bgStart, decimals: 1))ms)")
         }
     }
 
@@ -196,9 +195,19 @@ public struct App {
 
         } catch StorageService.StorageError.notFound {
             await Logger.shared.info(AppLogFeature.storage, "No persisted data found (first run)")
+            addSampleFeed()
         } catch {
             await Logger.shared.warn(AppLogFeature.storage, "Error loading data: \(error)")
         }
+    }
+
+    private static func addSampleFeed() {
+        let sampleFeed = Feed(
+            title: "Hacker News",
+            description: "Links for the intellectually curious",
+            url: "https://hnrss.org/frontpage"
+        )
+        appStore.dispatch(FeedAction.addFeed(sampleFeed))
     }
 
     private static func indexArticlesForSearch() async {
@@ -415,7 +424,7 @@ public struct App {
         let vdom = tVdom - t0
         let patch = now() - tVdom
         if renderCount <= 5 || total > 50 {
-            Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] renderToDOM #\(renderCount): \(String(format: "%.1f", total))ms (vdom: \(String(format: "%.1f", vdom))ms, patch: \(String(format: "%.1f", patch))ms)") }
+            Task { await Logger.shared.info(AppLogFeature.ui, "[PERF] renderToDOM #\(renderCount): \(formatDecimal(total, decimals: 1))ms (vdom: \(formatDecimal(vdom, decimals: 1))ms, patch: \(formatDecimal(patch, decimals: 1))ms)") }
         }
     }
 
@@ -639,7 +648,7 @@ public struct App {
                             showToast("No feeds found at \(url)")
                         }
                     } catch {
-                        showToast("Discovery failed: \(error.localizedDescription)")
+                        showToast("Discovery failed: \(error)")
                         await Logger.shared.warn(AppLogFeature.feeds, "Discovery failed: \(error)")
                     }
                     isDiscovering = false
@@ -726,7 +735,7 @@ public struct App {
             case "delete-older":
                 if let daysStr = actionEl.dataset.object?["days"].string,
                    let days = Int(daysStr) {
-                    let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
+                    let cutoff = currentTimestamp() - Double(days * 86400)
                     appStore.dispatch(ArticleAction.deleteOlderThan(cutoff))
                     showToast("Deleted articles older than \(days) days")
                 }
@@ -768,7 +777,7 @@ public struct App {
                             lastFetched: feed.lastFetched,
                             lastSuccessfulFetch: feed.lastSuccessfulFetch, lastError: feed.lastError,
                             articleCount: feed.articleCount, unreadCount: feed.unreadCount,
-                            subscribedAt: feed.subscribedAt, updatedAt: Date(),
+                            subscribedAt: feed.subscribedAt, updatedAt: currentTimestamp(),
                             isEnabled: feed.isEnabled, isFetching: feed.isFetching
                         )
                         appStore.dispatch(FeedAction.updateFeed(id: feedId, updated))
@@ -1073,7 +1082,7 @@ public struct App {
                             renderToDOM()
                         } catch {
                             if Task.isCancelled { return }
-                            feedPreview = FeedPreview(inputURL: url, state: .error(error.localizedDescription))
+                            feedPreview = FeedPreview(inputURL: url, state: .error("\(error)"))
                             renderToDOM()
                         }
                     }
@@ -2460,7 +2469,7 @@ public struct App {
                 #endif
             }
         } catch {
-            appStore.dispatch(UIAction.showError("Failed to refresh: \(error.localizedDescription)"))
+            appStore.dispatch(UIAction.showError("Failed to refresh: \(error)"))
         }
     }
 
@@ -2468,7 +2477,7 @@ public struct App {
         showToast("Fetching feed...")
 
         do {
-            let feedId = UUID().uuidString
+            let feedId = uniqueIDString()
             let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
 
             let feed = Feed(id: feedId, title: "New Feed", description: "", url: url)
@@ -2511,7 +2520,7 @@ public struct App {
             appStore.dispatch(UIAction.showError(message))
             Task { await Logger.shared.error(AppLogFeature.feeds, "Failed to add feed: \(error)") }
         } catch {
-            appStore.dispatch(UIAction.showError("Failed to add feed: \(error.localizedDescription)"))
+            appStore.dispatch(UIAction.showError("Failed to add feed: \(error)"))
             Task { await Logger.shared.error(AppLogFeature.feeds, "Failed to add feed: \(error)") }
         }
     }

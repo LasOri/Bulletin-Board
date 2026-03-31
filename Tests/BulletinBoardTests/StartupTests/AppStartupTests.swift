@@ -28,7 +28,7 @@ final class AppStartupTests: XCTestCase {
 
     func testLoggerConfigures() async {
         let sink = MemorySink()
-        await Logger.shared.configureForTesting(sink: sink)
+        await Logger.shared.configureForTesting(sink: AnyLogSink(sink))
         await Logger.shared.info(AppLogFeature.startup, "test message")
         let messages = sink.getMessages()
         XCTAssertEqual(messages.count, 1)

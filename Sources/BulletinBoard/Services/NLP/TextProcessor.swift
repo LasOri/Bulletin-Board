@@ -1,4 +1,4 @@
-import Foundation
+import LINKER
 
 public enum TextProcessor {
 
@@ -26,8 +26,8 @@ public enum TextProcessor {
         let cleaned = stripHTML(text)
         return cleaned
             .lowercased()
-            .components(separatedBy: .whitespacesAndNewlines)
-            .map { $0.trimmingCharacters(in: .punctuationCharacters) }
+            .splitByWhitespace()
+            .map { $0.trimmingPunctuation() }
             .filter { !$0.isEmpty && $0.count >= minLength && !stopWords.contains($0) }
     }
 
@@ -48,7 +48,7 @@ public enum TextProcessor {
         for char in cleaned {
             current.append(char)
             if char == "." || char == "!" || char == "?" {
-                let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = current.trimmingWhitespace()
                 if !trimmed.isEmpty {
                     results.append(trimmed)
                 }
@@ -56,7 +56,7 @@ public enum TextProcessor {
             }
         }
 
-        let trimmed = current.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = current.trimmingWhitespace()
         if !trimmed.isEmpty {
             results.append(trimmed)
         }
@@ -66,17 +66,16 @@ public enum TextProcessor {
 
     public static func stripHTML(_ text: String) -> String {
         var result = text
-        while let openRange = result.range(of: "<"),
-              let closeRange = result.range(of: ">", range: openRange.upperBound..<result.endIndex) {
+        while let openRange = result.findRange(of: "<"),
+              let closeRange = result.findRange(of: ">", from: openRange.upperBound) {
             result.removeSubrange(openRange.lowerBound...closeRange.lowerBound)
         }
-        result = result.replacingOccurrences(of: "&amp;", with: "&")
-        result = result.replacingOccurrences(of: "&lt;", with: "<")
-        result = result.replacingOccurrences(of: "&gt;", with: ">")
-        result = result.replacingOccurrences(of: "&quot;", with: "\"")
-        result = result.replacingOccurrences(of: "&#39;", with: "'")
-        result = result.replacingOccurrences(of: "&nbsp;", with: " ")
+        result = result.replacingAll("&amp;", with: "&")
+        result = result.replacingAll("&lt;", with: "<")
+        result = result.replacingAll("&gt;", with: ">")
+        result = result.replacingAll("&quot;", with: "\"")
+        result = result.replacingAll("&#39;", with: "'")
+        result = result.replacingAll("&nbsp;", with: " ")
         return result
     }
 }
-

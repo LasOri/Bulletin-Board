@@ -1,4 +1,4 @@
-import Foundation
+import LINKER
 
 public enum EntityExtractor {
 
@@ -95,15 +95,15 @@ public enum EntityExtractor {
 
     private static func extractOrganizations(from text: String) -> [Entity] {
         var entities: [Entity] = []
-        let words = text.components(separatedBy: .whitespacesAndNewlines)
+        let words = text.splitByWhitespace()
 
         for (i, word) in words.enumerated() {
-            let cleanWord = word.trimmingCharacters(in: .punctuationCharacters)
+            let cleanWord = word.trimmingPunctuation()
             if orgSuffixes.contains(cleanWord) && i > 0 {
                 var orgWords: [String] = [cleanWord]
                 var j = i - 1
                 while j >= 0 {
-                    let prev = words[j].trimmingCharacters(in: .punctuationCharacters)
+                    let prev = words[j].trimmingPunctuation()
                     if prev.first?.isUppercase == true && prev.count > 1 {
                         orgWords.insert(prev, at: 0)
                         j -= 1
@@ -122,15 +122,15 @@ public enum EntityExtractor {
 
     private static func extractPersons(from text: String) -> [Entity] {
         var entities: [Entity] = []
-        let words = text.components(separatedBy: .whitespacesAndNewlines)
+        let words = text.splitByWhitespace()
 
         for (i, word) in words.enumerated() {
-            let cleanWord = word.trimmingCharacters(in: .punctuationCharacters)
+            let cleanWord = word.trimmingPunctuation()
             if personPrefixes.contains(cleanWord) || personPrefixes.contains(word) {
                 var nameWords: [String] = [cleanWord]
                 var j = i + 1
                 while j < words.count {
-                    let next = words[j].trimmingCharacters(in: .punctuationCharacters)
+                    let next = words[j].trimmingPunctuation()
                     if next.first?.isUppercase == true && next.count > 1 {
                         nameWords.append(next)
                         j += 1
@@ -147,4 +147,3 @@ public enum EntityExtractor {
         return entities
     }
 }
-

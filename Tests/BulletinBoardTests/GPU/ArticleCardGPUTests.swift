@@ -16,7 +16,7 @@ final class ArticleCardGPUTests: XCTestCase {
             id: "test-1",
             title: "Test Article",
             url: "https://example.com/article",
-            publishedAt: Date(),
+            publishedAt: currentTimestamp(),
             feedId: "feed-1"
         )
     }

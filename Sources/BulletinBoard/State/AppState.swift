@@ -1,7 +1,6 @@
-import Foundation
 import LINKER
 
-public struct AppState: Codable, Equatable, Sendable {
+public struct AppState: Equatable, Sendable {
     public var articles: ArticleState
 
     public var feeds: FeedState
@@ -20,4 +19,3 @@ public struct AppState: Codable, Equatable, Sendable {
 
     public static let initial = AppState()
 }
-

@@ -1,3 +1,4 @@
+import LINKER
 import XCTest
 @testable import BulletinBoard
 
@@ -26,7 +27,7 @@ final class FeedReducerTests: XCTestCase {
         let state = FeedState()
         let feed = makeTestFeed()
 
-        let newState = feedReducer(state: state, action: FeedAction.addFeed(feed))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.addFeed(feed)))
 
         XCTAssertEqual(newState.byId.count, 1)
         XCTAssertEqual(newState.allIds.count, 1)
@@ -42,7 +43,7 @@ final class FeedReducerTests: XCTestCase {
 
         let feed2 = makeTestFeed() // Same ID
 
-        let newState = feedReducer(state: state, action: FeedAction.addFeed(feed2))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.addFeed(feed2)))
 
         XCTAssertEqual(newState.byId.count, 1)
         XCTAssertEqual(newState.allIds.count, 1)
@@ -66,7 +67,7 @@ final class FeedReducerTests: XCTestCase {
 
         let newState = feedReducer(
             state: state,
-            action: FeedAction.updateFeed(id: originalFeed.id, updatedFeed)
+            action: AnyAction(FeedAction.updateFeed(id: originalFeed.id, updatedFeed))
         )
 
         XCTAssertEqual(newState.byId[originalFeed.id]?.title, "Updated Title")
@@ -80,7 +81,7 @@ final class FeedReducerTests: XCTestCase {
         state.byId[feed.id] = feed
         state.allIds = [feed.id]
 
-        let newState = feedReducer(state: state, action: FeedAction.removeFeed(id: feed.id))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.removeFeed(id: feed.id)))
 
         XCTAssertNil(newState.byId[feed.id])
         XCTAssertFalse(newState.allIds.contains(feed.id))
@@ -93,7 +94,7 @@ final class FeedReducerTests: XCTestCase {
         state.allIds = [feed.id]
         state.selectedId = feed.id
 
-        let newState = feedReducer(state: state, action: FeedAction.removeFeed(id: feed.id))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.removeFeed(id: feed.id)))
 
         XCTAssertNil(newState.selectedId)
     }
@@ -105,7 +106,7 @@ final class FeedReducerTests: XCTestCase {
         state.allIds = [feed.id]
         state.fetchingIds.insert(feed.id)
 
-        let newState = feedReducer(state: state, action: FeedAction.removeFeed(id: feed.id))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.removeFeed(id: feed.id)))
 
         XCTAssertFalse(newState.fetchingIds.contains(feed.id))
     }
@@ -118,7 +119,7 @@ final class FeedReducerTests: XCTestCase {
         state.byId[feed.id] = feed
         state.allIds = [feed.id]
 
-        let newState = feedReducer(state: state, action: FeedAction.toggleFeedEnabled(id: feed.id))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.toggleFeedEnabled(id: feed.id)))
 
         XCTAssertFalse(newState.byId[feed.id]!.isEnabled)
     }
@@ -129,7 +130,7 @@ final class FeedReducerTests: XCTestCase {
         state.byId[feed.id] = feed
         state.allIds = [feed.id]
 
-        let newState = feedReducer(state: state, action: FeedAction.toggleFeedEnabled(id: feed.id))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.toggleFeedEnabled(id: feed.id)))
 
         XCTAssertTrue(newState.byId[feed.id]!.isEnabled)
     }
@@ -139,7 +140,7 @@ final class FeedReducerTests: XCTestCase {
     func test_selectFeed_setsSelectedId() {
         let state = FeedState()
 
-        let newState = feedReducer(state: state, action: FeedAction.selectFeed(id: "feed-1"))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.selectFeed(id: "feed-1")))
 
         XCTAssertEqual(newState.selectedId, "feed-1")
     }
@@ -148,7 +149,7 @@ final class FeedReducerTests: XCTestCase {
         var state = FeedState()
         state.selectedId = "feed-1"
 
-        let newState = feedReducer(state: state, action: FeedAction.selectFeed(id: nil))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.selectFeed(id: nil)))
 
         XCTAssertNil(newState.selectedId)
     }
@@ -161,7 +162,7 @@ final class FeedReducerTests: XCTestCase {
         state.byId[feed.id] = feed
         state.allIds = [feed.id]
 
-        let newState = feedReducer(state: state, action: FeedAction.startFetching(id: feed.id))
+        let newState = feedReducer(state: state, action: AnyAction(FeedAction.startFetching(id: feed.id)))
 
         XCTAssertTrue(newState.fetchingIds.contains(feed.id))
         XCTAssertTrue(newState.byId[feed.id]!.isFetching)
@@ -178,7 +179,7 @@ final class FeedReducerTests: XCTestCase {
 
         let newState = feedReducer(
             state: state,
-            action: FeedAction.completeFetch(id: feed.id, articleCount: 10)
+            action: AnyAction(FeedAction.completeFetch(id: feed.id, articleCount: 10))
         )
 
         XCTAssertFalse(newState.fetchingIds.contains(feed.id))
@@ -199,7 +200,7 @@ final class FeedReducerTests: XCTestCase {
         let errorMessage = "Network error"
         let newState = feedReducer(
             state: state,
-            action: FeedAction.failFetch(id: feed.id, error: errorMessage)
+            action: AnyAction(FeedAction.failFetch(id: feed.id, error: errorMessage))
         )
 
         XCTAssertFalse(newState.fetchingIds.contains(feed.id))
@@ -217,7 +218,7 @@ final class FeedReducerTests: XCTestCase {
 
         let newState = feedReducer(
             state: state,
-            action: FeedAction.updateUnreadCount(feedId: feed.id, count: 5)
+            action: AnyAction(FeedAction.updateUnreadCount(feedId: feed.id, count: 5))
         )
 
         XCTAssertEqual(newState.byId[feed.id]!.unreadCount, 5)
@@ -233,7 +234,7 @@ final class FeedReducerTests: XCTestCase {
         let counts = [feed1.id: 3, feed2.id: 7]
         let newState = feedReducer(
             state: state,
-            action: FeedAction.recalculateAllUnreadCounts(counts)
+            action: AnyAction(FeedAction.recalculateAllUnreadCounts(counts))
         )
 
         XCTAssertEqual(newState.byId[feed1.id]!.unreadCount, 3)
@@ -246,7 +247,7 @@ final class FeedReducerTests: XCTestCase {
         let state = FeedState()
         let feed = makeTestFeed()
 
-        _ = feedReducer(state: state, action: FeedAction.addFeed(feed))
+        _ = feedReducer(state: state, action: AnyAction(FeedAction.addFeed(feed)))
 
         // Original state should remain empty
         XCTAssertTrue(state.byId.isEmpty)

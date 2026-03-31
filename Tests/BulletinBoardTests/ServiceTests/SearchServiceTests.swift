@@ -1,3 +1,4 @@
+import LINKER
 import XCTest
 @testable import BulletinBoard
 
@@ -355,9 +356,9 @@ final class SearchServiceTests: XCTestCase {
 
         await service.indexArticles(articles)
 
-        let start = Date()
+        let start = currentTimestamp()
         let results = await service.search(query: "programming")
-        let duration = Date().timeIntervalSince(start)
+        let duration = currentTimestamp() - start
 
         XCTAssertGreaterThan(results.count, 0)
         // Should complete in under 100ms

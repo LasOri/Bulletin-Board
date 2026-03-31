@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public actor FeedService {
@@ -27,9 +26,7 @@ public actor FeedService {
     }
 
     private func buildProxiedURL(_ targetURL: String, proxy: String) -> String? {
-        guard let encoded = targetURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return nil
-        }
+        let encoded = targetURL.percentEncodeForURL()
         return proxy + encoded
     }
 
@@ -40,11 +37,11 @@ public actor FeedService {
         guard let lastFailed = FeedService.proxyLastFailed[proxy] else {
             return true
         }
-        return Date().timeIntervalSince1970 - lastFailed >= FeedService.proxyCooldownSeconds
+        return currentTimestamp() - lastFailed >= FeedService.proxyCooldownSeconds
     }
 
     private func markProxyFailed(_ proxy: String) {
-        FeedService.proxyLastFailed[proxy] = Date().timeIntervalSince1970
+        FeedService.proxyLastFailed[proxy] = currentTimestamp()
     }
 
     private func markProxySuccess(_ proxy: String) {
@@ -92,7 +89,7 @@ public actor FeedService {
                         continue
                     }
 
-                    let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let trimmedBody = body.trimmingWhitespace()
 
                     if trimmedBody.hasPrefix("{\"Error\"") {
                         lastError = FeedError.parseError("Proxy returned error JSON")
@@ -124,14 +121,14 @@ public actor FeedService {
     }
 
     public func fetchFeed(from url: String, feedId: String) async throws -> [Article] {
-        guard URL(string: url) != nil else {
+        guard url.isValidURL() else {
             throw FeedError.invalidURL
         }
 
         do {
             let xmlString = try await fetchViaProxies(url)
 
-            let trimmed = xmlString.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmed = xmlString.trimmingWhitespace()
             if trimmed.hasPrefix("<!DOCTYPE") || trimmed.hasPrefix("<html") {
                 throw FeedError.parseError("URL returned an HTML page, not an RSS/Atom feed")
             }
@@ -158,7 +155,7 @@ public actor FeedService {
         } catch let error as FeedError {
             throw error
         } catch {
-            let msg = error.localizedDescription
+            let msg = "\(error)"
             if msg.contains("TypeError") || msg.contains("Failed to fetch") || msg.contains("NetworkError") {
                 throw FeedError.corsBlocked(
                     "Cannot fetch this feed due to cross-origin restrictions. " +
@@ -170,13 +167,11 @@ public actor FeedService {
     }
 
     public func discoverFeeds(from websiteURL: String) async throws -> [DiscoveredFeed] {
-        guard let baseURL = URL(string: websiteURL),
-              let scheme = baseURL.scheme,
-              let host = baseURL.host else {
+        guard let parts = websiteURL.urlSchemeAndHost() else {
             throw FeedError.invalidURL
         }
 
-        let origin = "\(scheme)://\(host)"
+        let origin = "\(parts.scheme)://\(parts.host)"
         var discovered: [DiscoveredFeed] = []
         var seenURLs: Set<String> = []
 
@@ -196,7 +191,7 @@ public actor FeedService {
 
             do {
                 let body = try await fetchViaProxies(probeURL)
-                let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = body.trimmingWhitespace()
                 if trimmed.hasPrefix("<?xml") || trimmed.hasPrefix("<rss") || trimmed.hasPrefix("<feed") {
                     let feedType: FeedType = trimmed.contains("<feed") ? .atom : .rss
                     seenURLs.insert(probeURL)
@@ -211,18 +206,18 @@ public actor FeedService {
     private func parseFeedLinks(from html: String, baseOrigin: String) -> [DiscoveredFeed] {
         var feeds: [DiscoveredFeed] = []
 
-        var searchRange = html.startIndex..<html.endIndex
-        while let linkStart = html.range(of: "<link ", options: .caseInsensitive, range: searchRange) {
-            guard let linkEnd = html.range(of: ">", range: linkStart.upperBound..<html.endIndex) else { break }
+        var searchStart = html.startIndex
+        while let linkStart = html.findRangeIgnoringCase(of: "<link ", from: searchStart) {
+            guard let linkEnd = html.findRange(of: ">", from: linkStart.upperBound) else { break }
             let linkTag = String(html[linkStart.lowerBound..<linkEnd.upperBound])
-            searchRange = linkEnd.upperBound..<html.endIndex
+            searchStart = linkEnd.upperBound
 
-            let isAlternate = linkTag.range(of: "rel=\"alternate\"", options: .caseInsensitive) != nil
-                || linkTag.range(of: "rel='alternate'", options: .caseInsensitive) != nil
+            let isAlternate = linkTag.findRangeIgnoringCase(of: "rel=\"alternate\"") != nil
+                || linkTag.findRangeIgnoringCase(of: "rel='alternate'") != nil
             guard isAlternate else { continue }
 
-            let isRSS = linkTag.range(of: "application/rss+xml", options: .caseInsensitive) != nil
-            let isAtom = linkTag.range(of: "application/atom+xml", options: .caseInsensitive) != nil
+            let isRSS = linkTag.findRangeIgnoringCase(of: "application/rss+xml") != nil
+            let isAtom = linkTag.findRangeIgnoringCase(of: "application/atom+xml") != nil
             guard isRSS || isAtom else { continue }
 
             guard let href = extractAttribute("href", from: linkTag) else { continue }
@@ -250,20 +245,17 @@ public actor FeedService {
     private func extractAttribute(_ name: String, from tag: String) -> String? {
         let patterns = ["\(name)=\"", "\(name)='"]
         for pattern in patterns {
-            guard let start = tag.range(of: pattern, options: .caseInsensitive) else { continue }
+            guard let start = tag.findRangeIgnoringCase(of: pattern) else { continue }
             let valueStart = start.upperBound
-            let quote = pattern.last!
-            guard let end = tag.range(of: String(quote), range: valueStart..<tag.endIndex) else { continue }
+            let quote = String(pattern.last!)
+            guard let end = tag.findRange(of: quote, from: valueStart) else { continue }
             return String(tag[valueStart..<end.lowerBound])
         }
         return nil
     }
 
     private func convertToArticle(_ item: RSSItem, feedId: String) async -> Article {
-        let articleId = item.link
-            .data(using: .utf8)
-            .map { "\(feedId)-\($0.hashValue)" }
-            ?? UUID().uuidString
+        let articleId = "\(feedId)-\(item.link.hashValue)"
 
         let sanitizedDescription = await item.description.asyncMap { rawHTML in
             await HTMLSanitizer.sanitize(rawHTML, policy: .moderate)
@@ -304,4 +296,3 @@ extension Optional {
         return nil
     }
 }
-

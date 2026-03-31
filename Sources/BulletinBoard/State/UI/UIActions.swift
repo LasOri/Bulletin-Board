@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public enum UIAction: Action {
@@ -24,4 +23,3 @@ public enum UIAction: Action {
 
     case switchTab(String)
 }
-

@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 #if canImport(JavaScriptKit) && arch(wasm32)

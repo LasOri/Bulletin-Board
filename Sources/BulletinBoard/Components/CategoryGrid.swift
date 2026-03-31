@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public enum ViewMode: String {

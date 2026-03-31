@@ -1,8 +1,7 @@
-import Foundation
 import LINKER
 
-public func uiReducer(state: UIState, action: any Action) -> UIState {
-    guard let action = action as? UIAction else {
+public func uiReducer(state: UIState, action: AnyAction) -> UIState {
+    guard let action = action.as(UIAction.self) else {
         return state
     }
 
@@ -60,4 +59,3 @@ public func uiReducer(state: UIState, action: any Action) -> UIState {
 
     return newState
 }
-

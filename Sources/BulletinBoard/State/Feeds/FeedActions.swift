@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public enum FeedAction: Action {
@@ -18,4 +17,3 @@ public enum FeedAction: Action {
 
     case refreshAllFeeds
 }
-

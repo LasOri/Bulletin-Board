@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 #if canImport(JavaScriptKit)
 import JavaScriptKit
@@ -21,7 +20,7 @@ public actor StorageService {
     }
 
     private var backend: StorageBackend?
-    private var inMemoryStore: [String: Data] = [:]
+    private var inMemoryStore: [String: String] = [:]
 
     public init(useInMemoryStorage: Bool = false) {
         if useInMemoryStorage {
@@ -63,52 +62,83 @@ public actor StorageService {
         return b
     }
 
-    public func save<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
+    // MARK: - Articles
+
+    public func saveArticles(_ articles: [Article]) async throws {
+        let jsonArray = Json.array(articles.map { $0.toJson() })
+        let jsonString = jsonArray.toJsonString(pretty: false)
+        try await saveRaw(jsonString, forKey: "articles")
+    }
+
+    public func loadArticles() async throws -> [Article] {
+        let jsonString = try await loadRaw(forKey: "articles")
+        let parsed = Json.parse(jsonString)
+        guard let array = parsed.arrayValue else {
+            throw StorageError.decodingFailed
+        }
+        return array.compactMap { Article(json: $0) }
+    }
+
+    // MARK: - Feeds
+
+    public func saveFeeds(_ feeds: [Feed]) async throws {
+        let jsonArray = Json.array(feeds.map { $0.toJson() })
+        let jsonString = jsonArray.toJsonString(pretty: false)
+        try await saveRaw(jsonString, forKey: "feeds")
+    }
+
+    public func loadFeeds() async throws -> [Feed] {
+        let jsonString = try await loadRaw(forKey: "feeds")
+        let parsed = Json.parse(jsonString)
+        guard let array = parsed.arrayValue else {
+            throw StorageError.decodingFailed
+        }
+        return array.compactMap { Feed(json: $0) }
+    }
+
+    // MARK: - Generic String Storage
+
+    public func save(_ value: String, forKey key: String) async throws {
+        try await saveRaw(value, forKey: key)
+    }
+
+    public func load(forKey key: String) async throws -> String {
+        try await loadRaw(forKey: key)
+    }
+
+    // MARK: - Internal Raw String Storage
+
+    private func saveRaw(_ value: String, forKey key: String) async throws {
         let backend = await ensureBackend()
 
         switch backend {
         case .inMemory:
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            guard let data = try? encoder.encode(value) else {
-                throw StorageError.encodingFailed
-            }
-            inMemoryStore[key] = data
+            inMemoryStore[key] = value
 
         case .webAuthn(let storage):
             let store = storage.store("secure_storage")
-            try await store.put(value, key: key)
+            try await store.put(.string(value), key: key)
 
         case .indexedDB(let db):
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            guard let data = try? encoder.encode(value),
-                  let jsonString = String(data: data, encoding: .utf8) else {
-                throw StorageError.encodingFailed
-            }
             let store = db.store("bb_data")
-            try await store.putRaw(jsonString, key: key)
+            try await store.putRaw(value, key: key)
         }
     }
 
-    public func load<T: Codable & Sendable>(forKey key: String) async throws -> T {
+    private func loadRaw(forKey key: String) async throws -> String {
         let backend = await ensureBackend()
 
         switch backend {
         case .inMemory:
-            guard let data = inMemoryStore[key] else {
+            guard let value = inMemoryStore[key] else {
                 throw StorageError.notFound
-            }
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            guard let value = try? decoder.decode(T.self, from: data) else {
-                throw StorageError.decodingFailed
             }
             return value
 
         case .webAuthn(let storage):
             let store = storage.store("secure_storage")
-            guard let value: T = try await store.get(key, as: T.self) else {
+            guard let json = try await store.get(key),
+                  let value = json.stringValue else {
                 throw StorageError.notFound
             }
             return value
@@ -118,15 +148,7 @@ public actor StorageService {
             guard let jsonString = try await store.getRaw(key) else {
                 throw StorageError.notFound
             }
-            guard let data = jsonString.data(using: .utf8) else {
-                throw StorageError.decodingFailed
-            }
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            guard let value = try? decoder.decode(T.self, from: data) else {
-                throw StorageError.decodingFailed
-            }
-            return value
+            return jsonString
         }
     }
 
@@ -154,8 +176,8 @@ public actor StorageService {
         case .webAuthn(let storage):
             do {
                 let store = storage.store("secure_storage")
-                let data = try await store.exists(forKey: key)
-                return data
+                let json = try await store.get(key)
+                return json != nil
             } catch {
                 return false
             }
@@ -183,22 +205,6 @@ public actor StorageService {
             let store = db.store("bb_data")
             try await store.clear()
         }
-    }
-
-    public func saveArticles(_ articles: [Article]) async throws {
-        try await save(articles, forKey: "articles")
-    }
-
-    public func loadArticles() async throws -> [Article] {
-        try await load(forKey: "articles")
-    }
-
-    public func saveFeeds(_ feeds: [Feed]) async throws {
-        try await save(feeds, forKey: "feeds")
-    }
-
-    public func loadFeeds() async throws -> [Feed] {
-        try await load(forKey: "feeds")
     }
 
     #if canImport(JavaScriptKit) && arch(wasm32)
@@ -269,4 +275,3 @@ public actor StorageService {
     }
     #endif
 }
-

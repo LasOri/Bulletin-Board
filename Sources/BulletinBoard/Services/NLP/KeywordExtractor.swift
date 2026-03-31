@@ -1,4 +1,4 @@
-import Foundation
+import LINKER
 
 public enum KeywordExtractor {
 
@@ -65,8 +65,8 @@ public enum KeywordExtractor {
     private static func splitByStopWords(_ sentence: String) -> [[String]] {
         let words = sentence
             .lowercased()
-            .components(separatedBy: .whitespacesAndNewlines)
-            .map { $0.trimmingCharacters(in: .punctuationCharacters) }
+            .splitByWhitespace()
+            .map { $0.trimmingPunctuation() }
             .filter { !$0.isEmpty }
 
         var phrases: [[String]] = []

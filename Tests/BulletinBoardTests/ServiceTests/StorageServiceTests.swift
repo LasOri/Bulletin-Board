@@ -43,13 +43,14 @@ final class StorageServiceTests: XCTestCase {
         let service = makeTestStorageService()
         let article = makeTestArticle()
 
-        try await service.save(article, forKey: "test-article")
-        let loaded: Article = try await service.load(forKey: "test-article")
+        try await service.saveArticles([article])
+        let loaded = try await service.loadArticles()
 
-        XCTAssertEqual(loaded.id, article.id)
-        XCTAssertEqual(loaded.title, article.title)
-        XCTAssertEqual(loaded.url, article.url)
-        XCTAssertEqual(loaded.feedId, article.feedId)
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded[0].id, article.id)
+        XCTAssertEqual(loaded[0].title, article.title)
+        XCTAssertEqual(loaded[0].url, article.url)
+        XCTAssertEqual(loaded[0].feedId, article.feedId)
     }
 
     func testSaveAndLoadMultipleArticles() async throws {
@@ -90,7 +91,7 @@ final class StorageServiceTests: XCTestCase {
         let service = makeTestStorageService()
 
         do {
-            let _: String = try await service.load(forKey: "nonexistent")
+            _ = try await service.load(forKey: "nonexistent")
             XCTFail("Should throw notFound error")
         } catch StorageService.StorageError.notFound {
             // Expected error

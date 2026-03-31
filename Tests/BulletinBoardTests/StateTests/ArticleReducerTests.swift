@@ -1,3 +1,4 @@
+import LINKER
 import XCTest
 @testable import BulletinBoard
 
@@ -31,7 +32,7 @@ final class ArticleReducerTests: XCTestCase {
             makeTestArticle(id: "2")
         ]
 
-        let newState = articleReducer(state: state, action: ArticleAction.addArticles(articles))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.addArticles(articles)))
 
         XCTAssertEqual(newState.byId.count, 2)
         XCTAssertEqual(newState.allIds.count, 2)
@@ -52,7 +53,7 @@ final class ArticleReducerTests: XCTestCase {
             makeTestArticle(id: "2")
         ]
 
-        let newState = articleReducer(state: state, action: ArticleAction.addArticles(articles))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.addArticles(articles)))
 
         XCTAssertEqual(newState.byId.count, 2)
         XCTAssertEqual(newState.allIds.count, 2)
@@ -68,7 +69,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId["1"] = article
         state.allIds = ["1"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.markAsRead(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.markAsRead(id: "1")))
 
         XCTAssertTrue(newState.byId["1"]!.isRead)
         XCTAssertNotEqual(newState.byId["1"]!.updatedAt, article.addedAt)
@@ -77,7 +78,7 @@ final class ArticleReducerTests: XCTestCase {
     func test_markAsRead_whenArticleDoesNotExist_doesNotCrash() {
         let state = ArticleState()
 
-        let newState = articleReducer(state: state, action: ArticleAction.markAsRead(id: "nonexistent"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.markAsRead(id: "nonexistent")))
 
         XCTAssertEqual(newState, state)
     }
@@ -90,7 +91,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId = ["1": article1, "2": article2, "3": article3]
         state.allIds = ["1", "2", "3"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.markAllAsRead)
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.markAllAsRead))
 
         XCTAssertTrue(newState.byId["1"]!.isRead)
         XCTAssertTrue(newState.byId["2"]!.isRead)
@@ -105,7 +106,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId["1"] = article
         state.allIds = ["1"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.toggleFavorite(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.toggleFavorite(id: "1")))
 
         XCTAssertTrue(newState.byId["1"]!.isFavorite)
     }
@@ -116,7 +117,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId["1"] = article
         state.allIds = ["1"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.toggleFavorite(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.toggleFavorite(id: "1")))
 
         XCTAssertFalse(newState.byId["1"]!.isFavorite)
     }
@@ -129,7 +130,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId["1"] = article
         state.allIds = ["1"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.archiveArticle(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.archiveArticle(id: "1")))
 
         XCTAssertTrue(newState.byId["1"]!.isArchived)
     }
@@ -141,7 +142,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId["1"] = article
         state.allIds = ["1"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.unarchiveArticle(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.unarchiveArticle(id: "1")))
 
         XCTAssertFalse(newState.byId["1"]!.isArchived)
     }
@@ -154,7 +155,7 @@ final class ArticleReducerTests: XCTestCase {
         state.byId["1"] = article
         state.allIds = ["1"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.removeArticle(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.removeArticle(id: "1")))
 
         XCTAssertNil(newState.byId["1"])
         XCTAssertFalse(newState.allIds.contains("1"))
@@ -167,7 +168,7 @@ final class ArticleReducerTests: XCTestCase {
         state.allIds = ["1"]
         state.selectedId = "1"
 
-        let newState = articleReducer(state: state, action: ArticleAction.removeArticle(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.removeArticle(id: "1")))
 
         XCTAssertNil(newState.selectedId)
     }
@@ -181,7 +182,7 @@ final class ArticleReducerTests: XCTestCase {
         ]
         state.allIds = ["1", "2", "3"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.removeArticles(["1", "3"]))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.removeArticles(["1", "3"])))
 
         XCTAssertNil(newState.byId["1"])
         XCTAssertNotNil(newState.byId["2"])
@@ -203,14 +204,14 @@ final class ArticleReducerTests: XCTestCase {
 
         let newState = articleReducer(
             state: state,
-            action: ArticleAction.updateNLP(
+            action: AnyAction(ArticleAction.updateNLP(
                 id: "1",
                 summary: summary,
                 keywords: keywords,
                 category: category,
                 sentiment: 0.5,
                 cluster: 1
-            )
+            ))
         )
 
         XCTAssertEqual(newState.byId["1"]!.nlpSummary, summary)
@@ -225,7 +226,7 @@ final class ArticleReducerTests: XCTestCase {
     func test_selectArticle_setsSelectedId() {
         let state = ArticleState()
 
-        let newState = articleReducer(state: state, action: ArticleAction.selectArticle(id: "1"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.selectArticle(id: "1")))
 
         XCTAssertEqual(newState.selectedId, "1")
     }
@@ -234,7 +235,7 @@ final class ArticleReducerTests: XCTestCase {
         var state = ArticleState()
         state.selectedId = "1"
 
-        let newState = articleReducer(state: state, action: ArticleAction.selectArticle(id: nil))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.selectArticle(id: nil)))
 
         XCTAssertNil(newState.selectedId)
     }
@@ -244,7 +245,7 @@ final class ArticleReducerTests: XCTestCase {
     func test_setSearchQuery_updatesSearchQuery() {
         let state = ArticleState()
 
-        let newState = articleReducer(state: state, action: ArticleAction.setSearchQuery("test"))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.setSearchQuery("test")))
 
         XCTAssertEqual(newState.searchQuery, "test")
     }
@@ -252,7 +253,7 @@ final class ArticleReducerTests: XCTestCase {
     func test_setSortOrder_updatesSortBy() {
         let state = ArticleState()
 
-        let newState = articleReducer(state: state, action: ArticleAction.setSortOrder(.oldest))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.setSortOrder(.oldest)))
 
         XCTAssertEqual(newState.sortBy, .oldest)
     }
@@ -263,7 +264,7 @@ final class ArticleReducerTests: XCTestCase {
         state.filters.showOnlyUnread = true
         state.filters.showOnlyFavorites = true
 
-        let newState = articleReducer(state: state, action: ArticleAction.resetFilters)
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.resetFilters))
 
         XCTAssertEqual(newState.searchQuery, "")
         XCTAssertFalse(newState.filters.showOnlyUnread)
@@ -281,7 +282,7 @@ final class ArticleReducerTests: XCTestCase {
         ]
         state.allIds = ["1", "2", "3"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.markMultipleAsRead(["1", "3"]))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.markMultipleAsRead(["1", "3"])))
 
         XCTAssertTrue(newState.byId["1"]!.isRead)
         XCTAssertFalse(newState.byId["2"]!.isRead)
@@ -297,7 +298,7 @@ final class ArticleReducerTests: XCTestCase {
         ]
         state.allIds = ["1", "2", "3"]
 
-        let newState = articleReducer(state: state, action: ArticleAction.archiveMultiple(["1", "2"]))
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.archiveMultiple(["1", "2"])))
 
         XCTAssertTrue(newState.byId["1"]!.isArchived)
         XCTAssertTrue(newState.byId["2"]!.isArchived)
@@ -306,15 +307,15 @@ final class ArticleReducerTests: XCTestCase {
 
     func test_deleteOlderThan_removesOldArticles() {
         var state = ArticleState()
-        let now = Date()
-        let oldDate = Calendar.current.date(byAdding: .day, value: -10, to: now)!
-        let recentDate = Calendar.current.date(byAdding: .day, value: -2, to: now)!
+        let now = currentTimestamp()
+        let oldTimestamp = now - Double(10 * 86400)
+        let recentTimestamp = now - Double(2 * 86400)
 
         let oldArticle = Article(
             id: "old",
             title: "Old Article",
             url: "https://example.com/old",
-            publishedAt: oldDate,
+            publishedAt: oldTimestamp,
             feedId: "feed-1"
         )
 
@@ -322,15 +323,15 @@ final class ArticleReducerTests: XCTestCase {
             id: "recent",
             title: "Recent Article",
             url: "https://example.com/recent",
-            publishedAt: recentDate,
+            publishedAt: recentTimestamp,
             feedId: "feed-1"
         )
 
         state.byId = ["old": oldArticle, "recent": recentArticle]
         state.allIds = ["old", "recent"]
 
-        let cutoffDate = Calendar.current.date(byAdding: .day, value: -5, to: now)!
-        let newState = articleReducer(state: state, action: ArticleAction.deleteOlderThan(cutoffDate))
+        let cutoffTimestamp = now - Double(5 * 86400)
+        let newState = articleReducer(state: state, action: AnyAction(ArticleAction.deleteOlderThan(cutoffTimestamp)))
 
         XCTAssertNil(newState.byId["old"])
         XCTAssertNotNil(newState.byId["recent"])
@@ -343,7 +344,7 @@ final class ArticleReducerTests: XCTestCase {
         let state = ArticleState()
         let article = makeTestArticle(id: "1")
 
-        _ = articleReducer(state: state, action: ArticleAction.addArticles([article]))
+        _ = articleReducer(state: state, action: AnyAction(ArticleAction.addArticles([article])))
 
         // Original state should remain empty
         XCTAssertTrue(state.byId.isEmpty)

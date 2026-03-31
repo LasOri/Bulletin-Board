@@ -1,7 +1,6 @@
-import Foundation
 import LINKER
 
-public struct ArticleState: Codable, Equatable, Sendable {
+public struct ArticleState: Equatable, Sendable {
     public var byId: [String: Article]
 
     public var allIds: [String]
@@ -35,7 +34,7 @@ public struct ArticleState: Codable, Equatable, Sendable {
     }
 }
 
-public struct SearchResult: Codable, Equatable, Sendable {
+public struct SearchResult: Equatable, Sendable {
     public let articleId: String
     public let score: Double
     public let matchedFields: Set<String>
@@ -47,7 +46,7 @@ public struct SearchResult: Codable, Equatable, Sendable {
     }
 }
 
-public struct ArticleFilters: Codable, Equatable, Sendable {
+public struct ArticleFilters: Equatable, Sendable {
     public var feedIds: Set<String>
 
     public var categories: Set<ArticleCategory>
@@ -94,36 +93,42 @@ public struct ArticleFilters: Codable, Equatable, Sendable {
     }
 }
 
-public enum DateRange: Codable, Equatable, Sendable {
+/// Date range filter using epoch timestamps (seconds since 1970).
+public enum DateRange: Equatable, Sendable {
     case today
     case lastWeek
     case lastMonth
-    case custom(start: Date, end: Date)
+    case custom(start: Double, end: Double)
 
-    public var dateInterval: DateInterval {
-        let now = Date()
-        let calendar = Calendar.current
+    /// Returns (start, end) as epoch seconds.
+    public var timestampRange: (start: Double, end: Double) {
+        let now = currentTimestamp()
 
         switch self {
         case .today:
-            let startOfDay = calendar.startOfDay(for: now)
-            return DateInterval(start: startOfDay, end: now)
+            // Approximate start of UTC day
+            let startOfDay = now - now.truncatingRemainder(dividingBy: 86400)
+            return (start: startOfDay, end: now)
 
         case .lastWeek:
-            let weekAgo = calendar.date(byAdding: .day, value: -7, to: now)!
-            return DateInterval(start: weekAgo, end: now)
+            return (start: now - 604800, end: now)
 
         case .lastMonth:
-            let monthAgo = calendar.date(byAdding: .month, value: -1, to: now)!
-            return DateInterval(start: monthAgo, end: now)
+            return (start: now - 2592000, end: now)
 
         case .custom(let start, let end):
-            return DateInterval(start: start, end: end)
+            return (start: start, end: end)
         }
+    }
+
+    /// Check if a timestamp falls within this range.
+    public func contains(_ timestamp: Double) -> Bool {
+        let range = timestampRange
+        return timestamp >= range.start && timestamp <= range.end
     }
 }
 
-public enum ArticleSortOrder: String, Codable, CaseIterable, Sendable {
+public enum ArticleSortOrder: String, CaseIterable, Sendable {
     case newest = "Newest First"
     case oldest = "Oldest First"
     case title = "Title (A-Z)"
@@ -149,10 +154,11 @@ extension ArticleState {
             let rankedArticles = rankedIds.compactMap { byId[$0] }
             result = rankedArticles
         } else if !searchQuery.isEmpty {
+            let query = searchQuery.lowercased()
             result = result.filter { article in
-                article.title.localizedCaseInsensitiveContains(searchQuery) ||
-                article.description?.localizedCaseInsensitiveContains(searchQuery) == true ||
-                article.keywords.contains { $0.localizedCaseInsensitiveContains(searchQuery) }
+                article.title.lowercased().contains(query) ||
+                article.description?.lowercased().contains(query) == true ||
+                article.keywords.contains { $0.lowercased().contains(query) }
             }
         }
 
@@ -183,7 +189,7 @@ extension ArticleState {
 
                 if let dateRange = filters.dateRange,
                    let publishedAt = article.publishedAt,
-                   !dateRange.dateInterval.contains(publishedAt) {
+                   !dateRange.contains(publishedAt) {
                     return false
                 }
 
@@ -230,4 +236,3 @@ extension ArticleState {
         }
     }
 }
-

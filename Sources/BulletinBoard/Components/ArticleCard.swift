@@ -1,4 +1,3 @@
-import Foundation
 import LINKER
 
 public struct ArticleCard {
@@ -285,17 +284,13 @@ public struct ArticleCard {
         )
     }
 
-    static func formatRelativeDate(_ date: Date) -> String {
-        formatDate(date)
+    /// Format a timestamp (seconds since epoch) as a relative date string.
+    static func formatRelativeDate(_ timestamp: Double) -> String {
+        formatDate(timestamp)
     }
 
-    private static func formatDate(_ date: Date) -> String {
-        #if !arch(wasm32)
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .short
-        return formatter.localizedString(for: date, relativeTo: Date())
-        #else
-        let seconds = Date().timeIntervalSince(date)
+    private static func formatDate(_ timestamp: Double) -> String {
+        let seconds = currentTimestamp() - timestamp
         if seconds < 60 {
             return "just now"
         } else if seconds < 3600 {
@@ -308,7 +303,6 @@ public struct ArticleCard {
             let days = Int(seconds / 86400)
             return "\(days)d ago"
         }
-        #endif
     }
 }
 

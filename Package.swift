@@ -1,6 +1,14 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
+#if arch(wasm32)
+let jsKitProducts: [Target.Dependency] = [
+    .product(name: "JavaScriptEventLoop", package: "JavaScriptKit")
+]
+#else
+let jsKitProducts: [Target.Dependency] = []
+#endif
+
 let package = Package(
     name: "BulletinBoard",
     platforms: [
@@ -25,8 +33,7 @@ let package = Package(
             name: "BulletinBoard",
             dependencies: [
                 .product(name: "LINKER", package: "LINKER"),
-                .product(name: "JavaScriptEventLoop", package: "JavaScriptKit")
-            ]
+            ] + jsKitProducts
         ),
         .testTarget(
             name: "BulletinBoardTests",

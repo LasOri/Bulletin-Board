@@ -1,7 +1,6 @@
-import Foundation
 import LINKER
 
-public struct FeedState: Codable, Equatable, Sendable {
+public struct FeedState: Equatable, Sendable {
     public var byId: [String: Feed]
 
     public var allIds: [String]
@@ -57,4 +56,3 @@ extension FeedState {
         fetchingIds.contains(feedId)
     }
 }
-

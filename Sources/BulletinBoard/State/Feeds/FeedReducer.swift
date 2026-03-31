@@ -1,8 +1,7 @@
-import Foundation
 import LINKER
 
-public func feedReducer(state: FeedState, action: any Action) -> FeedState {
-    guard let action = action as? FeedAction else {
+public func feedReducer(state: FeedState, action: AnyAction) -> FeedState {
+    guard let action = action.as(FeedAction.self) else {
         return state
     }
 
@@ -76,4 +75,3 @@ public func feedReducer(state: FeedState, action: any Action) -> FeedState {
 
     return newState
 }
-

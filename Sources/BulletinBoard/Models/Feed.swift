@@ -1,7 +1,6 @@
-import Foundation
 import LINKER
 
-public struct Feed: Codable, Equatable, Identifiable, Sendable {
+public struct Feed: Equatable, Identifiable, Sendable {
     public let id: String
 
     public let title: String
@@ -20,9 +19,11 @@ public struct Feed: Codable, Equatable, Identifiable, Sendable {
 
     public var updateFrequency: Int
 
-    public var lastFetched: Date?
+    /// Seconds since epoch, or nil.
+    public var lastFetched: Double?
 
-    public var lastSuccessfulFetch: Date?
+    /// Seconds since epoch, or nil.
+    public var lastSuccessfulFetch: Double?
 
     public var lastError: String?
 
@@ -30,16 +31,18 @@ public struct Feed: Codable, Equatable, Identifiable, Sendable {
 
     public var unreadCount: Int
 
-    public let subscribedAt: Date
+    /// Seconds since epoch.
+    public let subscribedAt: Double
 
-    public var updatedAt: Date
+    /// Seconds since epoch.
+    public var updatedAt: Double
 
     public var isEnabled: Bool
 
     public var isFetching: Bool
 
     public init(
-        id: String = UUID().uuidString,
+        id: String = uniqueIDString(),
         title: String,
         description: String,
         url: String,
@@ -48,13 +51,13 @@ public struct Feed: Codable, Equatable, Identifiable, Sendable {
         iconUrl: String? = nil,
         userCategory: String? = nil,
         updateFrequency: Int = 60,
-        lastFetched: Date? = nil,
-        lastSuccessfulFetch: Date? = nil,
+        lastFetched: Double? = nil,
+        lastSuccessfulFetch: Double? = nil,
         lastError: String? = nil,
         articleCount: Int = 0,
         unreadCount: Int = 0,
-        subscribedAt: Date = Date(),
-        updatedAt: Date = Date(),
+        subscribedAt: Double = currentTimestamp(),
+        updatedAt: Double = currentTimestamp(),
         isEnabled: Bool = true,
         isFetching: Bool = false
     ) {
@@ -97,38 +100,90 @@ extension Feed {
             return true
         }
 
-        let interval = TimeInterval(updateFrequency * 60)
-        return Date().timeIntervalSince(lastFetch) >= interval
+        let interval = Double(updateFrequency * 60)
+        return currentTimestamp() - lastFetch >= interval
     }
 
     public mutating func startFetching() {
         isFetching = true
-        lastFetched = Date()
-        updatedAt = Date()
+        lastFetched = currentTimestamp()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func completeFetch(articleCount: Int) {
         isFetching = false
-        lastSuccessfulFetch = Date()
+        lastSuccessfulFetch = currentTimestamp()
         lastError = nil
         self.articleCount = articleCount
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func failFetch(error: String) {
         isFetching = false
         lastError = error
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func updateUnreadCount(_ count: Int) {
         unreadCount = count
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 
     public mutating func toggleEnabled() {
         isEnabled.toggle()
-        updatedAt = Date()
+        updatedAt = currentTimestamp()
     }
 }
 
+// MARK: - Json Serialization
+
+extension Feed {
+    public func toJson() -> Json {
+        var obj: [String: Json] = [
+            "id": .string(id),
+            "title": .string(title),
+            "description": .string(description),
+            "url": .string(url),
+            "updateFrequency": .double(Double(updateFrequency)),
+            "articleCount": .double(Double(articleCount)),
+            "unreadCount": .double(Double(unreadCount)),
+            "subscribedAt": .double(subscribedAt),
+            "updatedAt": .double(updatedAt),
+            "isEnabled": .bool(isEnabled),
+            "isFetching": .bool(isFetching)
+        ]
+        if let v = siteUrl { obj["siteUrl"] = .string(v) }
+        if let v = language { obj["language"] = .string(v) }
+        if let v = iconUrl { obj["iconUrl"] = .string(v) }
+        if let v = userCategory { obj["userCategory"] = .string(v) }
+        if let v = lastFetched { obj["lastFetched"] = .double(v) }
+        if let v = lastSuccessfulFetch { obj["lastSuccessfulFetch"] = .double(v) }
+        if let v = lastError { obj["lastError"] = .string(v) }
+        return .object(obj)
+    }
+
+    public init?(json: Json) {
+        guard let id = json["id"]?.stringValue,
+              let title = json["title"]?.stringValue,
+              let description = json["description"]?.stringValue,
+              let url = json["url"]?.stringValue else { return nil }
+        self.id = id
+        self.title = title
+        self.description = description
+        self.url = url
+        self.siteUrl = json["siteUrl"]?.stringValue
+        self.language = json["language"]?.stringValue
+        self.iconUrl = json["iconUrl"]?.stringValue
+        self.userCategory = json["userCategory"]?.stringValue
+        self.updateFrequency = json["updateFrequency"]?.doubleValue.map { Int($0) } ?? 60
+        self.lastFetched = json["lastFetched"]?.doubleValue
+        self.lastSuccessfulFetch = json["lastSuccessfulFetch"]?.doubleValue
+        self.lastError = json["lastError"]?.stringValue
+        self.articleCount = json["articleCount"]?.doubleValue.map { Int($0) } ?? 0
+        self.unreadCount = json["unreadCount"]?.doubleValue.map { Int($0) } ?? 0
+        self.subscribedAt = json["subscribedAt"]?.doubleValue ?? currentTimestamp()
+        self.updatedAt = json["updatedAt"]?.doubleValue ?? currentTimestamp()
+        self.isEnabled = json["isEnabled"]?.boolValue ?? true
+        self.isFetching = false
+    }
+}

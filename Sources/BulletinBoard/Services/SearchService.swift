@@ -1,4 +1,4 @@
-import Foundation
+import LINKER
 
 public actor SearchService {
 

@@ -1,5 +1,3 @@
-import Foundation
-
 public enum FeedType: String, Sendable {
     case rss
     case atom

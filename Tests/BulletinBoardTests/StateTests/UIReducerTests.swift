@@ -1,3 +1,4 @@
+import LINKER
 import XCTest
 @testable import BulletinBoard
 
@@ -8,7 +9,7 @@ final class UIReducerTests: XCTestCase {
     func test_beginExpanding_setsExpandedIdAndPhase() {
         let state = UIState()
 
-        let newState = uiReducer(state: state, action: UIAction.beginExpanding(id: "article-1"))
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.beginExpanding(id: "article-1")))
 
         XCTAssertEqual(newState.expandedArticleId, "article-1")
         XCTAssertEqual(newState.animationPhase, .expanding)
@@ -19,7 +20,7 @@ final class UIReducerTests: XCTestCase {
         state.expandedArticleId = "article-1"
         state.animationPhase = .expanding
 
-        let newState = uiReducer(state: state, action: UIAction.expandComplete)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.expandComplete))
 
         XCTAssertEqual(newState.expandedArticleId, "article-1")
         XCTAssertEqual(newState.animationPhase, .expanded)
@@ -30,7 +31,7 @@ final class UIReducerTests: XCTestCase {
         state.expandedArticleId = "article-1"
         state.animationPhase = .expanded
 
-        let newState = uiReducer(state: state, action: UIAction.beginCollapsing)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.beginCollapsing))
 
         XCTAssertEqual(newState.animationPhase, .collapsing)
     }
@@ -40,7 +41,7 @@ final class UIReducerTests: XCTestCase {
         state.expandedArticleId = "article-1"
         state.animationPhase = .collapsing
 
-        let newState = uiReducer(state: state, action: UIAction.collapseComplete)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.collapseComplete))
 
         XCTAssertNil(newState.expandedArticleId)
         XCTAssertEqual(newState.animationPhase, .idle)
@@ -51,7 +52,7 @@ final class UIReducerTests: XCTestCase {
     func test_openFeedManager_setsFeedManagerOpenTrue() {
         let state = UIState()
 
-        let newState = uiReducer(state: state, action: UIAction.openFeedManager)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.openFeedManager))
 
         XCTAssertTrue(newState.isFeedManagerOpen)
     }
@@ -60,7 +61,7 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.isFeedManagerOpen = true
 
-        let newState = uiReducer(state: state, action: UIAction.closeFeedManager)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.closeFeedManager))
 
         XCTAssertFalse(newState.isFeedManagerOpen)
     }
@@ -69,10 +70,10 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.isSettingsOpen = false
 
-        let newState1 = uiReducer(state: state, action: UIAction.toggleSettings)
+        let newState1 = uiReducer(state: state, action: AnyAction(UIAction.toggleSettings))
         XCTAssertTrue(newState1.isSettingsOpen)
 
-        let newState2 = uiReducer(state: newState1, action: UIAction.toggleSettings)
+        let newState2 = uiReducer(state: newState1, action: AnyAction(UIAction.toggleSettings))
         XCTAssertFalse(newState2.isSettingsOpen)
     }
 
@@ -82,10 +83,10 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.isSidebarVisible = true
 
-        let newState1 = uiReducer(state: state, action: UIAction.toggleSidebar)
+        let newState1 = uiReducer(state: state, action: AnyAction(UIAction.toggleSidebar))
         XCTAssertFalse(newState1.isSidebarVisible)
 
-        let newState2 = uiReducer(state: newState1, action: UIAction.toggleSidebar)
+        let newState2 = uiReducer(state: newState1, action: AnyAction(UIAction.toggleSidebar))
         XCTAssertTrue(newState2.isSidebarVisible)
     }
 
@@ -93,7 +94,7 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.isSidebarVisible = false
 
-        let newState = uiReducer(state: state, action: UIAction.showSidebar)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.showSidebar))
 
         XCTAssertTrue(newState.isSidebarVisible)
     }
@@ -102,7 +103,7 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.isSidebarVisible = true
 
-        let newState = uiReducer(state: state, action: UIAction.hideSidebar)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.hideSidebar))
 
         XCTAssertFalse(newState.isSidebarVisible)
     }
@@ -112,7 +113,7 @@ final class UIReducerTests: XCTestCase {
     func test_setTheme_updatesTheme() {
         let state = UIState()
 
-        let newState = uiReducer(state: state, action: UIAction.setTheme(.dark))
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.setTheme(.dark)))
 
         XCTAssertEqual(newState.theme, .dark)
     }
@@ -122,7 +123,7 @@ final class UIReducerTests: XCTestCase {
     func test_showError_setsErrorMessage() {
         let state = UIState()
 
-        let newState = uiReducer(state: state, action: UIAction.showError("Test error"))
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.showError("Test error")))
 
         XCTAssertEqual(newState.errorMessage, "Test error")
     }
@@ -131,7 +132,7 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.errorMessage = "Test error"
 
-        let newState = uiReducer(state: state, action: UIAction.clearError)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.clearError))
 
         XCTAssertNil(newState.errorMessage)
     }
@@ -139,7 +140,7 @@ final class UIReducerTests: XCTestCase {
     func test_showToast_setsToastMessage() {
         let state = UIState()
 
-        let newState = uiReducer(state: state, action: UIAction.showToast("Test toast"))
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.showToast("Test toast")))
 
         XCTAssertEqual(newState.toastMessage, "Test toast")
     }
@@ -148,7 +149,7 @@ final class UIReducerTests: XCTestCase {
         var state = UIState()
         state.toastMessage = "Test toast"
 
-        let newState = uiReducer(state: state, action: UIAction.clearToast)
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.clearToast))
 
         XCTAssertNil(newState.toastMessage)
     }
@@ -158,7 +159,7 @@ final class UIReducerTests: XCTestCase {
     func test_reducerReturnsNewState_doesNotMutateOriginal() {
         let state = UIState()
 
-        _ = uiReducer(state: state, action: UIAction.beginExpanding(id: "article-1"))
+        _ = uiReducer(state: state, action: AnyAction(UIAction.beginExpanding(id: "article-1")))
 
         // Original state should remain unchanged
         XCTAssertNil(state.expandedArticleId)
