@@ -76,7 +76,13 @@ public actor StorageService {
         guard let array = parsed.arrayValue else {
             throw StorageError.decodingFailed
         }
-        return array.compactMap { Article(json: $0) }
+        var result: [Article] = []
+        for item in array {
+            if let article = Article(json: item) {
+                result.append(article)
+            }
+        }
+        return result
     }
 
     // MARK: - Feeds
@@ -93,7 +99,13 @@ public actor StorageService {
         guard let array = parsed.arrayValue else {
             throw StorageError.decodingFailed
         }
-        return array.compactMap { Feed(json: $0) }
+        var result: [Feed] = []
+        for item in array {
+            if let feed = Feed(json: item) {
+                result.append(feed)
+            }
+        }
+        return result
     }
 
     // MARK: - Generic String Storage

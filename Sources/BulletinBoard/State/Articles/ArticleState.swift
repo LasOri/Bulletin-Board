@@ -138,7 +138,13 @@ public enum ArticleSortOrder: String, CaseIterable, Sendable {
 
 extension ArticleState {
     public var articles: [Article] {
-        allIds.compactMap { byId[$0] }
+        var result: [Article] = []
+        for id in allIds {
+            if let article = byId[id] {
+                result.append(article)
+            }
+        }
+        return result
     }
 
     public var selectedArticle: Article? {
@@ -151,7 +157,12 @@ extension ArticleState {
 
         if !searchQuery.isEmpty, let searchResults = searchResults {
             let rankedIds = searchResults.map { $0.articleId }
-            let rankedArticles = rankedIds.compactMap { byId[$0] }
+            var rankedArticles: [Article] = []
+            for id in rankedIds {
+                if let article = byId[id] {
+                    rankedArticles.append(article)
+                }
+            }
             result = rankedArticles
         } else if !searchQuery.isEmpty {
             let query = searchQuery.lowercased()
@@ -230,9 +241,12 @@ extension ArticleState {
                 counts[cat, default: 0] += 1
             }
         }
-        return ArticleCategory.allCases.compactMap { cat in
-            guard let count = counts[cat], count > 0 else { return nil }
-            return (category: cat, count: count)
+        var result: [(category: ArticleCategory, count: Int)] = []
+        for cat in ArticleCategory.allCases {
+            if let count = counts[cat], count > 0 {
+                result.append((category: cat, count: count))
+            }
         }
+        return result
     }
 }

@@ -23,7 +23,12 @@ public struct OPMLService {
         let outlines = try? docObj.throwing.querySelectorAll?("outline[xmlUrl]")
         guard let collection = outlines?.object else { return [] }
 
-        let length = collection.length.number.map { Int($0) } ?? 0
+        let length: Int
+        if let lengthNum = collection.length.number {
+            length = Int(lengthNum)
+        } else {
+            length = 0
+        }
         var feeds: [(title: String, url: String)] = []
 
         for i in 0..<length {

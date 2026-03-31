@@ -24,7 +24,13 @@ public struct FeedState: Equatable, Sendable {
 
 extension FeedState {
     public var feeds: [Feed] {
-        allIds.compactMap { byId[$0] }
+        var result: [Feed] = []
+        for id in allIds {
+            if let feed = byId[id] {
+                result.append(feed)
+            }
+        }
+        return result
     }
 
     public var selectedFeed: Feed? {

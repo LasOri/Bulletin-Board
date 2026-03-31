@@ -106,7 +106,13 @@ public struct Article: Equatable, Identifiable, Sendable {
     }
 
     public static func from(rssItem: RSSItem, feedId: String) -> Article {
-        Article(
+        let enc: ArticleEnclosure?
+        if let rssEnc = rssItem.enclosure {
+            enc = ArticleEnclosure(url: rssEnc.url, type: rssEnc.type, length: rssEnc.length)
+        } else {
+            enc = nil
+        }
+        return Article(
             id: rssItem.id,
             title: rssItem.title,
             description: rssItem.description,
@@ -116,7 +122,7 @@ public struct Article: Equatable, Identifiable, Sendable {
             author: rssItem.author,
             feedId: feedId,
             categories: rssItem.categories,
-            enclosure: rssItem.enclosure.map { ArticleEnclosure(url: $0.url, type: $0.type, length: $0.length) }
+            enclosure: enc
         )
     }
 }
@@ -202,9 +208,10 @@ extension Article {
     }
 
     public var textForNLP: String {
-        let raw = [title, description, content]
-            .compactMap { $0 }
-            .joined(separator: " ")
+        var parts: [String] = [title]
+        if let d = description { parts.append(d) }
+        if let c = content { parts.append(c) }
+        let raw = parts.joined(separator: " ")
         if raw.count > 500 {
             return String(raw.prefix(500))
         }
@@ -296,7 +303,11 @@ extension ArticleEnclosure {
               let type = json["type"]?.stringValue else { return nil }
         self.url = url
         self.type = type
-        self.length = json["length"]?.doubleValue.map { Int($0) }
+        if let lengthDouble = json["length"]?.doubleValue {
+            self.length = Int(lengthDouble)
+        } else {
+            self.length = nil
+        }
     }
 }
 
@@ -352,18 +363,45 @@ extension Article {
         self.publishedAt = json["publishedAt"]?.doubleValue
         self.author = json["author"]?.stringValue
         self.feedId = feedId
-        self.categories = json["categories"]?.arrayValue?.compactMap { $0.stringValue } ?? []
-        self.enclosure = json["enclosure"].flatMap { ArticleEnclosure(json: $0) }
+        self.categories = Article.extractStrings(from: json["categories"]?.arrayValue)
+        if let encJson = json["enclosure"] {
+            self.enclosure = ArticleEnclosure(json: encJson)
+        } else {
+            self.enclosure = nil
+        }
         self.isRead = json["isRead"]?.boolValue ?? false
         self.isFavorite = json["isFavorite"]?.boolValue ?? false
         self.isArchived = json["isArchived"]?.boolValue ?? false
         self.nlpSummary = json["nlpSummary"]?.stringValue
-        self.keywords = json["keywords"]?.arrayValue?.compactMap { $0.stringValue } ?? []
-        self.autoCategory = json["autoCategory"].flatMap { ArticleCategory(json: $0) }
+        self.keywords = Article.extractStrings(from: json["keywords"]?.arrayValue)
+        if let catJson = json["autoCategory"] {
+            self.autoCategory = ArticleCategory(json: catJson)
+        } else {
+            self.autoCategory = nil
+        }
         self.sentimentScore = json["sentimentScore"]?.doubleValue
-        self.clusterId = json["clusterId"]?.doubleValue.map { Int($0) }
-        self.dominantColor = json["dominantColor"].flatMap { ArticleColor(json: $0) }
+        if let clusterDouble = json["clusterId"]?.doubleValue {
+            self.clusterId = Int(clusterDouble)
+        } else {
+            self.clusterId = nil
+        }
+        if let colorJson = json["dominantColor"] {
+            self.dominantColor = ArticleColor(json: colorJson)
+        } else {
+            self.dominantColor = nil
+        }
         self.addedAt = json["addedAt"]?.doubleValue ?? currentTimestamp()
         self.updatedAt = json["updatedAt"]?.doubleValue ?? currentTimestamp()
+    }
+
+    private static func extractStrings(from array: [Json]?) -> [String] {
+        guard let array = array else { return [] }
+        var result: [String] = []
+        for item in array {
+            if let s = item.stringValue {
+                result.append(s)
+            }
+        }
+        return result
     }
 }

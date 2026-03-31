@@ -175,12 +175,24 @@ extension Feed {
         self.language = json["language"]?.stringValue
         self.iconUrl = json["iconUrl"]?.stringValue
         self.userCategory = json["userCategory"]?.stringValue
-        self.updateFrequency = json["updateFrequency"]?.doubleValue.map { Int($0) } ?? 60
+        if let freqDouble = json["updateFrequency"]?.doubleValue {
+            self.updateFrequency = Int(freqDouble)
+        } else {
+            self.updateFrequency = 60
+        }
         self.lastFetched = json["lastFetched"]?.doubleValue
         self.lastSuccessfulFetch = json["lastSuccessfulFetch"]?.doubleValue
         self.lastError = json["lastError"]?.stringValue
-        self.articleCount = json["articleCount"]?.doubleValue.map { Int($0) } ?? 0
-        self.unreadCount = json["unreadCount"]?.doubleValue.map { Int($0) } ?? 0
+        if let acDouble = json["articleCount"]?.doubleValue {
+            self.articleCount = Int(acDouble)
+        } else {
+            self.articleCount = 0
+        }
+        if let ucDouble = json["unreadCount"]?.doubleValue {
+            self.unreadCount = Int(ucDouble)
+        } else {
+            self.unreadCount = 0
+        }
         self.subscribedAt = json["subscribedAt"]?.doubleValue ?? currentTimestamp()
         self.updatedAt = json["updatedAt"]?.doubleValue ?? currentTimestamp()
         self.isEnabled = json["isEnabled"]?.boolValue ?? true
