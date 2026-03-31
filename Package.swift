@@ -1,13 +1,15 @@
 // swift-tools-version: 6.0
 import PackageDescription
+import Foundation
 
-#if arch(wasm32)
-let jsKitProducts: [Target.Dependency] = [
-    .product(name: "JavaScriptEventLoop", package: "JavaScriptKit")
-]
-#else
-let jsKitProducts: [Target.Dependency] = []
-#endif
+// JavaScriptEventLoop doesn't compile on macOS (requires WASM-only ExecutorFactory API).
+// Use WASM_BUILD=1 env var for cross-compilation builds (set by Dockerfile).
+let jsKitProducts: [Target.Dependency]
+if ProcessInfo.processInfo.environment["WASM_BUILD"] != nil {
+    jsKitProducts = [.product(name: "JavaScriptEventLoop", package: "JavaScriptKit")]
+} else {
+    jsKitProducts = []
+}
 
 let package = Package(
     name: "BulletinBoard",
