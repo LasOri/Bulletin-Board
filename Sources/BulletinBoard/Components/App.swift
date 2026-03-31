@@ -1365,7 +1365,7 @@ public struct App {
         let key = scrollContextKey()
         scrollSaveTimerId = SafeJSGlobal.global?.setTimeout.function?(JSClosure { _ -> JSValue in
             Task {
-                try? await storageService.save(windowY, forKey: "scroll_\(key)")
+                try? await storageService.save(String(windowY), forKey: "scroll_\(key)")
                 await Logger.shared.debug(AppLogFeature.scroll, "Saved scroll position \(windowY) for context \(key)")
             }
             return .undefined
@@ -1376,7 +1376,8 @@ public struct App {
         let key = scrollContextKey()
         Task {
             do {
-                let saved: Int = try await storageService.load(forKey: "scroll_\(key)")
+                let savedStr: String = try await storageService.load(forKey: "scroll_\(key)")
+                let saved = Int(savedStr) ?? 0
                 if saved > 0 {
                     _ = SafeJSGlobal.global?.scrollTo?(0, saved)
                     lastScrollUpdateY = saved
