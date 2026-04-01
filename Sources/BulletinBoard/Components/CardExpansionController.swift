@@ -32,7 +32,8 @@ public final class CardExpansionController: @unchecked Sendable {
     #if canImport(JavaScriptKit) && arch(wasm32)
 
     private func setStyle(_ element: JSObject, _ property: String, _ value: String) {
-        _ = try? element.style.throwing.setProperty?(property, value)
+        guard let style = element.style.object else { return }
+        _ = try? style.throwing.setProperty?(property, value)
     }
 
     private func styleCloneElement(_ clone: JSObject, x: Double, y: Double, width: Double, height: Double) {
@@ -50,7 +51,7 @@ public final class CardExpansionController: @unchecked Sendable {
 
     private func animateTransform(
         id: String,
-        config: SpringAnimationConfig,
+        config: SpringConfig,
         sourceX: Double,
         sourceY: Double,
         sourceW: Double,
@@ -69,7 +70,7 @@ public final class CardExpansionController: @unchecked Sendable {
             from: 0,
             to: 1,
             config: config,
-            onUpdate: { progress in
+            onUpdate: { [self] progress in
                 let currentX = sourceX + (targetX - sourceX) * progress
                 let currentY = sourceY + (targetY - sourceY) * progress
                 let currentW = sourceW + (targetW - sourceW) * progress

@@ -430,7 +430,7 @@ public struct App {
 
     private static func applyTheme() {
         let theme = uiSignal.get().theme
-        guard let body = SafeJSGlobal.global?.document.object.body.object else { return }
+        guard let body = SafeJSGlobal.global?.document.object?.body.object else { return }
         let isDark: Bool
         switch theme {
         case .dark:
@@ -522,7 +522,7 @@ public struct App {
             }
 
             guard let actionEl = (try? target.throwing.closest?("[data-action]"))?.object,
-                  let action = actionEl.dataset.object["action"].string else {
+                  let action = actionEl.dataset.object?["action"].string else {
                 return JSValue.undefined
             }
 
@@ -531,7 +531,7 @@ public struct App {
                 appStore.dispatch(UIAction.openFeedManager)
 
             case "close-feed-manager-overlay":
-                if target.dataset.object["action"].string == "close-feed-manager-overlay" {
+                if target.dataset.object?["action"].string == "close-feed-manager-overlay" {
                     appStore.dispatch(UIAction.closeFeedManager)
                 }
 
@@ -548,8 +548,8 @@ public struct App {
                 appStore.dispatch(ArticleAction.setSearchQuery(""))
 
             case "toggle", "refresh", "edit", "delete":
-                let feedId = actionEl.dataset.object["feedId"].string
-                    ?? (try? target.throwing.closest?("[data-feed-id]"))?.object?.dataset.object["feedId"].string
+                let feedId = actionEl.dataset.object?["feedId"].string
+                    ?? (try? target.throwing.closest?("[data-feed-id]"))?.object?.dataset.object?["feedId"].string
                 if let feedId = feedId {
                     handleFeedAction(action: action, feedId: feedId)
                 }
@@ -565,7 +565,7 @@ public struct App {
                 appStore.dispatch(ArticleAction.setFilters(currentFilters))
 
             case "filter-date-range":
-                if let rangeStr = actionEl.dataset.object["range"].string {
+                if let rangeStr = actionEl.dataset.object?["range"].string {
                     var currentFilters = appStore.getState().articles.filters
                     switch rangeStr {
                     case "today":
@@ -581,7 +581,7 @@ public struct App {
                 }
 
             case "filter-category":
-                if let categoryStr = actionEl.dataset.object["category"].string {
+                if let categoryStr = actionEl.dataset.object?["category"].string {
                     var currentFilters = appStore.getState().articles.filters
                     if categoryStr == "all" {
                         currentFilters.categories.removeAll()
@@ -601,7 +601,7 @@ public struct App {
 
             case "toggle-favorite", "mark-read", "article-click":
                 if let articleEl = (try? target.throwing.closest?("[data-article-id]"))?.object,
-                   let articleId = articleEl.dataset.object["articleId"].string {
+                   let articleId = articleEl.dataset.object?["articleId"].string {
                     switch action {
                     case "toggle-favorite":
                         appStore.dispatch(ArticleAction.toggleFavorite(id: articleId))
@@ -620,7 +620,7 @@ public struct App {
                 CardExpansionController.shared.beginCollapse()
 
             case "collapse-article-overlay":
-                if target.dataset.object["action"].string == "collapse-article-overlay" {
+                if target.dataset.object?["action"].string == "collapse-article-overlay" {
                     CardExpansionController.shared.beginCollapse()
                 }
 
@@ -656,7 +656,7 @@ public struct App {
                 }
 
             case "add-discovered-feed":
-                if let feedURL = actionEl.dataset.object["feedUrl"].string {
+                if let feedURL = actionEl.dataset.object?["feedUrl"].string {
                     discoveredFeeds.removeAll { $0.url == feedURL }
                     Task {
                         await addFeedHelper(url: feedURL)
@@ -664,8 +664,8 @@ public struct App {
                 }
 
             case "add-suggested-feed":
-                if let feedURL = actionEl.dataset.object["feedUrl"].string,
-                   let feedName = actionEl.dataset.object["feedName"].string {
+                if let feedURL = actionEl.dataset.object?["feedUrl"].string,
+                   let feedName = actionEl.dataset.object?["feedName"].string {
                     showToast("Adding \(feedName)...")
                     Task {
                         await addFeedHelper(url: feedURL)
@@ -686,7 +686,7 @@ public struct App {
                 showToast("All articles marked as read")
 
             case "set-sort-order":
-                if let sortStr = actionEl.dataset.object["sort"].string {
+                if let sortStr = actionEl.dataset.object?["sort"].string {
                     let order: ArticleSortOrder
                     switch sortStr {
                     case "newest": order = .newest
@@ -711,14 +711,14 @@ public struct App {
 
             case "archive-article":
                 if let articleEl = (try? target.throwing.closest?("[data-article-id]"))?.object,
-                   let articleId = articleEl.dataset.object["articleId"].string {
+                   let articleId = articleEl.dataset.object?["articleId"].string {
                     appStore.dispatch(ArticleAction.archiveArticle(id: articleId))
                     showToast("Article archived")
                 }
 
             case "unarchive-article":
                 if let articleEl = (try? target.throwing.closest?("[data-article-id]"))?.object,
-                   let articleId = articleEl.dataset.object["articleId"].string {
+                   let articleId = articleEl.dataset.object?["articleId"].string {
                     appStore.dispatch(ArticleAction.unarchiveArticle(id: articleId))
                     showToast("Article restored")
                 }
@@ -733,7 +733,7 @@ public struct App {
                 }
 
             case "delete-older":
-                if let daysStr = actionEl.dataset.object["days"].string,
+                if let daysStr = actionEl.dataset.object?["days"].string,
                    let days = Int(daysStr) {
                     let cutoff = currentTimestamp() - Double(days * 86400)
                     appStore.dispatch(ArticleAction.deleteOlderThan(cutoff))
@@ -747,7 +747,7 @@ public struct App {
                 appStore.dispatch(UIAction.toggleSettings)
 
             case "set-theme":
-                if let themeStr = actionEl.dataset.object["theme"].string {
+                if let themeStr = actionEl.dataset.object?["theme"].string {
                     let theme: Theme
                     switch themeStr {
                     case "light": theme = .light
@@ -758,11 +758,11 @@ public struct App {
                 }
 
             case "save-feed-edit":
-                if let feedId = actionEl.dataset.object["feedId"].string,
-                   let titleInput = try? SafeJSGlobal.global?.document.object.throwing.getElementById?("edit-feed-title-\(feedId)").object,
+                if let feedId = actionEl.dataset.object?["feedId"].string,
+                   let titleInput = try? SafeJSGlobal.global?.document.object?.throwing.getElementById?("edit-feed-title-\(feedId)").object,
                    let newTitle = titleInput.value.string {
                     var newFrequency: Int?
-                    if let freqSelect = try? SafeJSGlobal.global?.document.object.throwing.getElementById?("edit-feed-freq-\(feedId)").object,
+                    if let freqSelect = try? SafeJSGlobal.global?.document.object?.throwing.getElementById?("edit-feed-freq-\(feedId)").object,
                        let freqStr = freqSelect.value.string {
                         newFrequency = Int(freqStr)
                     }
@@ -803,7 +803,7 @@ public struct App {
 
             _ = try? event.throwing.preventDefault?()
 
-            guard let formAction = form.dataset.object["form"].string,
+            guard let formAction = form.dataset.object?["form"].string,
                   formAction == "add-feed" else {
                 return JSValue.undefined
             }
@@ -869,8 +869,8 @@ public struct App {
 
     #if canImport(JavaScriptKit) && arch(wasm32)
     private static func handleShareArticle(actionEl: JSObject) {
-        guard let url = actionEl.dataset.object["articleUrl"].string,
-              let title = actionEl.dataset.object["articleTitle"].string else {
+        guard let url = actionEl.dataset.object?["articleUrl"].string,
+              let title = actionEl.dataset.object?["articleTitle"].string else {
             return
         }
 
@@ -1101,11 +1101,11 @@ public struct App {
                 return .undefined
             }
 
-            if let activeTag = SafeJSGlobal.global?.document.object
+            if let activeTag = SafeJSGlobal.global?.document.object?
                 .activeElement.object?.tagName.string?.lowercased(),
                activeTag == "input" || activeTag == "textarea" {
                 if key == "Escape" {
-                    if let activeEl = SafeJSGlobal.global?.document.object.activeElement.object {
+                    if let activeEl = SafeJSGlobal.global?.document.object?.activeElement.object {
                         _ = try? activeEl.throwing.blur?()
                     }
                 } else if key == "Tab" {
@@ -1162,7 +1162,7 @@ public struct App {
                 lastScrollUpdateY = Int(SafeJSGlobal.global?.scrollY.number ?? 0)
                 renderToDOM()
 
-                if let el = try? SafeJSGlobal.global?.document.object.throwing.querySelector?("[data-article-id=\"\(targetId)\"]").object {
+                if let el = try? SafeJSGlobal.global?.document.object?.throwing.querySelector?("[data-article-id=\"\(targetId)\"]").object {
                     _ = try? el.throwing.scrollIntoView?(["behavior": "smooth", "block": "nearest"])
                 }
 
@@ -1187,7 +1187,7 @@ public struct App {
 
             case "/":
                 _ = try? event.throwing.preventDefault?()
-                if let searchInput = try? SafeJSGlobal.global?.document.object.throwing.getElementById?("search-input").object {
+                if let searchInput = try? SafeJSGlobal.global?.document.object?.throwing.getElementById?("search-input").object {
                     _ = try? searchInput.throwing.focus?()
                 }
 

@@ -340,8 +340,8 @@ RUN mkdir -p /output && \
     echo "Found WASM at: $WASM_FILE" && \
     echo "Before wasm-opt:" && ls -lh "$WASM_FILE" && \
     wasm-opt -Oz --strip-debug --strip-producers --converge --vacuum --remove-unused-names \
-        --remove-unused-module-elements --flatten --rereloop --code-folding \
-        --duplicate-function-elimination --dae-optimizing --inlining-optimizing \
+        --remove-unused-module-elements --code-folding \
+        --duplicate-function-elimination --dae-optimizing \
         "$WASM_FILE" -o "$WASM_FILE.opt" && \
     mv "$WASM_FILE.opt" "$WASM_FILE" && \
     echo "After wasm-opt:" && ls -lh "$WASM_FILE" && \
@@ -556,12 +556,9 @@ wasm-opt -Oz \
     --vacuum \
     --remove-unused-names \
     --remove-unused-module-elements \
-    --flatten \
-    --rereloop \
     --code-folding \
     --duplicate-function-elimination \
     --dae-optimizing \
-    --inlining-optimizing \
     input.wasm -o output.wasm
 ```
 
@@ -574,14 +571,15 @@ wasm-opt -Oz \
 | `--vacuum` | Remove unreachable code |
 | `--remove-unused-names` | Strip function/type names |
 | `--remove-unused-module-elements` | Remove unused functions, globals, types |
-| `--flatten` | Flatten control flow for better optimization |
-| `--rereloop` | Recreate loop structures for size reduction |
 | `--code-folding` | Merge identical code sequences |
 | `--duplicate-function-elimination` | Merge identical function bodies (common with generic specializations) |
 | `--dae-optimizing` | Dead argument elimination with optimization |
-| `--inlining-optimizing` | Inline small functions for further optimization opportunities |
 
-Typical reduction: ~69MB → ~48MB (30% smaller) with Foundation; ~7MB without Foundation imports.
+> **Avoid `--flatten`, `--rereloop`, and `--inlining-optimizing`** — these passes restructure
+> control flow and duplicate code for speed optimization. They inflate the binary significantly
+> (6.8MB → 16MB in testing). Only use size-safe passes for WASM.
+
+Typical reduction: ~69MB → ~48MB (30% smaller) with Foundation; ~6.8MB without Foundation imports.
 
 > **Foundation-free builds**: Bulletin Board eliminates all `import Foundation` from source
 > files, which removes Foundation's standard library from the binary. This drops the final
@@ -1083,7 +1081,7 @@ python3 -m http.server 8080
 
 **Cause**: Missing optimization flags, `wasm-opt` not run, or `import Foundation` still present.
 
-**Fix**: Ensure all of `-Osize`, `--gc-sections`, `--strip-all` are passed to the build, and `wasm-opt -Oz` with `--converge --vacuum --remove-unused-module-elements --flatten --rereloop --code-folding --duplicate-function-elimination` runs post-build. Remove all `import Foundation` from source files — Foundation alone adds ~40MB to the binary. Expect ~6-7MB for a Foundation-free LINKER app.
+**Fix**: Ensure all of `-Osize`, `--gc-sections`, `--strip-all` are passed to the build, and `wasm-opt -Oz` with `--converge --vacuum --remove-unused-module-elements --code-folding --duplicate-function-elimination` runs post-build. Remove all `import Foundation` from source files — Foundation alone adds ~40MB to the binary. Expect ~6-7MB for a Foundation-free LINKER app.
 
 ### Swift 6.4-dev CopyPropagation SIL crash
 

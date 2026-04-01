@@ -2,11 +2,11 @@ import XCTest
 @testable import BulletinBoard
 
 final class DatasetAccessTests: XCTestCase {
-    func testDatasetObjectAccessWithoutOptionalChaining() {
+    func testDatasetObjectAccessUsesOptionalChaining() {
         assertPatternNotFound(
             in: "Sources/BulletinBoard/Components/App.swift",
-            pattern: ".dataset.object?[",
-            message: "2-level JSValue chains return non-optional on WASM. Should use .dataset.object[ without optional chaining."
+            pattern: ".dataset.object[",
+            message: "JSValue.object returns JSObject? — must use .dataset.object?[ with optional chaining to subscript safely."
         )
     }
 }

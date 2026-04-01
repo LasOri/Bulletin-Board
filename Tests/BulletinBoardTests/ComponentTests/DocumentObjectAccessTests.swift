@@ -2,11 +2,11 @@ import XCTest
 @testable import BulletinBoard
 
 final class DocumentObjectAccessTests: XCTestCase {
-    func testDocumentObjectAccessWithoutDoubleOptionalChaining() {
+    func testDocumentObjectAccessUsesOptionalChaining() {
         assertPatternNotFound(
             in: "Sources/BulletinBoard/Components/App.swift",
-            pattern: "SafeJSGlobal.global?.document.object?.",
-            message: "2-level chain global?.document returns non-optional JSValue on WASM (lesson #66). Should use SafeJSGlobal.global?.document.object without ? after the second object."
+            pattern: "SafeJSGlobal.global?.document.object.",
+            message: "JSValue.object returns JSObject? — must use document.object?. with optional chaining to access members safely."
         )
     }
 }
