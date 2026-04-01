@@ -14,7 +14,6 @@ final class ArticleAnimationsTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - Spring Config Tests
 
     func testCardExpandConfig() {
         let config = ArticleAnimations.cardExpand
@@ -43,7 +42,6 @@ final class ArticleAnimationsTests: XCTestCase {
         XCTAssertEqual(config.mass, 1.0)
     }
 
-    // MARK: - Transition Config Tests
 
     func testCardFadeTransition() {
         let config = ArticleAnimations.cardFade
@@ -69,7 +67,6 @@ final class ArticleAnimationsTests: XCTestCase {
         XCTAssertEqual(config, TransitionConfig.fast)
     }
 
-    // MARK: - Signal Creation Tests
 
     func testCreateHeightSignal() {
         #if arch(wasm32)
@@ -143,7 +140,6 @@ final class ArticleAnimationsTests: XCTestCase {
         #endif
     }
 
-    // MARK: - CSS Style Generator Tests
 
     func testHeightStyle() {
         let style = ArticleAnimations.heightStyle(250)
@@ -187,7 +183,6 @@ final class ArticleAnimationsTests: XCTestCase {
         XCTAssertTrue(style.contains("will-change"))
     }
 
-    // MARK: - Easing Function Tests
 
     func testEasingLinear() {
         let easing = EasingFunction.linear
@@ -227,7 +222,6 @@ final class ArticleAnimationsTests: XCTestCase {
         XCTAssertLessThan(easing.apply(0.5), 0.25) // Cubic starts slow
     }
 
-    // MARK: - ArticleAnimationState Tests
 
     func testAnimationStateInitialization() {
         #if arch(wasm32)
@@ -353,7 +347,6 @@ final class ArticleAnimationsTests: XCTestCase {
         #endif
     }
 
-    // MARK: - TransitionConfig Extension Tests
 
     func testTransitionToSpringConfigFast() {
         let transition = TransitionConfig(durationMs: 150)
@@ -381,7 +374,6 @@ final class ArticleAnimationsTests: XCTestCase {
         XCTAssertEqual(spring, .slow)
     }
 
-    // MARK: - Integration Tests
 
     func testAnimationWorkflow() {
         #if arch(wasm32)

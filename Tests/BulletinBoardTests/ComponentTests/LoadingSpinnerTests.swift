@@ -4,7 +4,6 @@ import LINKER
 
 final class LoadingSpinnerTests: XCTestCase {
 
-    // MARK: - Test Helpers
 
     private func makeTestProps(
         size: LoadingSpinner.Size = .medium,
@@ -20,7 +19,6 @@ final class LoadingSpinnerTests: XCTestCase {
         )
     }
 
-    // MARK: - Basic Rendering Tests
 
     func testRenderDefaultSpinner() {
         let props = makeTestProps()
@@ -46,7 +44,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should render without message element
     }
 
-    // MARK: - Size Tests
 
     func testRenderSmallSize() {
         let props = makeTestProps(size: .small)
@@ -78,7 +75,6 @@ final class LoadingSpinnerTests: XCTestCase {
         XCTAssertEqual(LoadingSpinner.Size.large.dimension, 60)
     }
 
-    // MARK: - Style Tests
 
     func testRenderDefaultStyle() {
         let props = makeTestProps(style: .default)
@@ -104,7 +100,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should have light style class
     }
 
-    // MARK: - Centered Tests
 
     func testRenderCentered() {
         let props = makeTestProps(centered: true)
@@ -122,7 +117,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should not have centered class
     }
 
-    // MARK: - Props Tests
 
     func testPropsInitialization() {
         let props = LoadingSpinner.Props(
@@ -147,7 +141,6 @@ final class LoadingSpinnerTests: XCTestCase {
         XCTAssertTrue(props.centered)
     }
 
-    // MARK: - Convenience Constructor Tests
 
     func testSmallConstructor() {
         let nodes = LoadingSpinner.small()
@@ -219,7 +212,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should create small primary-styled spinner
     }
 
-    // MARK: - Inline Spinner Tests
 
     func testInlinePropsInitialization() {
         let props = LoadingSpinner.InlineProps(size: .small, style: .primary)
@@ -250,7 +242,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should create small inline spinner
     }
 
-    // MARK: - CSS Classes Tests
 
     func testBaseClassAlwaysPresent() {
         let props = makeTestProps()
@@ -292,7 +283,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should not have loading-spinner--centered class
     }
 
-    // MARK: - Accessibility Tests
 
     func testAccessibilityRoleStatus() {
         let props = makeTestProps()
@@ -326,7 +316,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should have default "Loading..." screen reader text
     }
 
-    // MARK: - Edge Cases
 
     func testRenderWithEmptyMessage() {
         let props = makeTestProps(message: "")
@@ -359,7 +348,6 @@ final class LoadingSpinnerTests: XCTestCase {
         // Should render all combinations successfully
     }
 
-    // MARK: - Integration Tests
 
     func testMultipleSpinnersCanCoexist() {
         let spinner1 = LoadingSpinner.small()

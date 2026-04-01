@@ -328,7 +328,7 @@ RUN FILE=.build/checkouts/JavaScriptKit/Sources/JavaScriptEventLoop/JavaScriptEv
 # Build WASM binary (Command ABI — _start calls _initialize + main automatically)
 RUN WASM_BUILD=1 swift build --swift-sdk swift-DEVELOPMENT-SNAPSHOT-2026-03-09-a_wasm \
     --configuration release \
-    -Xswiftc -Osize \
+    -Xswiftc -O \
     -Xswiftc -whole-module-optimization \
     -Xswiftc -suppress-warnings \
     -Xlinker --gc-sections \
@@ -362,7 +362,7 @@ CMD ["echo", "Build complete. Extract /output/BulletinBoard.wasm"]
 | `WASM_BUILD=1` env var | Signals to Package.swift that we're building for WASM | `#if arch(wasm32)` evaluates on the **host** (always false); env var is the workaround |
 | Patch JavaScriptKit (2 steps) | Fix WASM executor installation | See [JavaScriptKit Patches](#javascriptkit-patches) below |
 | `swift build --swift-sdk ... --configuration release` | Cross-compile all Swift to WASM | Produces a `.wasm` binary in `.build/` |
-| `wasm-opt -Oz` | Dead code elimination, function merging, size optimization | Reduces binary from ~69MB to ~48MB |
+| `wasm-opt -Oz` | Dead code elimination, function merging, size optimization | Reduces binary (~7MB Foundation-free) |
 | `cp` to `/output/` | Place final binary for extraction | `docker cp` pulls it out |
 
 ### Running the build
@@ -509,7 +509,7 @@ After patching, `_createExecutors(factory: JavaScriptEventLoop.self)` executes u
 WASM_BUILD=1 swift build \
     --swift-sdk swift-DEVELOPMENT-SNAPSHOT-2026-03-09-a_wasm \
     --configuration release \
-    -Xswiftc -Osize \
+    -Xswiftc -O \
     -Xswiftc -whole-module-optimization \
     -Xswiftc -suppress-warnings \
     -Xlinker --gc-sections \
@@ -520,7 +520,7 @@ WASM_BUILD=1 swift build \
 |------|---------|
 | `--swift-sdk ...` | Cross-compile for WASM instead of native |
 | `--configuration release` | Optimized build (no debug info) |
-| `-Xswiftc -Osize` | Optimize for binary size (smaller than `-O`) |
+| `-Xswiftc -O` | Optimize for speed (see note below on why not `-Osize`) |
 | `-Xswiftc -whole-module-optimization` | Cross-module inlining and dead code elimination |
 | `-Xswiftc -suppress-warnings` | Clean build output |
 | `-Xlinker --gc-sections` | Remove unreferenced code sections during linking |
@@ -567,7 +567,13 @@ wasm-opt -Oz \
 | `--remove-unused-names` | Strip function/type names |
 | `--remove-unused-module-elements` | Remove unused functions, globals, types |
 
-Typical reduction: ~69MB → ~48MB (30% smaller).
+Typical reduction: ~69MB → ~48MB (30% smaller) with Foundation; ~7MB without Foundation imports.
+
+> **Foundation-free builds**: Bulletin Board eliminates all `import Foundation` from source
+> files, which removes Foundation's standard library from the binary. This drops the final
+> WASM size from ~48MB to ~7MB. Foundation is the single largest contributor to WASM binary
+> size in Swift. Note: this is standard Swift WASM, not Embedded Swift (which would be even
+> smaller but requires giving up existentials, String interpolation, etc.).
 
 You can verify the exports with:
 ```bash
@@ -1059,11 +1065,61 @@ python3 -m http.server 8080
 
 ### Binary too large
 
-**Symptom**: WASM file is >60MB.
+**Symptom**: WASM file is >10MB (Foundation-free) or >60MB (with Foundation).
 
-**Cause**: Missing optimization flags or `wasm-opt` not run.
+**Cause**: Missing optimization flags, `wasm-opt` not run, or `import Foundation` still present.
 
-**Fix**: Ensure all of `-Osize`, `--gc-sections`, `--strip-all` are passed to the build, and `wasm-opt -Oz` with `--converge --vacuum --remove-unused-module-elements` runs post-build. Expect ~48MB for a full LINKER app.
+**Fix**: Ensure all of `-O`, `--gc-sections`, `--strip-all` are passed to the build, and `wasm-opt -Oz` with `--converge --vacuum --remove-unused-module-elements` runs post-build. Remove all `import Foundation` from source files — Foundation alone adds ~40MB to the binary. Expect ~7MB for a Foundation-free LINKER app.
+
+### Swift 6.4-dev CopyPropagation SIL crash
+
+**Symptom**: Compiler crashes during the WASM build with:
+```
+While running pass #NNNNN SILFunctionTransform "CopyPropagation" on SILFunction "..."
+```
+
+**Cause**: The Swift 6.4-dev compiler has a known bug in the `CopyPropagation` SIL pass that crashes when optimizing certain closure patterns targeting WASM. The following patterns trigger the crash:
+
+- `array.compactMap { $0.stringValue }` — optional property access in compactMap
+- `optional.map { Int($0) }` — type conversion in map closure
+- `array.compactMap { SomeType(json: $0) }` — failable initializer in compactMap
+- `ids.compactMap { dictionary[$0] }` — dictionary lookup in compactMap
+- `optional.flatMap { SomeType(json: $0) }` — failable initializer in flatMap
+
+**Fix**: Rewrite all such closures as explicit `for` loops:
+
+```swift
+// BAD — triggers compiler crash
+let articles = array.compactMap { Article(json: $0) }
+let count = json["count"]?.doubleValue.map { Int($0) } ?? 0
+let items = ids.compactMap { byId[$0] }
+
+// GOOD — explicit for-loops
+var articles: [Article] = []
+for item in array {
+    if let article = Article(json: item) {
+        articles.append(article)
+    }
+}
+
+let count: Int
+if let d = json["count"]?.doubleValue {
+    count = Int(d)
+} else {
+    count = 0
+}
+
+var items: [Item] = []
+for id in ids {
+    if let item = byId[id] {
+        items.append(item)
+    }
+}
+```
+
+> **Note on `-O` vs `-Osize`**: We use `-O` (speed) instead of `-Osize` (size) because
+> `-Osize` triggers the CopyPropagation crash more aggressively. Both produce similar binary
+> sizes after `wasm-opt -Oz` post-processing.
 
 ### `@dynamicMemberLookup` differences on WASM
 

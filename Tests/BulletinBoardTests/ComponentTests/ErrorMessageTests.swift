@@ -4,7 +4,6 @@ import LINKER
 
 final class ErrorMessageTests: XCTestCase {
 
-    // MARK: - Test Helpers
 
     private func makeTestProps(
         message: String = "Test error",
@@ -28,7 +27,6 @@ final class ErrorMessageTests: XCTestCase {
         )
     }
 
-    // MARK: - Basic Rendering Tests
 
     func testRenderBasicError() {
         let props = makeTestProps()
@@ -70,7 +68,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should render without details
     }
 
-    // MARK: - Severity Tests
 
     func testRenderErrorSeverity() {
         let props = makeTestProps(severity: .error)
@@ -96,7 +93,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should have info severity class
     }
 
-    // MARK: - Action Button Tests
 
     func testRenderWithRetryButton() {
         let props = makeTestProps(showRetry: true)
@@ -146,7 +142,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should render without action buttons
     }
 
-    // MARK: - Props Tests
 
     func testPropsInitialization() {
         var retried = false
@@ -189,7 +184,6 @@ final class ErrorMessageTests: XCTestCase {
         XCTAssertNil(props.onDismiss)
     }
 
-    // MARK: - Convenience Constructor Tests
 
     func testErrorConstructor() {
         let nodes = ErrorMessage.error(message: "Error occurred")
@@ -244,7 +238,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should create info message
     }
 
-    // MARK: - Common Error Message Tests
 
     func testNetworkError() {
         var retried = false
@@ -331,7 +324,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should create generic error with details
     }
 
-    // MARK: - CSS Classes Tests
 
     func testBaseClassPresent() {
         let props = makeTestProps()
@@ -365,7 +357,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should have error-message--info class
     }
 
-    // MARK: - Accessibility Tests
 
     func testAccessibilityRoleAlert() {
         let props = makeTestProps()
@@ -391,7 +382,6 @@ final class ErrorMessageTests: XCTestCase {
         // Dismiss button should have aria-label
     }
 
-    // MARK: - Edge Cases
 
     func testRenderWithEmptyMessage() {
         let props = makeTestProps(message: "")
@@ -439,7 +429,6 @@ final class ErrorMessageTests: XCTestCase {
         // Should render all components together
     }
 
-    // MARK: - Callback Tests
 
     func testRetryCallback() {
         var retryCount = 0

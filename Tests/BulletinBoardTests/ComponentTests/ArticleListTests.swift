@@ -4,7 +4,6 @@ import LINKER
 
 final class ArticleListTests: XCTestCase {
 
-    // MARK: - Test Helpers
 
     private func makeTestArticle(
         id: String,
@@ -38,7 +37,6 @@ final class ArticleListTests: XCTestCase {
         )
     }
 
-    // MARK: - Basic Rendering Tests
 
     func testRenderEmptyList() {
         let props = makeTestProps(articles: [])
@@ -80,7 +78,6 @@ final class ArticleListTests: XCTestCase {
         // Should render container with three articles
     }
 
-    // MARK: - Empty State Tests
 
     func testEmptyStateShowsMessage() {
         let customMessage = "No articles found"
@@ -101,7 +98,6 @@ final class ArticleListTests: XCTestCase {
         // Default empty message should be rendered
     }
 
-    // MARK: - Loading State Tests
 
     func testLoadingStateIgnoresArticles() {
         let articles = [makeTestArticle(id: "1")]
@@ -113,7 +109,6 @@ final class ArticleListTests: XCTestCase {
         // Should show loading state, not articles
     }
 
-    // MARK: - Article Count Tests
 
     func testArticleCountSingular() {
         let articles = [makeTestArticle(id: "1")]
@@ -138,7 +133,6 @@ final class ArticleListTests: XCTestCase {
         // Should display "2 articles"
     }
 
-    // MARK: - Props Tests
 
     func testPropsInitialization() {
         let articles = [makeTestArticle(id: "1")]
@@ -178,7 +172,6 @@ final class ArticleListTests: XCTestCase {
         XCTAssertEqual(props.emptyMessage, "No articles")
     }
 
-    // MARK: - Virtual Scrolling Tests
 
     func testVirtualScrollConfigDefaults() {
         let config = ArticleList.VirtualScrollConfig()
@@ -279,7 +272,6 @@ final class ArticleListTests: XCTestCase {
         XCTAssertLessThanOrEqual(range.upperBound, 1)
     }
 
-    // MARK: - Virtual Rendering Tests
 
     func testRenderVirtualWithEmptyList() {
         let config = ArticleList.VirtualScrollConfig()
@@ -366,7 +358,6 @@ final class ArticleListTests: XCTestCase {
         // Should render items from middle
     }
 
-    // MARK: - Edge Cases
 
     func testRenderWithManyArticles() {
         let articles = (1...100).map { makeTestArticle(id: "\($0)") }
@@ -397,7 +388,6 @@ final class ArticleListTests: XCTestCase {
         // Should handle long messages
     }
 
-    // MARK: - Integration Tests
 
     func testArticleListPassesPropsToCards() {
         let articles = [makeTestArticle(id: "test-1")]

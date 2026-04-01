@@ -4,7 +4,6 @@ import LINKER
 
 final class ArticleCardTests: XCTestCase {
 
-    // MARK: - Test Helpers
 
     private func makeTestArticle(
         id: String = "test-1",
@@ -47,7 +46,6 @@ final class ArticleCardTests: XCTestCase {
         )
     }
 
-    // MARK: - Basic Rendering Tests
 
     func testRenderBasicArticle() {
         let article = makeTestArticle()
@@ -89,7 +87,6 @@ final class ArticleCardTests: XCTestCase {
         // Author should be displayed in metadata
     }
 
-    // MARK: - Category Tests
 
     func testRenderArticleWithCategory() {
         let article = makeTestArticle(autoCategory: .technology)
@@ -111,7 +108,6 @@ final class ArticleCardTests: XCTestCase {
         // No category badge should be rendered
     }
 
-    // MARK: - Keywords Tests
 
     func testRenderArticleWithKeywords() {
         let article = makeTestArticle(keywords: ["swift", "programming", "ios"])
@@ -133,7 +129,6 @@ final class ArticleCardTests: XCTestCase {
         // No keywords section should be rendered
     }
 
-    // MARK: - Image Tests
 
     func testRenderArticleWithImage() {
         let enclosure = ArticleEnclosure(
@@ -165,7 +160,6 @@ final class ArticleCardTests: XCTestCase {
         // Non-image enclosure should not be rendered as image
     }
 
-    // MARK: - Read Status Tests
 
     func testRenderUnreadArticle() {
         let article = makeTestArticle(isRead: false)
@@ -187,7 +181,6 @@ final class ArticleCardTests: XCTestCase {
         // Should have read indicator and read styling
     }
 
-    // MARK: - Favorite Status Tests
 
     func testRenderUnfavoritedArticle() {
         let article = makeTestArticle(isFavorite: false)
@@ -209,7 +202,6 @@ final class ArticleCardTests: XCTestCase {
         // Should show filled star and favorite styling
     }
 
-    // MARK: - CSS Classes Tests
 
     func testArticleCardHasBaseClass() {
         let article = makeTestArticle()
@@ -241,7 +233,6 @@ final class ArticleCardTests: XCTestCase {
         // Should have article-card--favorite class
     }
 
-    // MARK: - Props Tests
 
     func testPropsInitialization() {
         let article = makeTestArticle()
@@ -268,7 +259,6 @@ final class ArticleCardTests: XCTestCase {
         XCTAssertTrue(clicked)
     }
 
-    // MARK: - Edge Cases
 
     func testRenderArticleWithEmptyDescription() {
         let article = makeTestArticle(description: "")
@@ -322,7 +312,6 @@ final class ArticleCardTests: XCTestCase {
         // Should render all keywords
     }
 
-    // MARK: - Data Attributes Tests
 
     func testArticleCardHasDataArticleId() {
         let article = makeTestArticle(id: "test-123")

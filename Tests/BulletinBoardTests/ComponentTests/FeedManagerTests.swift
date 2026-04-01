@@ -4,7 +4,6 @@ import LINKER
 
 final class FeedManagerTests: XCTestCase {
 
-    // MARK: - Test Helpers
 
     private func makeTestFeed(
         id: String = "test-1",
@@ -54,7 +53,6 @@ final class FeedManagerTests: XCTestCase {
         )
     }
 
-    // MARK: - Basic Rendering Tests
 
     func testRenderListMode() {
         let props = makeTestProps(viewMode: .list)
@@ -81,7 +79,6 @@ final class FeedManagerTests: XCTestCase {
         // Should render edit feed form
     }
 
-    // MARK: - Feed List Tests
 
     func testRenderEmptyFeedList() {
         let props = makeTestProps(feeds: [])
@@ -113,7 +110,6 @@ final class FeedManagerTests: XCTestCase {
         // Should render all feeds
     }
 
-    // MARK: - Feed Item Tests
 
     func testRenderEnabledFeed() {
         let feed = makeTestFeed(isEnabled: true)
@@ -152,7 +148,6 @@ final class FeedManagerTests: XCTestCase {
         // Should render feed with error class
     }
 
-    // MARK: - Loading State Tests
 
     func testRenderLoadingState() {
         let props = makeTestProps(isLoading: true)
@@ -171,7 +166,6 @@ final class FeedManagerTests: XCTestCase {
         // Should show loading, not feeds
     }
 
-    // MARK: - Error State Tests
 
     func testRenderWithError() {
         let props = makeTestProps(error: "Failed to load feeds")
@@ -189,7 +183,6 @@ final class FeedManagerTests: XCTestCase {
         // Should not render error message
     }
 
-    // MARK: - View Mode Tests
 
     func testViewModeList() {
         let mode: FeedManager.ViewMode = .list
@@ -218,7 +211,6 @@ final class FeedManagerTests: XCTestCase {
         }
     }
 
-    // MARK: - Props Tests
 
     func testPropsInitialization() {
         let feeds = [makeTestFeed()]
@@ -287,7 +279,6 @@ final class FeedManagerTests: XCTestCase {
         XCTAssertNil(props.error)
     }
 
-    // MARK: - Form Tests
 
     func testRenderAddFeedForm() {
         let props = makeTestProps(viewMode: .add)
@@ -314,7 +305,6 @@ final class FeedManagerTests: XCTestCase {
         // Should handle missing feed gracefully
     }
 
-    // MARK: - Action Button Tests
 
     func testToggleButtonEnabledFeed() {
         let feed = makeTestFeed(isEnabled: true)
@@ -352,7 +342,6 @@ final class FeedManagerTests: XCTestCase {
         // Refresh button should be enabled
     }
 
-    // MARK: - Footer Tests
 
     func testFooterInListMode() {
         let props = makeTestProps(viewMode: .list)
@@ -379,7 +368,6 @@ final class FeedManagerTests: XCTestCase {
         // Should show "Cancel" button
     }
 
-    // MARK: - Accessibility Tests
 
     func testAccessibilityDialog() {
         let props = makeTestProps()
@@ -414,7 +402,6 @@ final class FeedManagerTests: XCTestCase {
         // All action buttons should have aria-labels
     }
 
-    // MARK: - Edge Cases
 
     func testRenderWithManyFeeds() {
         let feeds = (1...50).map { i in
@@ -456,7 +443,6 @@ final class FeedManagerTests: XCTestCase {
         // Should handle long error messages
     }
 
-    // MARK: - Integration Tests
 
     func testCallbacksInvoked() {
         var callbacksInvoked = 0

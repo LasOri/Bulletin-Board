@@ -4,7 +4,6 @@ import LINKER
 
 final class SearchBarTests: XCTestCase {
 
-    // MARK: - Test Helpers
 
     private func makeTestProps(
         query: String = "",
@@ -24,7 +23,6 @@ final class SearchBarTests: XCTestCase {
         )
     }
 
-    // MARK: - Basic Rendering Tests
 
     func testRenderEmptySearchBar() {
         let props = makeTestProps()
@@ -50,7 +48,6 @@ final class SearchBarTests: XCTestCase {
         // Should use custom placeholder
     }
 
-    // MARK: - Search State Tests
 
     func testRenderWhileSearching() {
         let props = makeTestProps(query: "test", isSearching: true)
@@ -92,7 +89,6 @@ final class SearchBarTests: XCTestCase {
         // Should show "0 results"
     }
 
-    // MARK: - Clear Button Tests
 
     func testClearButtonNotShownWhenEmpty() {
         let props = makeTestProps(query: "")
@@ -110,7 +106,6 @@ final class SearchBarTests: XCTestCase {
         // Clear button should be rendered
     }
 
-    // MARK: - Props Tests
 
     func testPropsInitialization() {
         var queryChanged = false
@@ -146,7 +141,6 @@ final class SearchBarTests: XCTestCase {
         XCTAssertNil(props.resultCount)
     }
 
-    // MARK: - CSS Classes Tests
 
     func testBaseClassAlwaysPresent() {
         let props = makeTestProps()
@@ -172,7 +166,6 @@ final class SearchBarTests: XCTestCase {
         // Should have search-bar--active class
     }
 
-    // MARK: - Suggestions Tests
 
     func testSuggestionCreation() {
         let suggestion = SearchBar.Suggestion(
@@ -219,7 +212,6 @@ final class SearchBarTests: XCTestCase {
         XCTAssertEqual(SearchBar.SuggestionType.recent.rawValue, "recent")
     }
 
-    // MARK: - Suggestions Props Tests
 
     func testSuggestionsPropsInitialization() {
         let suggestions = [
@@ -255,7 +247,6 @@ final class SearchBarTests: XCTestCase {
         XCTAssertEqual(selected?.id, "1")
     }
 
-    // MARK: - Render with Suggestions Tests
 
     func testRenderWithoutSuggestions() {
         let props = SearchBar.SuggestionsProps(
@@ -372,7 +363,6 @@ final class SearchBarTests: XCTestCase {
         // Should render all suggestion types with different icons
     }
 
-    // MARK: - Edge Cases
 
     func testRenderWithLongQuery() {
         let longQuery = String(repeating: "test ", count: 50)

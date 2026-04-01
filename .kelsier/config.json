@@ -1,0 +1,14 @@
+{
+  "language": "swift",
+  "test_framework": "XCTest",
+  "test_command": "swift test",
+  "build_command": "swift build",
+  "source_dirs": ["Sources/BulletinBoard/"],
+  "test_dirs": ["Tests/BulletinBoardTests/"],
+  "entry_point": "Sources/BulletinBoard/main.swift",
+  "dependencies": ["LINKER", "JavaScriptKit"],
+  "file_patterns": {
+    "source": "*.swift",
+    "test": "*Tests.swift"
+  }
+}
