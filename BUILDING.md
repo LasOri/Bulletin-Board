@@ -328,7 +328,7 @@ RUN FILE=.build/checkouts/JavaScriptKit/Sources/JavaScriptEventLoop/JavaScriptEv
 # Build WASM binary (Command ABI — _start calls _initialize + main automatically)
 RUN WASM_BUILD=1 swift build --swift-sdk swift-DEVELOPMENT-SNAPSHOT-2026-03-09-a_wasm \
     --configuration release \
-    -Xswiftc -O \
+    -Xswiftc -Osize \
     -Xswiftc -whole-module-optimization \
     -Xswiftc -suppress-warnings \
     -Xlinker --gc-sections \
@@ -340,7 +340,9 @@ RUN mkdir -p /output && \
     echo "Found WASM at: $WASM_FILE" && \
     echo "Before wasm-opt:" && ls -lh "$WASM_FILE" && \
     wasm-opt -Oz --strip-debug --strip-producers --converge --vacuum --remove-unused-names \
-        --remove-unused-module-elements "$WASM_FILE" -o "$WASM_FILE.opt" && \
+        --remove-unused-module-elements --flatten --rereloop --code-folding \
+        --duplicate-function-elimination --dae-optimizing --inlining-optimizing \
+        "$WASM_FILE" -o "$WASM_FILE.opt" && \
     mv "$WASM_FILE.opt" "$WASM_FILE" && \
     echo "After wasm-opt:" && ls -lh "$WASM_FILE" && \
     echo "Exports:" && wasm-objdump -j Export -x "$WASM_FILE" && \
@@ -509,7 +511,7 @@ After patching, `_createExecutors(factory: JavaScriptEventLoop.self)` executes u
 WASM_BUILD=1 swift build \
     --swift-sdk swift-DEVELOPMENT-SNAPSHOT-2026-03-09-a_wasm \
     --configuration release \
-    -Xswiftc -O \
+    -Xswiftc -Osize \
     -Xswiftc -whole-module-optimization \
     -Xswiftc -suppress-warnings \
     -Xlinker --gc-sections \
@@ -520,7 +522,7 @@ WASM_BUILD=1 swift build \
 |------|---------|
 | `--swift-sdk ...` | Cross-compile for WASM instead of native |
 | `--configuration release` | Optimized build (no debug info) |
-| `-Xswiftc -O` | Optimize for speed (see note below on why not `-Osize`) |
+| `-Xswiftc -Osize` | Optimize for size (smaller binary, negligible perf difference for UI apps) |
 | `-Xswiftc -whole-module-optimization` | Cross-module inlining and dead code elimination |
 | `-Xswiftc -suppress-warnings` | Clean build output |
 | `-Xlinker --gc-sections` | Remove unreferenced code sections during linking |
@@ -554,6 +556,12 @@ wasm-opt -Oz \
     --vacuum \
     --remove-unused-names \
     --remove-unused-module-elements \
+    --flatten \
+    --rereloop \
+    --code-folding \
+    --duplicate-function-elimination \
+    --dae-optimizing \
+    --inlining-optimizing \
     input.wasm -o output.wasm
 ```
 
@@ -566,6 +574,12 @@ wasm-opt -Oz \
 | `--vacuum` | Remove unreachable code |
 | `--remove-unused-names` | Strip function/type names |
 | `--remove-unused-module-elements` | Remove unused functions, globals, types |
+| `--flatten` | Flatten control flow for better optimization |
+| `--rereloop` | Recreate loop structures for size reduction |
+| `--code-folding` | Merge identical code sequences |
+| `--duplicate-function-elimination` | Merge identical function bodies (common with generic specializations) |
+| `--dae-optimizing` | Dead argument elimination with optimization |
+| `--inlining-optimizing` | Inline small functions for further optimization opportunities |
 
 Typical reduction: ~69MB → ~48MB (30% smaller) with Foundation; ~7MB without Foundation imports.
 
@@ -1069,7 +1083,7 @@ python3 -m http.server 8080
 
 **Cause**: Missing optimization flags, `wasm-opt` not run, or `import Foundation` still present.
 
-**Fix**: Ensure all of `-O`, `--gc-sections`, `--strip-all` are passed to the build, and `wasm-opt -Oz` with `--converge --vacuum --remove-unused-module-elements` runs post-build. Remove all `import Foundation` from source files — Foundation alone adds ~40MB to the binary. Expect ~7MB for a Foundation-free LINKER app.
+**Fix**: Ensure all of `-Osize`, `--gc-sections`, `--strip-all` are passed to the build, and `wasm-opt -Oz` with `--converge --vacuum --remove-unused-module-elements --flatten --rereloop --code-folding --duplicate-function-elimination` runs post-build. Remove all `import Foundation` from source files — Foundation alone adds ~40MB to the binary. Expect ~6-7MB for a Foundation-free LINKER app.
 
 ### Swift 6.4-dev CopyPropagation SIL crash
 
@@ -1117,9 +1131,10 @@ for id in ids {
 }
 ```
 
-> **Note on `-O` vs `-Osize`**: We use `-O` (speed) instead of `-Osize` (size) because
-> `-Osize` triggers the CopyPropagation crash more aggressively. Both produce similar binary
-> sizes after `wasm-opt -Oz` post-processing.
+> **Note on `-Osize` and CopyPropagation**: We use `-Osize` for smaller binaries. If the
+> CopyPropagation SIL crash occurs, rewrite the offending closures as explicit `for` loops
+> (see patterns above) rather than switching back to `-O`. Both flags can trigger the crash;
+> the loop workaround is the reliable fix.
 
 ### `@dynamicMemberLookup` differences on WASM
 

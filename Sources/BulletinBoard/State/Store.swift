@@ -11,19 +11,19 @@ public let appStore: Store<AppState> = {
 }()
 
 extension Store where State == AppState {
-    public func selectArticles() -> any Signal<ArticleState> {
+    public func selectArticles() -> AnySignal<ArticleState> {
         select(\.articles)
     }
 
-    public func selectFeeds() -> any Signal<FeedState> {
+    public func selectFeeds() -> AnySignal<FeedState> {
         select(\.feeds)
     }
 
-    public func selectUI() -> any Signal<UIState> {
+    public func selectUI() -> AnySignal<UIState> {
         select(\.ui)
     }
 
-    public func selectTheme() -> any Signal<Theme> {
+    public func selectTheme() -> AnySignal<Theme> {
         select(\.ui.theme)
     }
 }
