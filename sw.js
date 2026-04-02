@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bulletin-board-v10';
+const CACHE_NAME = 'bulletin-board-v11';
 const WASM_URL = 'BulletinBoard.wasm';
 
 const PRECACHE_URLS = [
