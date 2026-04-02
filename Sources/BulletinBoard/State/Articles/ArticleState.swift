@@ -93,35 +93,31 @@ public struct ArticleFilters: Equatable, Sendable {
     }
 }
 
-/// Date range filter using epoch timestamps (seconds since 1970).
 public enum DateRange: Equatable, Sendable {
     case today
     case lastWeek
     case lastMonth
     case custom(start: Double, end: Double)
 
-    /// Returns (start, end) as epoch seconds.
     public var timestampRange: (start: Double, end: Double) {
         let now = currentTimestamp()
 
         switch self {
         case .today:
-            // Approximate start of UTC day
-            let startOfDay = now - now.truncatingRemainder(dividingBy: 86400)
+            let startOfDay = now - now.truncatingRemainder(dividingBy: DateFormatting.secondsPerDay)
             return (start: startOfDay, end: now)
 
         case .lastWeek:
-            return (start: now - 604800, end: now)
+            return (start: now - DateFormatting.secondsPerWeek, end: now)
 
         case .lastMonth:
-            return (start: now - 2592000, end: now)
+            return (start: now - DateFormatting.secondsPerMonth, end: now)
 
         case .custom(let start, let end):
             return (start: start, end: end)
         }
     }
 
-    /// Check if a timestamp falls within this range.
     public func contains(_ timestamp: Double) -> Bool {
         let range = timestampRange
         return timestamp >= range.start && timestamp <= range.end

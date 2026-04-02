@@ -2,18 +2,6 @@ import LINKER
 
 public actor SearchService {
 
-    public struct SearchResult: Equatable, Sendable {
-        public let articleId: String
-        public let score: Double
-        public let matchedFields: Set<String>
-
-        public init(articleId: String, score: Double, matchedFields: Set<String>) {
-            self.articleId = articleId
-            self.score = score
-            self.matchedFields = matchedFields
-        }
-    }
-
     private var index: [String: Set<String>] = [:]
 
     private var articles: [String: ArticleMetadata] = [:]

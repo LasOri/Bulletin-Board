@@ -67,18 +67,18 @@ public struct ArticleCard {
             tag: "div",
             attributes: [
                 Attribute(name: "class", value: "article-card__hero"),
-                Attribute(name: "style", value: "background-image: url('\(url)'); background-size: cover; background-position: center")
+                Attribute(name: "style", value: "background-image: url('\(InputSanitizer.sanitizeURL(url))'); background-size: cover; background-position: center")
             ],
             children: [
                 AnyNode(Element<AnyHTMLContext>(
                     tag: "img",
                     attributes: [
-                        Attribute(name: "src", value: url),
+                        Attribute(name: "src", value: InputSanitizer.sanitizeURL(url)),
                         Attribute(name: "alt", value: alt),
                         Attribute(name: "class", value: "article-card__hero-img"),
                         Attribute(name: "loading", value: "lazy"),
-                        Attribute(name: "onload", value: "this.classList.add('loaded')"),
-                        Attribute(name: "onerror", value: "this.style.display='none';this.parentElement.classList.add('article-card__hero--placeholder')")
+                        Attribute(name: "data-img-onload", value: "add-loaded"),
+                        Attribute(name: "data-img-onerror", value: "hide-image")
                     ]
                 ))
             ]
@@ -163,7 +163,7 @@ public struct ArticleCard {
         }
 
         if let publishedAt = article.publishedAt {
-            metadataParts.append(formatDate(publishedAt))
+            metadataParts.append(DateFormatting.relativeDate(from: publishedAt))
         }
 
         let metadata = metadataParts.joined(separator: " • ")
@@ -262,7 +262,7 @@ public struct ArticleCard {
         let readMore = Element<AnyHTMLContext>(
             tag: "a",
             attributes: [
-                Attribute(name: "href", value: article.url),
+                Attribute(name: "href", value: InputSanitizer.sanitizeURL(article.url)),
                 Attribute(name: "class", value: "article-card__link"),
                 Attribute(name: "target", value: "_blank"),
                 Attribute(name: "rel", value: "noopener noreferrer"),
@@ -284,25 +284,8 @@ public struct ArticleCard {
         )
     }
 
-    /// Format a timestamp (seconds since epoch) as a relative date string.
     static func formatRelativeDate(_ timestamp: Double) -> String {
-        formatDate(timestamp)
-    }
-
-    private static func formatDate(_ timestamp: Double) -> String {
-        let seconds = currentTimestamp() - timestamp
-        if seconds < 60 {
-            return "just now"
-        } else if seconds < 3600 {
-            let minutes = Int(seconds / 60)
-            return "\(minutes)m ago"
-        } else if seconds < 86400 {
-            let hours = Int(seconds / 3600)
-            return "\(hours)h ago"
-        } else {
-            let days = Int(seconds / 86400)
-            return "\(days)d ago"
-        }
+        DateFormatting.relativeDate(from: timestamp)
     }
 }
 

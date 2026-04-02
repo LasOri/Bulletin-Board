@@ -253,4 +253,24 @@ final class FeedReducerTests: XCTestCase {
         XCTAssertTrue(state.byId.isEmpty)
         XCTAssertTrue(state.allIds.isEmpty)
     }
+
+    func test_refreshAllFeeds_marksEnabledFeedsAsFetching() {
+        let feed1 = makeTestFeed(id: "f1", title: "Enabled", isEnabled: true)
+        let feed2 = makeTestFeed(id: "f2", title: "Disabled", isEnabled: false)
+        let feed3 = makeTestFeed(id: "f3", title: "Also Enabled", isEnabled: true)
+
+        var state = FeedState()
+        state = feedReducer(state: state, action: AnyAction(FeedAction.addFeed(feed1)))
+        state = feedReducer(state: state, action: AnyAction(FeedAction.addFeed(feed2)))
+        state = feedReducer(state: state, action: AnyAction(FeedAction.addFeed(feed3)))
+
+        let result = feedReducer(state: state, action: AnyAction(FeedAction.refreshAllFeeds))
+
+        XCTAssertTrue(result.fetchingIds.contains("f1"))
+        XCTAssertFalse(result.fetchingIds.contains("f2"))
+        XCTAssertTrue(result.fetchingIds.contains("f3"))
+        XCTAssertTrue(result.byId["f1"]!.isFetching)
+        XCTAssertFalse(result.byId["f2"]!.isFetching)
+        XCTAssertTrue(result.byId["f3"]!.isFetching)
+    }
 }

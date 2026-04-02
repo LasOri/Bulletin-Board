@@ -70,7 +70,13 @@ public func feedReducer(state: FeedState, action: AnyAction) -> FeedState {
         }
 
     case .refreshAllFeeds:
-        break
+        for id in newState.allIds {
+            if var feed = newState.byId[id], feed.isEnabled {
+                feed.startFetching()
+                newState.byId[id] = feed
+                newState.fetchingIds.insert(id)
+            }
+        }
     }
 
     return newState

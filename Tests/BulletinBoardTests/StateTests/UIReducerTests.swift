@@ -161,8 +161,26 @@ final class UIReducerTests: XCTestCase {
 
         _ = uiReducer(state: state, action: AnyAction(UIAction.beginExpanding(id: "article-1")))
 
-        // Original state should remain unchanged
         XCTAssertNil(state.expandedArticleId)
         XCTAssertEqual(state.animationPhase, .idle)
+    }
+
+    func test_setViewMode_updatesViewMode() {
+        let state = UIState()
+        XCTAssertEqual(state.viewMode, .list)
+
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.setViewMode(.grid)))
+        XCTAssertEqual(newState.viewMode, .grid)
+    }
+
+    func test_setOffline_updatesOfflineFlag() {
+        let state = UIState()
+        XCTAssertFalse(state.isOffline)
+
+        let newState = uiReducer(state: state, action: AnyAction(UIAction.setOffline(true)))
+        XCTAssertTrue(newState.isOffline)
+
+        let restored = uiReducer(state: newState, action: AnyAction(UIAction.setOffline(false)))
+        XCTAssertFalse(restored.isOffline)
     }
 }

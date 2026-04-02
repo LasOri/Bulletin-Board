@@ -322,17 +322,17 @@ final class SearchServiceTests: XCTestCase {
     // MARK: - SearchResult Tests
 
     func testSearchResultEquatable() {
-        let result1 = SearchService.SearchResult(
+        let result1 = SearchResult(
             articleId: "1",
             score: 5.0,
             matchedFields: ["title", "description"]
         )
-        let result2 = SearchService.SearchResult(
+        let result2 = SearchResult(
             articleId: "1",
             score: 5.0,
             matchedFields: ["title", "description"]
         )
-        let result3 = SearchService.SearchResult(
+        let result3 = SearchResult(
             articleId: "2",
             score: 5.0,
             matchedFields: ["title"]

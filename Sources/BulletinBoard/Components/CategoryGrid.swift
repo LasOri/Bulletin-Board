@@ -1,6 +1,6 @@
 import LINKER
 
-public enum ViewMode: String {
+public enum ViewMode: String, Sendable {
     case list
     case grid
 }

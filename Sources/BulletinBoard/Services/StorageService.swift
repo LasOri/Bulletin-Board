@@ -62,8 +62,6 @@ public actor StorageService {
         return b
     }
 
-    // MARK: - Articles
-
     public func saveArticles(_ articles: [Article]) async throws {
         let jsonArray = Json.array(articles.map { $0.toJson() })
         let jsonString = jsonArray.toJsonString(pretty: false)
@@ -84,8 +82,6 @@ public actor StorageService {
         }
         return result
     }
-
-    // MARK: - Feeds
 
     public func saveFeeds(_ feeds: [Feed]) async throws {
         let jsonArray = Json.array(feeds.map { $0.toJson() })
@@ -108,8 +104,6 @@ public actor StorageService {
         return result
     }
 
-    // MARK: - Generic String Storage
-
     public func save(_ value: String, forKey key: String) async throws {
         try await saveRaw(value, forKey: key)
     }
@@ -117,8 +111,6 @@ public actor StorageService {
     public func load(forKey key: String) async throws -> String {
         try await loadRaw(forKey: key)
     }
-
-    // MARK: - Internal Raw String Storage
 
     private func saveRaw(_ value: String, forKey key: String) async throws {
         let backend = await ensureBackend()

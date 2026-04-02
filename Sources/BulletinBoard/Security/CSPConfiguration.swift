@@ -5,7 +5,7 @@ public struct CSPConfiguration {
     public static func configure() -> String {
         return CSPBuilder()
             .addDirective(.defaultSrc, sources: [.selfOrigin])
-            .addDirective(.scriptSrc, sources: [.selfOrigin, .unsafeInline])
+            .addDirective(.scriptSrc, sources: [.selfOrigin, .host("'wasm-unsafe-eval'")])
             .addDirective(.styleSrc, sources: [.selfOrigin, .unsafeInline])
             .addDirective(.imgSrc, sources: [.selfOrigin, .scheme("data"), .scheme("blob"), .scheme("https")])
             .addDirective(.connectSrc, sources: [.selfOrigin, .scheme("https")])

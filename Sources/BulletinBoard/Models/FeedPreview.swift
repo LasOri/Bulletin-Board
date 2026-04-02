@@ -10,7 +10,6 @@ public struct FeedPreview: Sendable {
 
     public struct PreviewArticle: Sendable {
         public let title: String
-        /// Seconds since epoch, or nil.
         public let publishedAt: Double?
 
         public init(title: String, publishedAt: Double?) {

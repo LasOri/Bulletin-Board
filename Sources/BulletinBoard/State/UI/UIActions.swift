@@ -22,4 +22,11 @@ public enum UIAction: Action {
     case clearToast
 
     case switchTab(String)
+
+    case showConfirmation(message: String, pendingAction: String)
+    case cancelConfirmation
+    case confirmAction
+
+    case setViewMode(ViewMode)
+    case setOffline(Bool)
 }

@@ -55,6 +55,24 @@ public func uiReducer(state: UIState, action: AnyAction) -> UIState {
 
     case .switchTab(let tab):
         newState.switchToTab(tab)
+
+    case .showConfirmation(let message, let pendingAction):
+        newState.confirmationMessage = message
+        newState.pendingAction = pendingAction
+
+    case .cancelConfirmation:
+        newState.confirmationMessage = nil
+        newState.pendingAction = nil
+
+    case .confirmAction:
+        newState.confirmationMessage = nil
+        newState.pendingAction = nil
+
+    case .setViewMode(let mode):
+        newState.viewMode = mode
+
+    case .setOffline(let offline):
+        newState.isOffline = offline
     }
 
     return newState

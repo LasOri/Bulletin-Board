@@ -26,6 +26,13 @@ public struct UIState: Equatable, Sendable {
 
     public var activeTab: String
 
+    public var confirmationMessage: String?
+    public var pendingAction: String?
+
+    public var viewMode: ViewMode
+
+    public var isOffline: Bool
+
     public init(
         expandedArticleId: String? = nil,
         isSidebarVisible: Bool = true,
@@ -35,7 +42,11 @@ public struct UIState: Equatable, Sendable {
         animationPhase: AnimationPhase = .idle,
         errorMessage: String? = nil,
         toastMessage: String? = nil,
-        activeTab: String = "news-feed"
+        activeTab: String = "news-feed",
+        confirmationMessage: String? = nil,
+        pendingAction: String? = nil,
+        viewMode: ViewMode = .list,
+        isOffline: Bool = false
     ) {
         self.expandedArticleId = expandedArticleId
         self.isSidebarVisible = isSidebarVisible
@@ -46,6 +57,10 @@ public struct UIState: Equatable, Sendable {
         self.errorMessage = errorMessage
         self.toastMessage = toastMessage
         self.activeTab = activeTab
+        self.confirmationMessage = confirmationMessage
+        self.pendingAction = pendingAction
+        self.viewMode = viewMode
+        self.isOffline = isOffline
     }
 }
 

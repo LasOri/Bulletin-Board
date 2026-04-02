@@ -109,10 +109,9 @@ public struct App {
         t = perf("GPU detection + WebGPU init", since: t)
 
         FeedService.corsProxies = [
+            "https://cors.eu.org/",
             "https://api.cors.lol/?url=",
-            "https://corsproxy.io/?url=",
             "https://api.allorigins.win/raw?url=",
-            "https://api.codetabs.com/v1/proxy?quest="
         ]
 
         await Logger.shared.info(AppLogFeature.data, "Loading persisted data...")
@@ -700,9 +699,10 @@ public struct App {
                 }
 
             case "toggle-view-mode":
-                viewMode = viewMode == .list ? .grid : .list
-                Task { await Logger.shared.info(AppLogFeature.grid, "View mode: \(viewMode.rawValue)") }
-                renderToDOM()
+                let current = appStore.getState().ui.viewMode
+                let newMode: ViewMode = current == .list ? .grid : .list
+                appStore.dispatch(UIAction.setViewMode(newMode))
+                Task { await Logger.shared.info(AppLogFeature.grid, "View mode: \(newMode.rawValue)") }
 
             case "toggle-archived-filter":
                 var currentFilters = appStore.getState().articles.filters
@@ -724,21 +724,33 @@ public struct App {
                 }
 
             case "bulk-archive-read":
-                let readIds = appStore.getState().articles.articles
+                let readCount = appStore.getState().articles.articles
                     .filter { $0.isRead && !$0.isArchived }
-                    .map { $0.id }
-                if !readIds.isEmpty {
-                    appStore.dispatch(ArticleAction.archiveMultiple(readIds))
-                    showToast("Archived \(readIds.count) read articles")
+                    .count
+                if readCount > 0 {
+                    appStore.dispatch(UIAction.showConfirmation(
+                        message: "Archive \(readCount) read articles?",
+                        pendingAction: "bulk-archive-read"
+                    ))
                 }
 
             case "delete-older":
                 if let daysStr = actionEl.dataset.object?["days"].string,
                    let days = Int(daysStr) {
-                    let cutoff = currentTimestamp() - Double(days * 86400)
-                    appStore.dispatch(ArticleAction.deleteOlderThan(cutoff))
-                    showToast("Deleted articles older than \(days) days")
+                    appStore.dispatch(UIAction.showConfirmation(
+                        message: "Delete all articles older than \(days) days?",
+                        pendingAction: "delete-older-\(days)"
+                    ))
                 }
+
+            case "confirm-action":
+                if let pending = appStore.getState().ui.pendingAction {
+                    executeConfirmedAction(pending)
+                }
+                appStore.dispatch(UIAction.confirmAction)
+
+            case "cancel-confirmation":
+                appStore.dispatch(UIAction.cancelConfirmation)
 
             case "open-settings":
                 appStore.dispatch(UIAction.toggleSettings)
@@ -859,8 +871,10 @@ public struct App {
             Task { await Logger.shared.debug(AppLogFeature.feeds, "Edit feed: \(feedId)") }
 
         case "delete":
-            appStore.dispatch(FeedAction.removeFeed(id: feedId))
-            showToast("Feed removed")
+            appStore.dispatch(UIAction.showConfirmation(
+                message: "Remove feed \"\(feed.title)\"?",
+                pendingAction: "delete-feed-\(feedId)"
+            ))
 
         default:
             break
@@ -902,19 +916,17 @@ public struct App {
     private static func setupOnlineOfflineHandlers() {
         guard let window = SafeJSGlobal.global else { return }
 
-        isOffline = !(window.navigator.object?.onLine.boolean ?? true)
+        appStore.dispatch(UIAction.setOffline(!(window.navigator.object?.onLine.boolean ?? true)))
 
         let onlineHandler = JSClosure { _ -> JSValue in
-            isOffline = false
-            renderToDOM()
+            appStore.dispatch(UIAction.setOffline(false))
             showToast("Back online")
             Task { await Logger.shared.info(AppLogFeature.ui, "Network: online") }
             return .undefined
         }
 
         let offlineHandler = JSClosure { _ -> JSValue in
-            isOffline = true
-            renderToDOM()
+            appStore.dispatch(UIAction.setOffline(true))
             showToast("You're offline - using cached data")
             Task { await Logger.shared.warn(AppLogFeature.ui, "Network: offline") }
             return .undefined
@@ -1030,14 +1042,7 @@ public struct App {
 
                         if !query.isEmpty {
                             let results = await searchService.search(query: query)
-                            let searchResults = results.map { result in
-                                SearchResult(
-                                    articleId: result.articleId,
-                                    score: result.score,
-                                    matchedFields: result.matchedFields
-                                )
-                            }
-                            appStore.dispatch(ArticleAction.setSearchResults(searchResults))
+                            appStore.dispatch(ArticleAction.setSearchResults(results))
                         } else {
                             appStore.dispatch(ArticleAction.setSearchResults(nil))
                         }
@@ -1341,8 +1346,6 @@ public struct App {
     #if canImport(JavaScriptKit) && arch(wasm32)
     private nonisolated(unsafe) static var scrollSaveTimerId: JSValue? = nil
     #endif
-    private nonisolated(unsafe) static var viewMode: ViewMode = .list
-    private nonisolated(unsafe) static var isOffline: Bool = false
 
     private static func scrollContextKey() -> String {
         let state = appStore.getState().articles
@@ -1441,6 +1444,7 @@ public struct App {
         )))
         children.append(contentsOf: renderToast())
         children.append(contentsOf: renderErrorMessage())
+        children.append(contentsOf: renderConfirmationDialog())
 
         return [
             AnyNode(Element<AnyHTMLContext>(
@@ -1478,7 +1482,7 @@ public struct App {
             AnyNode(renderStats())
         ]
 
-        if isOffline {
+        if uiSignal.get().isOffline {
             children.append(AnyNode(Element<AnyHTMLContext>(
                 tag: "div",
                 attributes: [Attribute(name: "class", value: "offline-indicator")],
@@ -1539,7 +1543,7 @@ public struct App {
                 containerHeight: viewportHeightSignal.get()
             )
 
-            switch viewMode {
+            switch uiSignal.get().viewMode {
             case .grid:
                 children.append(contentsOf: CategoryGrid.render(
                     props: listProps,
@@ -1892,11 +1896,11 @@ public struct App {
                             tag: "button",
                             attributes: [
                                 Attribute(name: "type", value: "button"),
-                                Attribute(name: "class", value: "toolbar-button toolbar-button--icon-only" + (viewMode == .grid ? " toolbar-button--active" : "")),
+                                Attribute(name: "class", value: "toolbar-button toolbar-button--icon-only" + (uiSignal.get().viewMode == .grid ? " toolbar-button--active" : "")),
                                 Attribute(name: "data-action", value: "toggle-view-mode"),
-                                Attribute(name: "aria-label", value: viewMode == .grid ? "Switch to list view" : "Switch to grid view")
+                                Attribute(name: "aria-label", value: uiSignal.get().viewMode == .grid ? "Switch to list view" : "Switch to grid view")
                             ],
-                            children: [AnyNode(viewMode == .grid ? Icons.list() : Icons.grid())]
+                            children: [AnyNode(uiSignal.get().viewMode == .grid ? Icons.list() : Icons.grid())]
                         )),
                         AnyNode(Element<AnyHTMLContext>(
                             tag: "button",
@@ -1974,7 +1978,11 @@ public struct App {
                 appStore.dispatch(FeedAction.updateFeed(id: feed.id, feed))
             },
             onDeleteFeed: { feedId in
-                appStore.dispatch(FeedAction.removeFeed(id: feedId))
+                let feedTitle = appStore.getState().feeds.feeds.first(where: { $0.id == feedId })?.title ?? "this feed"
+                appStore.dispatch(UIAction.showConfirmation(
+                    message: "Remove feed \"\(feedTitle)\"?",
+                    pendingAction: "delete-feed-\(feedId)"
+                ))
             },
             onToggleFeed: { feedId in
                 appStore.dispatch(FeedAction.toggleFeedEnabled(id: feedId))
@@ -2452,6 +2460,20 @@ public struct App {
         )
     }
 
+    private static func renderConfirmationDialog() -> [AnyNode] {
+        let uiState = uiSignal.get()
+
+        guard let message = uiState.confirmationMessage,
+              let pendingAction = uiState.pendingAction else {
+            return []
+        }
+
+        return ConfirmationDialog.render(props: ConfirmationDialog.Props(
+            message: message,
+            pendingAction: pendingAction
+        ))
+    }
+
     private static func refreshFeed(feed: Feed) async {
         do {
             let articles = try await feedService.fetchFeed(from: feed.url, feedId: feed.id)
@@ -2477,17 +2499,16 @@ public struct App {
 
         do {
             let feedId = uniqueIDString()
-            let articles = try await feedService.fetchFeed(from: url, feedId: feedId)
+            let result = try await feedService.fetchFeedWithMetadata(from: url, feedId: feedId)
 
-            let feed = Feed(id: feedId, title: "New Feed", description: "", url: url)
-            appStore.dispatch(FeedAction.addFeed(feed))
+            appStore.dispatch(FeedAction.addFeed(result.feed))
 
-            appStore.dispatch(ArticleAction.addArticles(articles))
+            appStore.dispatch(ArticleAction.addArticles(result.articles))
 
             appStore.dispatch(UIAction.closeFeedManager)
-            showToast("Feed added with \(articles.count) articles")
+            showToast("Added \"\(result.feed.title)\" with \(result.articles.count) articles")
 
-            Task { await Logger.shared.info(AppLogFeature.feeds, "Feed added: \(url) with \(articles.count) articles") }
+            Task { await Logger.shared.info(AppLogFeature.feeds, "Feed added: \(url) with \(result.articles.count) articles") }
 
             #if canImport(JavaScriptKit) && arch(wasm32)
             renderToDOM()
@@ -2531,6 +2552,29 @@ public struct App {
             if appStore.getState().ui.toastMessage == message {
                 appStore.dispatch(UIAction.clearToast)
             }
+        }
+    }
+
+    private static func executeConfirmedAction(_ pendingAction: String) {
+        if pendingAction == "bulk-archive-read" {
+            let readIds = appStore.getState().articles.articles
+                .filter { $0.isRead && !$0.isArchived }
+                .map { $0.id }
+            if !readIds.isEmpty {
+                appStore.dispatch(ArticleAction.archiveMultiple(readIds))
+                showToast("Archived \(readIds.count) read articles")
+            }
+        } else if pendingAction.hasPrefix("delete-older-") {
+            let suffix = String(pendingAction.dropFirst("delete-older-".count))
+            if let days = Int(suffix) {
+                let cutoff = currentTimestamp() - Double(days) * DateFormatting.secondsPerDay
+                appStore.dispatch(ArticleAction.deleteOlderThan(cutoff))
+                showToast("Deleted articles older than \(days) days")
+            }
+        } else if pendingAction.hasPrefix("delete-feed-") {
+            let feedId = String(pendingAction.dropFirst("delete-feed-".count))
+            appStore.dispatch(FeedAction.removeFeed(id: feedId))
+            showToast("Feed removed")
         }
     }
 

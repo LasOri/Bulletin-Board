@@ -120,6 +120,65 @@ public actor FeedService {
         throw lastError
     }
 
+    public struct FetchResult: Sendable {
+        public let feed: Feed
+        public let articles: [Article]
+    }
+
+    public func fetchFeedWithMetadata(from url: String, feedId: String) async throws -> FetchResult {
+        guard url.isValidURL() else {
+            throw FeedError.invalidURL
+        }
+
+        do {
+            let xmlString = try await fetchViaProxies(url)
+
+            let trimmed = xmlString.trimmingWhitespace()
+            if trimmed.hasPrefix("<!DOCTYPE") || trimmed.hasPrefix("<html") {
+                throw FeedError.parseError("URL returned an HTML page, not an RSS/Atom feed")
+            }
+
+            let rssFeed = try RSSParser.parse(xmlString)
+
+            guard !rssFeed.items.isEmpty else {
+                throw FeedError.noItems
+            }
+
+            var feed = Feed.from(rssFeed: rssFeed, url: url)
+            feed = Feed(
+                id: feedId, title: feed.title, description: feed.description,
+                url: feed.url, siteUrl: feed.siteUrl, language: feed.language
+            )
+
+            let articles = await withTaskGroup(of: Article.self) { [self] group in
+                for item in rssFeed.items {
+                    group.addTask {
+                        await self.convertToArticle(item, feedId: feedId)
+                    }
+                }
+
+                var result: [Article] = []
+                for await article in group {
+                    result.append(article)
+                }
+                return result
+            }
+
+            return FetchResult(feed: feed, articles: articles)
+        } catch let error as FeedError {
+            throw error
+        } catch {
+            let msg = "\(error)"
+            if msg.contains("TypeError") || msg.contains("Failed to fetch") || msg.contains("NetworkError") {
+                throw FeedError.corsBlocked(
+                    "Cannot fetch this feed due to cross-origin restrictions. " +
+                    "The feed server doesn't allow browser requests."
+                )
+            }
+            throw FeedError.networkError(msg)
+        }
+    }
+
     public func fetchFeed(from url: String, feedId: String) async throws -> [Article] {
         guard url.isValidURL() else {
             throw FeedError.invalidURL

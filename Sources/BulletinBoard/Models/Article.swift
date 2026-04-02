@@ -12,7 +12,6 @@ public struct ArticleColor: Equatable, Sendable {
     }
 }
 
-/// Timestamp is seconds since Unix epoch (1970-01-01 00:00:00 UTC).
 public struct Article: Equatable, Identifiable, Sendable {
     public let id: String
 
@@ -24,7 +23,6 @@ public struct Article: Equatable, Identifiable, Sendable {
 
     public let url: String
 
-    /// Seconds since epoch, or nil if unknown.
     public let publishedAt: Double?
 
     public let author: String?
@@ -53,10 +51,8 @@ public struct Article: Equatable, Identifiable, Sendable {
 
     public var dominantColor: ArticleColor?
 
-    /// Seconds since epoch.
     public let addedAt: Double
 
-    /// Seconds since epoch.
     public var updatedAt: Double
 
     public init(
@@ -264,8 +260,6 @@ extension Article {
         self.updatedAt = currentTimestamp()
     }
 }
-
-// MARK: - Json Serialization
 
 extension ArticleColor {
     public func toJson() -> Json {

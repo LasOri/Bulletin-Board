@@ -19,10 +19,8 @@ public struct Feed: Equatable, Identifiable, Sendable {
 
     public var updateFrequency: Int
 
-    /// Seconds since epoch, or nil.
     public var lastFetched: Double?
 
-    /// Seconds since epoch, or nil.
     public var lastSuccessfulFetch: Double?
 
     public var lastError: String?
@@ -31,10 +29,8 @@ public struct Feed: Equatable, Identifiable, Sendable {
 
     public var unreadCount: Int
 
-    /// Seconds since epoch.
     public let subscribedAt: Double
 
-    /// Seconds since epoch.
     public var updatedAt: Double
 
     public var isEnabled: Bool
@@ -134,8 +130,6 @@ extension Feed {
         updatedAt = currentTimestamp()
     }
 }
-
-// MARK: - Json Serialization
 
 extension Feed {
     public func toJson() -> Json {

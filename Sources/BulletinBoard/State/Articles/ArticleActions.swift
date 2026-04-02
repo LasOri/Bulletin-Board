@@ -27,6 +27,5 @@ public enum ArticleAction: Action {
 
     case markMultipleAsRead([String])
     case archiveMultiple([String])
-    /// Delete articles older than timestamp (seconds since epoch)
     case deleteOlderThan(Double)
 }
