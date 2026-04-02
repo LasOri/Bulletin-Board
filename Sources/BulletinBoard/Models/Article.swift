@@ -200,13 +200,16 @@ extension Article {
     }
 
     public var displayContent: String {
-        nlpSummary ?? description ?? content ?? ""
+        if let summary = nlpSummary { return summary }
+        if let desc = description { return desc.strippingHTML() }
+        if let c = content { return c.strippingHTML() }
+        return ""
     }
 
     public var textForNLP: String {
         var parts: [String] = [title]
-        if let d = description { parts.append(d) }
-        if let c = content { parts.append(c) }
+        if let d = description { parts.append(d.strippingHTML().strippingURLs()) }
+        if let c = content { parts.append(c.strippingHTML().strippingURLs()) }
         let raw = parts.joined(separator: " ")
         if raw.count > 500 {
             return String(raw.prefix(500))

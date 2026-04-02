@@ -70,6 +70,64 @@ extension String {
         hasPrefix("http://") || hasPrefix("https://")
     }
 
+    func strippingHTML() -> String {
+        var result = ""
+        result.reserveCapacity(count)
+        var inTag = false
+        for ch in self {
+            if ch == "<" {
+                inTag = true
+            } else if ch == ">" {
+                inTag = false
+                result.append(" ")
+            } else if !inTag {
+                result.append(ch)
+            }
+        }
+        result = result.replacingAll("&amp;", with: "&")
+        result = result.replacingAll("&lt;", with: "<")
+        result = result.replacingAll("&gt;", with: ">")
+        result = result.replacingAll("&quot;", with: "\"")
+        result = result.replacingAll("&#39;", with: "'")
+        result = result.replacingAll("&nbsp;", with: " ")
+        result = result.replacingAll("&#x2F;", with: "/")
+        var collapsed = ""
+        collapsed.reserveCapacity(result.count)
+        var lastWasSpace = false
+        for ch in result {
+            if ch.isWhitespace || ch.isNewline {
+                if !lastWasSpace {
+                    collapsed.append(" ")
+                    lastWasSpace = true
+                }
+            } else {
+                collapsed.append(ch)
+                lastWasSpace = false
+            }
+        }
+        var s = collapsed[...]
+        while s.first?.isWhitespace == true { s = s.dropFirst() }
+        while s.last?.isWhitespace == true { s = s.dropLast() }
+        return String(s)
+    }
+
+    func strippingURLs() -> String {
+        let words = self.splitByWhitespace()
+        var result: [String] = []
+        for word in words {
+            let lower = word.lowercased()
+            if lower.hasPrefix("http://") || lower.hasPrefix("https://") ||
+               lower.hasPrefix("www.") || lower.contains("://") {
+                continue
+            }
+            if word.contains("/") && word.count > 15 {
+                continue
+            }
+            result.append(word)
+        }
+        return result.joined(separator: " ")
+    }
+
     func urlSchemeAndHost() -> (scheme: String, host: String)? {
         for prefix in ["https://", "http://"] {
             if self.hasPrefix(prefix) {

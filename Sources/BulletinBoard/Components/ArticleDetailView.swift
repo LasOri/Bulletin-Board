@@ -169,7 +169,8 @@ public struct ArticleDetailView {
     }
 
     private static func renderBody(article: Article) -> Element<AnyHTMLContext> {
-        let text = article.content ?? article.description ?? article.nlpSummary ?? ""
+        let raw = article.content ?? article.description ?? article.nlpSummary ?? ""
+        let text = raw.strippingHTML()
 
         return Element<AnyHTMLContext>(
             tag: "div",

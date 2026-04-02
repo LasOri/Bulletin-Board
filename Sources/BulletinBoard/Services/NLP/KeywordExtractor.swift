@@ -62,6 +62,20 @@ public enum KeywordExtractor {
         return Array(sorted.prefix(maxKeywords))
     }
 
+    private static func isURLLike(_ word: String) -> Bool {
+        if word.hasPrefix("http://") || word.hasPrefix("https://") ||
+           word.hasPrefix("www.") || word.contains("://") {
+            return true
+        }
+        if word.contains("/") && word.count > 10 {
+            return true
+        }
+        if word.hasPrefix("//") {
+            return true
+        }
+        return false
+    }
+
     private static func splitByStopWords(_ sentence: String) -> [[String]] {
         let words = sentence
             .lowercased()
@@ -73,7 +87,7 @@ public enum KeywordExtractor {
         var current: [String] = []
 
         for word in words {
-            if TextProcessor.stopWords.contains(word) || word.count < 3 {
+            if TextProcessor.stopWords.contains(word) || word.count < 3 || isURLLike(word) {
                 if !current.isEmpty {
                     phrases.append(current)
                     current = []
